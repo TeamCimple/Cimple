@@ -3,7 +3,8 @@
 %token ASSIGN
 %token RETURN
 %token PLUS MINUS TIMES DIVIDE EOF
-%token <int> LITERAL
+%token <int> INT_LITERAL
+%token <float> FLOAT_LITERAL
 %token SEMICOLON
 %token AUTO REGISTER STATIC EXTERN TYPEDEF
 %token VOID CHAR SHORT INT LONG FLOAT DOUBLE SIGNED UNSIGNED
@@ -41,10 +42,11 @@ add_expr:
   | mult_expr  { $1 }
 
 mult_expr:
-    mult_expr TIMES LITERAL { Binop($1, Mul, Literal($3)) }
-  | mult_expr DIVIDE LITERAL { Binop($1, Div, Literal($3)) }
+    mult_expr TIMES primary_expr { Binop($1, Mul, $3) }
+  | mult_expr DIVIDE primary_expr { Binop($1, Div, $3) }
   | primary_expr             { $1 }
-  | LITERAL                  { Literal($1) }
 
 primary_expr:
   LPAREN expr RPAREN         { $2 }
+  | FLOAT_LITERAL            { Float($1) }
+  | INT_LITERAL               { Literal($1) }

@@ -6,7 +6,7 @@ rule token = parse
 | '-' { MINUS }
 | '*' { TIMES }
 | '/' { DIVIDE }
-| ['0'-'9']+ as lit { LITERAL(int_of_string lit) }
+| ['0'-'9']+ as lit { INT_LITERAL(int_of_string lit) }
 | "auto" { AUTO }
 | "register" { REGISTER }
 | "static" { STATIC }
