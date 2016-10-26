@@ -1,4 +1,4 @@
-{ open Parser }
+{ open Parser}
 
 rule token = parse
   [' ' '\t' '\r' '\n'] { token lexbuf }
@@ -7,6 +7,7 @@ rule token = parse
 | '*' { TIMES }
 | '/' { DIVIDE }
 | ['0'-'9']+ as lit { INT_LITERAL(int_of_string lit) }
+| "\""['a'-'z' 'A'-'Z']*"\"" as str_lit { STRING_LITERAL(str_lit) } 
 | "auto" { AUTO }
 | "register" { REGISTER }
 | "static" { STATIC }
@@ -51,4 +52,5 @@ rule token = parse
 | ':' { COLON }
 | '*' { ASTERISK }
 | "..." { ELLIPSIS }
+| ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm { ID(lxm) }
 | eof { EOF }

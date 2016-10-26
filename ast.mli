@@ -19,6 +19,9 @@ type expr =
   Binop of expr * operator * expr
   | Literal of int
   | Float of float
+  | Id of string
+  | String of string
+  | Char of char
   | Noexpr
 
 type statement = 

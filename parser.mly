@@ -5,6 +5,9 @@
 %token PLUS MINUS TIMES DIVIDE EOF
 %token <int> INT_LITERAL
 %token <float> FLOAT_LITERAL
+%token <char> CHAR_LITERAL
+%token <string> STRING_LITERAL
+%token <string> ID
 %token SEMICOLON
 %token AUTO REGISTER STATIC EXTERN TYPEDEF
 %token VOID CHAR SHORT INT LONG FLOAT DOUBLE SIGNED UNSIGNED
@@ -27,6 +30,7 @@ statement_list:
 
 statement:
   expr_opt SEMICOLON { Expr $1 }
+  | LBRACKET statement_list RBRACKET { Block(List.rev($2)) }
   | RETURN SEMICOLON { Return Noexpr }
 
 expr_opt:
@@ -48,5 +52,11 @@ mult_expr:
 
 primary_expr:
   LPAREN expr RPAREN         { $2 }
-  | FLOAT_LITERAL            { Float($1) }
-  | INT_LITERAL               { Literal($1) }
+  | const                    { $1 }
+  | ID                        { Id($1) }
+
+const:
+  INT_LITERAL            { Literal($1) }
+  | FLOAT_LITERAL        { Float($1) }
+  | CHAR_LITERAL         { Char($1) }
+  | STRING_LITERAL       { String($1) } 
