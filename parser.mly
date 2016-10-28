@@ -15,6 +15,7 @@
 COLON ELLIPSIS ASTERISK
 %token WHILE DO FOR GOTO CONTINUE BREAK
 %token QUESTION
+%token <string> IDENTIFIER
 
 %start statement
 %type <Ast.statement> statement
@@ -34,7 +35,11 @@ expr_opt:
   | expr          { $1 }
 
 expr:
-  add_expr  { $1 } 
+  add_expr  { $1 }
+ | assignment_expression { $1 }
+
+assignment_expression:
+  IDENTIFIER ASSIGN expr { AsnOp($1, Asn, $3) }       
 
 add_expr:
   add_expr PLUS mult_expr { Binop($1, Add, $3) }

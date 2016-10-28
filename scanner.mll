@@ -51,4 +51,5 @@ rule token = parse
 | ':' { COLON }
 | '*' { ASTERISK }
 | "..." { ELLIPSIS }
+| ['a'-'z''A'-'Z''_']+['a'-'z''A'-'Z''_''0'-'9']* as lit { IDENTIFIER(lit) }
 | eof { EOF }
