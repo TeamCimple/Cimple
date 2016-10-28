@@ -2,7 +2,8 @@
 
 %token ASSIGN
 %token RETURN
-%token PLUS MINUS TIMES DIVIDE EOF
+%token PLUS MINUS TIMES TIMES_ASSIGN DIVIDE DIVIDE_ASSIGN MOD_ASSIGN PLUS_ASSIGN
+MINUS_ASSIGN LSHIFT_ASSIGN RSHIFT_ASSIGN AND_ASSIGN XOR_ASSIGN OR_ASSIGN EOF
 %token <int> INT_LITERAL
 %token <float> FLOAT_LITERAL
 %token SEMICOLON
@@ -39,7 +40,17 @@ expr:
  | assignment_expression { $1 }
 
 assignment_expression:
-  IDENTIFIER ASSIGN expr { AsnOp($1, Asn, $3) }       
+  IDENTIFIER ASSIGN expr { AsnOp($1, Asn, $3) }
+ | IDENTIFIER TIMES_ASSIGN expr { AsnOp($1, MulAsn, $3) }
+ | IDENTIFIER DIVIDE_ASSIGN expr { AsnOp($1, DivAsn, $3) }
+ | IDENTIFIER MOD_ASSIGN expr { AsnOp($1, ModAsn, $3) }
+ | IDENTIFIER PLUS_ASSIGN expr { AsnOp($1, AddAsn, $3) }
+ | IDENTIFIER MINUS_ASSIGN expr { AsnOp($1, SubAsn, $3) }
+ | IDENTIFIER LSHIFT_ASSIGN expr { AsnOp($1, LshAsn, $3) }
+ | IDENTIFIER RSHIFT_ASSIGN expr { AsnOp($1, RshAsn, $3) }
+ | IDENTIFIER AND_ASSIGN expr { AsnOp($1, AndAsn, $3) } 
+ | IDENTIFIER XOR_ASSIGN expr { AsnOp($1, XorAsn, $3) }
+ | IDENTIFIER OR_ASSIGN expr { AsnOp($1, OrAsn, $3) }
 
 add_expr:
   add_expr PLUS mult_expr { Binop($1, Add, $3) }

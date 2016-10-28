@@ -3,9 +3,19 @@
 rule token = parse
   [' ' '\t' '\r' '\n'] { token lexbuf }
 | '+' { PLUS }
+| "+=" { PLUS_ASSIGN }
 | '-' { MINUS }
+| "-=" { MINUS_ASSIGN }
 | '*' { TIMES }
+| "*=" { TIMES_ASSIGN }
 | '/' { DIVIDE }
+| "/=" { DIVIDE_ASSIGN }
+| "%=" { MOD_ASSIGN }
+| "<<=" { LSHIFT_ASSIGN }
+| ">>=" { RSHIFT_ASSIGN }
+| "&=" { AND_ASSIGN }
+| "^=" { XOR_ASSIGN }
+| "|=" { OR_ASSIGN }
 | ['0'-'9']+ as lit { INT_LITERAL(int_of_string lit) }
 | "auto" { AUTO }
 | "register" { REGISTER }
