@@ -1,3 +1,4 @@
+(*{ open Parser open Test }*)
 { open Parser }
 
 rule token = parse

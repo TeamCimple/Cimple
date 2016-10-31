@@ -1,4 +1,4 @@
-type operator = Add | Sub | Mul | Div
+type operator = Add | Sub | Mul | Div | Lsh | Rsh | BitAnd | BitXor | BitOr
 
 type assignment_operator = Asn | MulAsn | DivAsn | ModAsn | AddAsn | SubAsn |
 LshAsn | RshAsn | AndAsn | XorAsn | OrAsn
@@ -33,3 +33,5 @@ type statement =
   | If of expr * statement * statement
   | For of expr * expr * expr * statement
   | While of expr * statement
+
+type token_string = Repeat of string
