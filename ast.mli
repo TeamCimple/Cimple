@@ -34,4 +34,3 @@ type statement =
   | For of expr * expr * expr * statement
   | While of expr * statement
 
-type token_string = Repeat of string

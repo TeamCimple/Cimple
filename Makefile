@@ -23,7 +23,11 @@ parser.ml parser.mli : parser.mly
 .PHONY : test
 
 test: cimple
-	echo '1+(3-2);' | ./cimple > testOutput.txt
+	echo '__________________1+(3-2);_________________________________' > testOutput.txt
+	echo '1+(3-2);' | ./cimple >> testOutput.txt
+	echo '__________________1+3-2;___________________________________' >> testOutput.txt
+	echo '1+3-2;' | ./cimple >> testOutput.txt
+	
 
 .PHONY : clean
 clean :
