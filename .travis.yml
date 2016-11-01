@@ -1,3 +1,6 @@
 language: c
 
+before_install:
+        - sudo apt-get install -y ocaml m4 llvm opam
+
 script: make; make test
