@@ -22,9 +22,8 @@ parser.ml parser.mli : parser.mly
 
 .PHONY : test
 
-test: scanner.ml
-	tests/lext.sh scanner.ml > tests/scannerTraced.ml
-	ocamlc -o tests/scannerTraced tests/scannerTraced.ml $(OBJS)
+test: cimple
+	echo '1+(3-2);' | ./cimple > testOutput.txt
 
 .PHONY : clean
 clean :
