@@ -40,17 +40,20 @@ expr:
  | assignment_expression { $1 }
 
 assignment_expression:
-  IDENTIFIER ASSIGN expr { AsnOp($1, Asn, $3) }
- | IDENTIFIER TIMES_ASSIGN expr { AsnOp($1, MulAsn, $3) }
- | IDENTIFIER DIVIDE_ASSIGN expr { AsnOp($1, DivAsn, $3) }
- | IDENTIFIER MOD_ASSIGN expr { AsnOp($1, ModAsn, $3) }
- | IDENTIFIER PLUS_ASSIGN expr { AsnOp($1, AddAsn, $3) }
- | IDENTIFIER MINUS_ASSIGN expr { AsnOp($1, SubAsn, $3) }
- | IDENTIFIER LSHIFT_ASSIGN expr { AsnOp($1, LshAsn, $3) }
- | IDENTIFIER RSHIFT_ASSIGN expr { AsnOp($1, RshAsn, $3) }
- | IDENTIFIER AND_ASSIGN expr { AsnOp($1, AndAsn, $3) } 
- | IDENTIFIER XOR_ASSIGN expr { AsnOp($1, XorAsn, $3) }
- | IDENTIFIER OR_ASSIGN expr { AsnOp($1, OrAsn, $3) }
+        declarator assignment_operator assignment_expression { AsnExpr($1, $2, $3) }  
+
+assignment_operator:
+        ASSIGN { Asn }
+       | TIMES_ASSIGN { MulAsn }
+       | DIVIDE_ASSIGN { DivAsn }
+       | MOD_ASSIGN { ModAsn }
+       | PLUS_ASSIGN { AddAsn }
+       | MINUS_ASSIGN { SubAsn }
+       | LSHIFT_ASSIGN { LshAsn }
+       | RSHIFT_ASSIGN { RshAsn }
+       | AND_ASSIGN { AndAsn }
+       | XOR_ASSIGN { XorAsn }
+       | OR_ASSIGN { OrAsn }
 
 add_expr:
   add_expr PLUS mult_expr { Binop($1, Add, $3) }
@@ -66,3 +69,36 @@ primary_expr:
   LPAREN expr RPAREN         { $2 }
   | FLOAT_LITERAL            { Float($1) }
   | INT_LITERAL               { Literal($1) }
+
+declaration:
+    declaration_specifiers SEMICOLON { Declaration($1) }
+  | declaration_specifiers init_declarator_list SEMICOLON { DeclarationList($1, $2)}
+
+declaration_specifiers:
+    type_specifier { DeclSpecTypeSpec($1) } 
+  | type_specifier declaration_specifiers { DeclSpecTypeSpecInitList($1, $2) }
+
+type_specifier:
+    VOID { Void }
+  | CHAR { Char }
+  | SHORT { Short }
+  | INT { Int }
+  | LONG { Long }
+  | FLOAT { Float }
+  | DOUBLE { Double }
+  | SIGNED { Signed }
+  | UNSIGNED { Unsigned }
+
+init_declarator_list:
+        init_declarator { InitDeclList([$1]) }  
+  | init_declarator_list COMMA init_declarator { InitDeclList($3::[$1])}
+
+init_declarator:
+    declarator  { InitDeclarator($1) }
+  | declarator ASSIGN assignment_expression { InitDeclaratorAsn($1, Asn, $3) }
+
+declarator:
+    direct_declarator { DirectDeclarator($1) }
+
+direct_declarator:
+    IDENTIFIER { Identifier($1) }
