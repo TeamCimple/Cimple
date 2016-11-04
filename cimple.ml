@@ -29,19 +29,19 @@ let rec string_of_expr = function
    Literal(x) -> string_of_int x
   | Float(x) -> string_of_float x
   | Noexpr -> "NOEXPR"
-  |  AsnOp(e1, assn_op, e2) -> (match assn_op with
-                          Asn -> e1 ^ "=" ^ (string_of_expr e2)
-                         | MulAsn -> e1 ^ "*=" ^ (string_of_expr e2)
-                         | DivAsn -> e1 ^ "/=" ^ (string_of_expr e2)
-                         | ModAsn -> e1 ^ "%=" ^ (string_of_expr e2)
-                         | AddAsn -> e1 ^ "+=" ^ (string_of_expr e2)
-                         | SubAsn -> e1 ^ "-=" ^ (string_of_expr e2)
-                         | LshAsn -> e1 ^ "<<=" ^ (string_of_expr e2)
-                         | RshAsn -> e1 ^ ">>=" ^ (string_of_expr e2)
-                         | AndAsn -> e1 ^ "&=" ^ (string_of_expr e2)
-                         | XorAsn -> e1 ^ "^=" ^ (string_of_expr e2)
-                         | OrAsn -> e1 ^ "|=" ^ (string_of_expr e2)
-                         )
+  (*|  AsnOp(e1, assn_op, e2) -> (match assn_op with*)
+                          (*Asn -> e1 ^ "=" ^ (string_of_expr e2)*)
+                         (*| MulAsn -> e1 ^ "*=" ^ (string_of_expr e2)*)
+                         (*| DivAsn -> e1 ^ "/=" ^ (string_of_expr e2)*)
+                         (*| ModAsn -> e1 ^ "%=" ^ (string_of_expr e2)*)
+                         (*| AddAsn -> e1 ^ "+=" ^ (string_of_expr e2)*)
+                         (*| SubAsn -> e1 ^ "-=" ^ (string_of_expr e2)*)
+                         (*| LshAsn -> e1 ^ "<<=" ^ (string_of_expr e2)*)
+                         (*| RshAsn -> e1 ^ ">>=" ^ (string_of_expr e2)*)
+                         (*| AndAsn -> e1 ^ "&=" ^ (string_of_expr e2)*)
+                         (*| XorAsn -> e1 ^ "^=" ^ (string_of_expr e2)*)
+                         (*| OrAsn -> e1 ^ "|=" ^ (string_of_expr e2)*)
+                         (*)*)
   |  Binop(e1, op, e2) -> match op with 
                            Add -> "Add(" ^ (string_of_expr e1) ^", " ^
                          (string_of_expr e2) ^ ")"
