@@ -101,4 +101,4 @@ declarator:
     direct_declarator { DirectDeclarator($1) }
 
 direct_declarator:
-    IDENTIFIER { Identifier($1) }
+    IDENTIFIER { SimpleVar(Identifier($1)) }
