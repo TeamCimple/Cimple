@@ -2,7 +2,8 @@
 
 %token ASSIGN
 %token RETURN
-%token PLUS MINUS TIMES DIVIDE EOF
+%token PLUS MINUS TIMES TIMES_ASSIGN DIVIDE DIVIDE_ASSIGN MOD_ASSIGN PLUS_ASSIGN
+MINUS_ASSIGN LSHIFT_ASSIGN RSHIFT_ASSIGN AND_ASSIGN XOR_ASSIGN OR_ASSIGN EOF
 %token <int> INT_LITERAL
 %token <float> FLOAT_LITERAL
 %token <char> CHAR_LITERAL
@@ -18,6 +19,7 @@
 COLON ELLIPSIS ASTERISK
 %token WHILE DO FOR GOTO CONTINUE BREAK
 %token QUESTION
+%token <string> IDENTIFIER
 
 %start statement
 %type <Ast.statement> statement
@@ -38,7 +40,24 @@ expr_opt:
   | expr          { $1 }
 
 expr:
-  add_expr  { $1 } 
+  add_expr  { $1 }
+ | assignment_expression { $1 }
+
+assignment_expression:
+        declarator assignment_operator assignment_expression { AsnExpr($1, $2, $3) }  
+
+assignment_operator:
+        ASSIGN { Asn }
+       | TIMES_ASSIGN { MulAsn }
+       | DIVIDE_ASSIGN { DivAsn }
+       | MOD_ASSIGN { ModAsn }
+       | PLUS_ASSIGN { AddAsn }
+       | MINUS_ASSIGN { SubAsn }
+       | LSHIFT_ASSIGN { LshAsn }
+       | RSHIFT_ASSIGN { RshAsn }
+       | AND_ASSIGN { AndAsn }
+       | XOR_ASSIGN { XorAsn }
+       | OR_ASSIGN { OrAsn }
 
 add_expr:
   add_expr PLUS mult_expr { Binop($1, Add, $3) }
@@ -60,3 +79,36 @@ const:
   | FLOAT_LITERAL        { Float($1) }
   | CHAR_LITERAL         { Char($1) }
   | STRING_LITERAL       { String($1) } 
+
+  declaration:
+    declaration_specifiers SEMICOLON { Declaration($1) }
+  | declaration_specifiers init_declarator_list SEMICOLON { DeclarationList($1, $2)}
+
+declaration_specifiers:
+    type_specifier { DeclSpecTypeSpec($1) } 
+  | type_specifier declaration_specifiers { DeclSpecTypeSpecInitList($1, $2) }
+
+type_specifier:
+    VOID { Void }
+  | CHAR { Char }
+  | SHORT { Short }
+  | INT { Int }
+  | LONG { Long }
+  | FLOAT { Float }
+  | DOUBLE { Double }
+  | SIGNED { Signed }
+  | UNSIGNED { Unsigned }
+
+init_declarator_list:
+        init_declarator { InitDeclList([$1]) }  
+  | init_declarator_list COMMA init_declarator { InitDeclList($3::[$1])}
+
+init_declarator:
+    declarator  { InitDeclarator($1) }
+  | declarator ASSIGN assignment_expression { InitDeclaratorAsn($1, Asn, $3) }
+
+declarator:
+    direct_declarator { DirectDeclarator($1) }
+
+direct_declarator:
+    IDENTIFIER { SimpleVar(Identifier($1)) }

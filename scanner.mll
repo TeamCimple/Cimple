@@ -1,11 +1,21 @@
-{ open Parser}
+{ open Parser }
 
 rule token = parse
   [' ' '\t' '\r' '\n'] { token lexbuf }
 | '+' { PLUS }
+| "+=" { PLUS_ASSIGN }
 | '-' { MINUS }
+| "-=" { MINUS_ASSIGN }
 | '*' { TIMES }
+| "*=" { TIMES_ASSIGN }
 | '/' { DIVIDE }
+| "/=" { DIVIDE_ASSIGN }
+| "%=" { MOD_ASSIGN }
+| "<<=" { LSHIFT_ASSIGN }
+| ">>=" { RSHIFT_ASSIGN }
+| "&=" { AND_ASSIGN }
+| "^=" { XOR_ASSIGN }
+| "|=" { OR_ASSIGN }
 | ['0'-'9']+ as lit { INT_LITERAL(int_of_string lit) }
 | "\""['a'-'z' 'A'-'Z']*"\"" as str_lit { STRING_LITERAL(str_lit) } 
 | "auto" { AUTO }
@@ -52,5 +62,5 @@ rule token = parse
 | ':' { COLON }
 | '*' { ASTERISK }
 | "..." { ELLIPSIS }
-| ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm { ID(lxm) }
+| ['a'-'z''A'-'Z''_']+['a'-'z''A'-'Z''_''0'-'9']* as lit { IDENTIFIER(lit) }
 | eof { EOF }
