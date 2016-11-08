@@ -71,8 +71,8 @@ let string_of_declarator = function
     DirectDeclarator(v) -> string_of_variable v 
          
 let rec string_of_expr = function 
-   Literal(x) -> string_of_int x
-  | Float(x) -> string_of_float x
+   Literal(x) -> "Int(" ^ string_of_int x ^ ")"
+  | Float(x) -> "Float(" ^ string_of_float x ^ ")"
   | Noexpr -> "NOEXPR"
   | AsnExpr(decl, asnOp, e) -> string_of_assignment_op asnOp ^ "(" ^ string_of_declarator decl ^  ", " ^ string_of_expr e ^ ")"
   | Binop(e1, op, e2) -> string_of_op op ^ "(" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ ")"
