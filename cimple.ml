@@ -70,8 +70,6 @@ let string_of_variable = function
 let string_of_declarator = function
     DirectDeclarator(v) -> "DirectDeclarator(" ^ string_of_variable v ^ ")"
          
-  | AsnExpr of declarator * assignment_operator * expr 
-
 let rec string_of_expr = function 
    Literal(x) -> string_of_int x
   | Float(x) -> string_of_float x
