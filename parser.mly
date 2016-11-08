@@ -1,12 +1,13 @@
 %{ open Ast %}
 
+%token SEMICOLON
+%token <int> INT_LITERAL
+%token <float> FLOAT_LITERAL
+%token <string> IDENTIFIER
 %token ASSIGN
 %token RETURN
 %token PLUS MINUS TIMES DIVIDE 
 %token TIMES_ASSIGN DIVIDE_ASSIGN MOD_ASSIGN PLUS_ASSIGN MINUS_ASSIGN LSHIFT_ASSIGN RSHIFT_ASSIGN AND_ASSIGN XOR_ASSIGN OR_ASSIGN 
-%token <int> INT_LITERAL
-%token <float> FLOAT_LITERAL
-%token SEMICOLON
 %token AUTO REGISTER STATIC EXTERN TYPEDEF
 %token VOID CHAR SHORT INT LONG FLOAT DOUBLE SIGNED UNSIGNED
 %token CONST VOLATILE
@@ -16,17 +17,16 @@
 COLON ELLIPSIS ASTERISK
 %token WHILE DO FOR GOTO CONTINUE BREAK
 %token QUESTION
-%token <string> IDENTIFIER
 %token EOF
 
-%start statement
-%type <Ast.statement> statement
+%start statement_list
+%type <Ast.tStatement> statement_list
 
 %%
 
 statement_list:
-  /* nothing */ { [] }
-  | statement_list statement { $2 :: $1 }      
+  /* nothing */ { StatementList([]) }
+  | statement_list statement { StatementList($2::[$1]) }      
 
 statement:
   expr_opt SEMICOLON { Expr $1 }
@@ -41,20 +41,20 @@ expr:
  | assignment_expression { $1 }
 
 assignment_expression:
-        declarator assignment_operator expr { AsnExpr($1, $2, $3) } 
+  declarator assignment_operator expr { AsnExpr($1, $2, $3) } 
 
 assignment_operator:
-        ASSIGN { Asn }
-       | TIMES_ASSIGN { MulAsn }
-       | DIVIDE_ASSIGN { DivAsn }
-       | MOD_ASSIGN { ModAsn }
-       | PLUS_ASSIGN { AddAsn }
-       | MINUS_ASSIGN { SubAsn }
-       | LSHIFT_ASSIGN { LshAsn }
-       | RSHIFT_ASSIGN { RshAsn }
-       | AND_ASSIGN { AndAsn }
-       | XOR_ASSIGN { XorAsn }
-       | OR_ASSIGN { OrAsn }
+   ASSIGN { Asn }
+ | TIMES_ASSIGN { MulAsn }
+ | DIVIDE_ASSIGN { DivAsn }
+ | MOD_ASSIGN { ModAsn }
+ | PLUS_ASSIGN { AddAsn }
+ | MINUS_ASSIGN { SubAsn }
+ | LSHIFT_ASSIGN { LshAsn }
+ | RSHIFT_ASSIGN { RshAsn }
+ | AND_ASSIGN { AndAsn }
+ | XOR_ASSIGN { XorAsn }
+ | OR_ASSIGN { OrAsn }
 
 add_expr:
   add_expr PLUS mult_expr { Binop($1, Add, $3) }
@@ -91,7 +91,7 @@ type_specifier:
   | UNSIGNED { Unsigned }
 
 init_declarator_list:
-        init_declarator { InitDeclList([$1]) }  
+    init_declarator { InitDeclList([$1]) }  
   | init_declarator_list COMMA init_declarator { InitDeclList($3::[$1])}
 
 init_declarator:

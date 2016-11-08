@@ -78,10 +78,12 @@ let rec string_of_expr = function
   | Binop(e1, op, e2) -> string_of_op op ^ "(" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ ")"
   | Unop(e, unOp) -> string_of_unary_op unOp ^ "(" ^ string_of_expr e ^ ")"
 
+
 let rec string_of_statement = function
-  | Block([]) -> ""
-  |  Block(h::t) -> "list"
-  | Expr(e) -> string_of_expr e
+    StatementList([]) -> ""
+  | StatementList(h::t) -> let string_of_statement_list str stmt = str ^ (string_of_statement stmt) in
+                           string_of_statement h ^ ", " ^ (List.fold_left string_of_statement_list "" t)
+  | Expr(e) -> "Statement(" ^ string_of_expr e ^ ")"
   | Return(e) -> "RETURN " ^ (string_of_expr e)
   | If(e, s1, s2) -> "IF " ^ (string_of_expr e) ^" " ^ (string_of_statement s1)^ "
   " ^ (string_of_statement s2)
@@ -91,5 +93,5 @@ let rec string_of_statement = function
 
 let _ =
        let lexbuf = Lexing.from_channel stdin in
-       let statement = Parser.statement Scanner.token lexbuf in
+       let statement = Parser.statement_list Scanner.token lexbuf in
          Printf.printf "%s\n" (string_of_statement statement)       

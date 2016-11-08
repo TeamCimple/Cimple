@@ -3,6 +3,7 @@
 
 rule token = parse
   [' ' '\t' '\r' '\n'] { token lexbuf }
+| ';' { SEMICOLON }
 | '+' { PLUS }
 | "+=" { PLUS_ASSIGN }
 | '-' { MINUS }
@@ -57,7 +58,6 @@ rule token = parse
 | ')' { RPAREN }
 | ',' { COMMA }
 | '=' { ASSIGN }
-| ';' { SEMICOLON }
 | '?' { QUESTION }
 | ':' { COLON }
 | '*' { ASTERISK }

@@ -1,11 +1,11 @@
-type operator = Add | Sub | Mul | Div | Lsh | Rsh | BitAnd | BitXor | BitOr
+type tOperator = Add | Sub | Mul | Div | Lsh | Rsh | BitAnd | BitXor | BitOr
 
-type assignment_operator = Asn | MulAsn | DivAsn | ModAsn | AddAsn | SubAsn |
+type tAssignmentOperator = Asn | MulAsn | DivAsn | ModAsn | AddAsn | SubAsn |
 LshAsn | RshAsn | AndAsn | XorAsn | OrAsn
 
-type type_qualifier = Const | Volatile
+type tTypeQualifier = Const | Volatile
 
-type type_spec = 
+type tTypeSpec = 
         Void 
         | Char 
         | Short 
@@ -16,50 +16,52 @@ type type_spec =
         | Signed 
         | Unsigned
 
-type identifier = Identifier of string
+type tIdentifier = Identifier of string
 
-type pointer = Pointer of type_spec * identifier
+type tPointer = Pointer of tTypeSpec * tIdentifier
 
 
-type declaration_specifiers = 
-        DeclSpecTypeSpec of type_spec
-      | DeclSpecTypeSpecInitList of type_spec * declaration_specifiers 
+type tDeclarationSpecifiers = 
+        DeclSpecTypeSpec of tTypeSpec
+      | DeclSpecTypeSpecInitList of tTypeSpec * tDeclarationSpecifiers 
 
-type type_spec_indicator = 
-        TypeSpec of type_spec
-      | TypeSpecWithDeclSpec of type_spec * declaration_specifiers
+type tTypeSpecIndicator = 
+        TypeSpec of tTypeSpec
+      | TypeSpecWithDeclSpec of tTypeSpec * tDeclarationSpecifiers
 
-type storage_class_spec = Auto | Register | Static | Extern | Typedef
+type tStorageClassSpec = Auto | Register | Static | Extern | Typedef
 
-type unary_operator = PlusPlus
+type tUnaryOperator = PlusPlus
 
-type variable =
-    Var of identifier
+type tVariable =
+    Var of tIdentifier
 
-type declarator = 
-    DirectDeclarator of variable
+type tDeclarator = 
+    DirectDeclarator of tVariable
 
-type expr =
-  Binop of expr * operator * expr
-  | Unop of expr * unary_operator 
-  | AsnExpr of declarator * assignment_operator * expr 
+type tExpr =
+  Binop of tExpr * tOperator * tExpr
+  | Unop of tExpr * tUnaryOperator 
+  | AsnExpr of tDeclarator * tAssignmentOperator * tExpr 
   | Literal of int
   | Float of float
   | Noexpr
 
-type statement = 
-    Block of statement list
-  | Expr of expr
-  | Return of expr
-  | If of expr * statement * statement
-  | For of expr * expr * expr * statement
-  | While of expr * statement
+type tStatement = 
+    StatementList of tStatement list
+  | Expr of tExpr
+  | Return of tExpr
+  | If of tExpr * tStatement * tStatement
+  | For of tExpr * tExpr * tExpr * tStatement
+  | While of tExpr * tStatement
 
-type init_declarator =
-      InitDeclarator of declarator
-    | InitDeclList of init_declarator list 
-    | InitDeclaratorAsn of declarator * assignment_operator * expr
+ 
+type tInitDeclarator =
+    InitDeclarator of tDeclarator
+  | InitDeclList of tInitDeclarator list 
+  | InitDeclaratorAsn of tDeclarator * tAssignmentOperator * tExpr
 
-type declaration = 
-    Declaration of declaration_specifiers
-   | DeclarationList of declaration_specifiers * init_declarator 
+type tDeclaration = 
+    Declaration of tDeclarationSpecifiers
+   | DeclarationList of tDeclarationSpecifiers * tInitDeclarator 
+
