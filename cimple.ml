@@ -24,6 +24,31 @@ let string_of_assignment_op = function
       | XorAsn -> "XOR_EQUALS"
       | OrAsn -> "OR_EQUALS"
 
+let string_of_type_qualifier = function
+        Const -> "const"
+      | Volatile -> "volatile"
+
+let string_of_type_spec = function
+        Void -> "void"
+      | Char -> "char" 
+      | Short -> "short"
+      | Int -> "int"
+      | Long -> "long"
+      | Float -> "float"
+      | Double -> "double"
+      | Signed -> "signed"
+      | Unsigned -> "unsigned"
+
+let string_of_identifier = function
+        Identifier(s) -> s
+
+let string_of_pointer = function
+      Pointer(tspec, id) -> "Pointer(" ^ string_of_type_spec tspec ^ string_of_identifier id ^ ")"     
+
+let rec string_of_declaration_specifiers = function
+        DeclSpecTypeSpec(tspec) -> "DeclSpecTypeSpec(" ^ string_of_type_spec tspec ^ ")"
+      | DeclSpecTypeSpecInitList(tspec, idspecs) -> "DeclSpecTypeSpecInitList(" ^ string_of_type_spec tspec ^ ", " ^ string_of_declaration_specifiers idspecs ^ ")" 
+
 
 let rec string_of_expr = function 
    Literal(x) -> string_of_int x
