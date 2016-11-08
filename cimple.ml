@@ -61,7 +61,7 @@ let string_of_type_spec_indicator = function
       | TypeSpecWithDeclSpec(tspec, declSpec) -> "TypeSpecWithDeclSpec(" ^ string_of_type_spec tspec ^ ", " ^ string_of_declaration_specifiers declSpec ^ ")"     
 
 
-let string_of_unary_operator = function 
+let string_of_unary_op = function 
         PlusPlus -> "PlusPlus"
 
 let string_of_variable = function
@@ -75,15 +75,17 @@ let rec string_of_expr = function
   | Float(x) -> string_of_float x
   | Noexpr -> "NOEXPR"
   | AsnExpr(decl, asnOp, e) -> "AsnExpr(" ^ string_of_declarator decl ^ ", " ^ string_of_assignment_op asnOp ^ ", " ^ string_of_expr e ^ ")"
-  | Binop(e1, op, e2) -> match op with 
-                           Add -> "Add(" ^ (string_of_expr e1) ^", " ^
-                         (string_of_expr e2) ^ ")"
-                         | Sub -> "Sub(" ^ (string_of_expr e1) ^", " ^
-                         (string_of_expr e2) ^ ")"
-                         | Mul-> "Mul(" ^ (string_of_expr e1) ^", " ^
-                         (string_of_expr e2) ^ ")"
-                         | Div-> "Div(" ^ (string_of_expr e1) ^", " ^
-                         (string_of_expr e2) ^ ")"
+  | Binop(e1, op, e2) -> string_of_op op ^ "(" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ ")"
+  | Unop(e, unOp) -> string_of_unary_op unOp ^ "(" ^ string_of_expr e ^ ")" 
+  (*| Binop(e1, op, e2) -> match op with *)
+                           (*Add -> "Add(" ^ (string_of_expr e1) ^", " ^*)
+                         (*(string_of_expr e2) ^ ")"*)
+                         (*| Sub -> "Sub(" ^ (string_of_expr e1) ^", " ^*)
+                         (*(string_of_expr e2) ^ ")"*)
+                         (*| Mul-> "Mul(" ^ (string_of_expr e1) ^", " ^*)
+                         (*(string_of_expr e2) ^ ")"*)
+                         (*| Div-> "Div(" ^ (string_of_expr e1) ^", " ^*)
+                         (*(string_of_expr e2) ^ ")"*)
 
 let rec string_of_statement = function
   | Block([]) -> ""
