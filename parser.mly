@@ -2,8 +2,8 @@
 
 %token ASSIGN
 %token RETURN
-%token PLUS MINUS TIMES TIMES_ASSIGN DIVIDE DIVIDE_ASSIGN MOD_ASSIGN PLUS_ASSIGN
-MINUS_ASSIGN LSHIFT_ASSIGN RSHIFT_ASSIGN AND_ASSIGN XOR_ASSIGN OR_ASSIGN EOF
+%token PLUS MINUS TIMES DIVIDE 
+%token TIMES_ASSIGN DIVIDE_ASSIGN MOD_ASSIGN PLUS_ASSIGN MINUS_ASSIGN LSHIFT_ASSIGN RSHIFT_ASSIGN AND_ASSIGN XOR_ASSIGN OR_ASSIGN 
 %token <int> INT_LITERAL
 %token <float> FLOAT_LITERAL
 %token SEMICOLON
@@ -17,6 +17,7 @@ COLON ELLIPSIS ASTERISK
 %token WHILE DO FOR GOTO CONTINUE BREAK
 %token QUESTION
 %token <string> IDENTIFIER
+%token EOF
 
 %start statement
 %type <Ast.statement> statement
@@ -40,7 +41,7 @@ expr:
  | assignment_expression { $1 }
 
 assignment_expression:
-        declarator assignment_operator assignment_expression { AsnExpr($1, $2, $3) }  
+        declarator assignment_operator expr { AsnExpr($1, $2, $3) } 
 
 assignment_operator:
         ASSIGN { Asn }

@@ -68,24 +68,15 @@ let string_of_variable = function
         Var(id) -> "Var(" ^ string_of_identifier id ^ ")"
 
 let string_of_declarator = function
-    DirectDeclarator(v) -> "DirectDeclarator(" ^ string_of_variable v ^ ")"
+    DirectDeclarator(v) -> string_of_variable v 
          
 let rec string_of_expr = function 
    Literal(x) -> string_of_int x
   | Float(x) -> string_of_float x
   | Noexpr -> "NOEXPR"
-  | AsnExpr(decl, asnOp, e) -> "AsnExpr(" ^ string_of_declarator decl ^ ", " ^ string_of_assignment_op asnOp ^ ", " ^ string_of_expr e ^ ")"
+  | AsnExpr(decl, asnOp, e) -> string_of_assignment_op asnOp ^ "(" ^ string_of_declarator decl ^  ", " ^ string_of_expr e ^ ")"
   | Binop(e1, op, e2) -> string_of_op op ^ "(" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ ")"
-  | Unop(e, unOp) -> string_of_unary_op unOp ^ "(" ^ string_of_expr e ^ ")" 
-  (*| Binop(e1, op, e2) -> match op with *)
-                           (*Add -> "Add(" ^ (string_of_expr e1) ^", " ^*)
-                         (*(string_of_expr e2) ^ ")"*)
-                         (*| Sub -> "Sub(" ^ (string_of_expr e1) ^", " ^*)
-                         (*(string_of_expr e2) ^ ")"*)
-                         (*| Mul-> "Mul(" ^ (string_of_expr e1) ^", " ^*)
-                         (*(string_of_expr e2) ^ ")"*)
-                         (*| Div-> "Div(" ^ (string_of_expr e1) ^", " ^*)
-                         (*(string_of_expr e2) ^ ")"*)
+  | Unop(e, unOp) -> string_of_unary_op unOp ^ "(" ^ string_of_expr e ^ ")"
 
 let rec string_of_statement = function
   | Block([]) -> ""
