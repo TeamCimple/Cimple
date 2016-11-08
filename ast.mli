@@ -34,7 +34,7 @@ type storage_class_spec = Auto | Register | Static | Extern | Typedef
 type unary_operator = PlusPlus
 
 type variable =
-    SimpleVar of identifier
+    Var of identifier
 
 type declarator = 
     DirectDeclarator of variable

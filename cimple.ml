@@ -39,6 +39,13 @@ let string_of_type_spec = function
       | Signed -> "signed"
       | Unsigned -> "unsigned"
 
+let string_of_storage_class_spec = function
+        Auto -> "auto"
+      | Register -> "register"
+      | Static -> "static"
+      | Extern -> "extern"
+      | Typedef -> "typedef"
+
 let string_of_identifier = function
         Identifier(s) -> s
 
@@ -49,25 +56,28 @@ let rec string_of_declaration_specifiers = function
         DeclSpecTypeSpec(tspec) -> "DeclSpecTypeSpec(" ^ string_of_type_spec tspec ^ ")"
       | DeclSpecTypeSpecInitList(tspec, idspecs) -> "DeclSpecTypeSpecInitList(" ^ string_of_type_spec tspec ^ ", " ^ string_of_declaration_specifiers idspecs ^ ")" 
 
+let string_of_type_spec_indicator = function
+        TypeSpec(tspec) -> "TypeSpec(" ^ string_of_type_spec tspec ^ ")"
+      | TypeSpecWithDeclSpec(tspec, declSpec) -> "TypeSpecWithDeclSpec(" ^ string_of_type_spec tspec ^ ", " ^ string_of_declaration_specifiers declSpec ^ ")"     
+
+
+let string_of_unary_operator = function 
+        PlusPlus -> "PlusPlus"
+
+let string_of_variable = function
+        Var(id) -> "Var(" ^ string_of_identifier id ^ ")"
+
+let string_of_declarator = function
+    DirectDeclarator(v) -> "DirectDeclarator(" ^ string_of_variable v ^ ")"
+         
+  | AsnExpr of declarator * assignment_operator * expr 
 
 let rec string_of_expr = function 
    Literal(x) -> string_of_int x
   | Float(x) -> string_of_float x
   | Noexpr -> "NOEXPR"
-  (*|  AsnOp(e1, assn_op, e2) -> (match assn_op with*)
-                          (*Asn -> e1 ^ "=" ^ (string_of_expr e2)*)
-                         (*| MulAsn -> e1 ^ "*=" ^ (string_of_expr e2)*)
-                         (*| DivAsn -> e1 ^ "/=" ^ (string_of_expr e2)*)
-                         (*| ModAsn -> e1 ^ "%=" ^ (string_of_expr e2)*)
-                         (*| AddAsn -> e1 ^ "+=" ^ (string_of_expr e2)*)
-                         (*| SubAsn -> e1 ^ "-=" ^ (string_of_expr e2)*)
-                         (*| LshAsn -> e1 ^ "<<=" ^ (string_of_expr e2)*)
-                         (*| RshAsn -> e1 ^ ">>=" ^ (string_of_expr e2)*)
-                         (*| AndAsn -> e1 ^ "&=" ^ (string_of_expr e2)*)
-                         (*| XorAsn -> e1 ^ "^=" ^ (string_of_expr e2)*)
-                         (*| OrAsn -> e1 ^ "|=" ^ (string_of_expr e2)*)
-                         (*)*)
-  |  Binop(e1, op, e2) -> match op with 
+  | AsnExpr(decl, asnOp, e) -> "AsnExpr(" ^ string_of_declarator decl ^ ", " ^ string_of_assignment_op asnOp ^ ", " ^ string_of_expr e ^ ")"
+  | Binop(e1, op, e2) -> match op with 
                            Add -> "Add(" ^ (string_of_expr e1) ^", " ^
                          (string_of_expr e2) ^ ")"
                          | Sub -> "Sub(" ^ (string_of_expr e1) ^", " ^
