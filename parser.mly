@@ -19,14 +19,14 @@ COLON ELLIPSIS ASTERISK
 %token QUESTION
 %token EOF
 
-%start statement_list
-%type <Ast.tStatement> statement_list
+%start compound_statement
+%type <Ast.tCompoundStatement> compound_statement
 
 %%
 
 statement_list:
-  /* nothing */ { StatementList([]) }
-  | statement_list statement { StatementList($2::[$1]) }      
+  /* nothing */ { [] }
+  | statement_list statement { $2::$1 } 
 
 statement:
   expr_opt SEMICOLON { Expr $1 }
@@ -41,7 +41,7 @@ expr:
  | assignment_expression { $1 }
 
 assignment_expression:
-  declarator assignment_operator expr { AsnExpr($1, $2, $3) } 
+  IDENTIFIER assignment_operator expr { AsnExpr(Identifier($1), $2, $3) } 
 
 assignment_operator:
    ASSIGN { Asn }
@@ -71,14 +71,6 @@ primary_expr:
   | FLOAT_LITERAL            { Float($1) }
   | INT_LITERAL               { Literal($1) }
 
-declaration:
-    declaration_specifiers SEMICOLON { Declaration($1) }
-  | declaration_specifiers init_declarator_list SEMICOLON { DeclarationList($1, $2)}
-
-declaration_specifiers:
-    type_specifier { DeclSpecTypeSpec($1) } 
-  | type_specifier declaration_specifiers { DeclSpecTypeSpecInitList($1, $2) }
-
 type_specifier:
     VOID { Void }
   | CHAR { Char }
@@ -89,6 +81,17 @@ type_specifier:
   | DOUBLE { Double }
   | SIGNED { Signed }
   | UNSIGNED { Unsigned }
+
+storage_class_specifier:
+        AUTO   { Auto }  
+       | REGISTER { Register }
+       | STATIC   { Static }
+       | EXTERN  { Extern }
+       | TYPEDEF { Typedef }
+
+declaration_specifiers:
+    type_specifier { DeclSpecTypeSpec($1) } 
+  | type_specifier declaration_specifiers { DeclSpecTypeSpecInitList($1, $2) }
 
 init_declarator_list:
     init_declarator { InitDeclList([$1]) }  
@@ -103,3 +106,13 @@ declarator:
 
 direct_declarator:
     IDENTIFIER { Var(Identifier($1)) }
+
+declaration:
+  declaration_specifiers init_declarator_list SEMICOLON { Declaration($1, $2)}
+
+declaration_list:
+   /* Nothing */ { [] }
+   | declaration_list declaration { $2 :: $1 }
+
+compound_statement:
+     LBRACKET declaration_list statement_list RBRACKET { ($2, $3) }

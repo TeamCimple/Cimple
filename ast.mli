@@ -19,49 +19,54 @@ type tTypeSpec =
 type tIdentifier = Identifier of string
 
 type tPointer = Pointer of tTypeSpec * tIdentifier
+        | NoPointer
 
-
-type tDeclarationSpecifiers = 
-        DeclSpecTypeSpec of tTypeSpec
-      | DeclSpecTypeSpecInitList of tTypeSpec * tDeclarationSpecifiers 
-
-type tTypeSpecIndicator = 
-        TypeSpec of tTypeSpec
-      | TypeSpecWithDeclSpec of tTypeSpec * tDeclarationSpecifiers
 
 type tStorageClassSpec = Auto | Register | Static | Extern | Typedef
 
 type tUnaryOperator = PlusPlus
 
-type tVariable =
-    Var of tIdentifier
-
-type tDeclarator = 
-    DirectDeclarator of tVariable
-
 type tExpr =
   Binop of tExpr * tOperator * tExpr
   | Unop of tExpr * tUnaryOperator 
-  | AsnExpr of tDeclarator * tAssignmentOperator * tExpr 
+  | AsnExpr of tIdentifier * tAssignmentOperator * tExpr 
   | Literal of int
   | Float of float
   | Noexpr
 
 type tStatement = 
-    StatementList of tStatement list
-  | Expr of tExpr
+    Expr of tExpr
   | Return of tExpr
   | If of tExpr * tStatement * tStatement
   | For of tExpr * tExpr * tExpr * tStatement
   | While of tExpr * tStatement
 
- 
+type tStatementList = tStatement list
+
+type tDirectDeclarator = 
+        Var of tIdentifier
+        | ArrDirDecl of tDirectDeclarator * tExpr
+
+type tDeclarator = 
+        PointerDirDecl of tPointer * tDirectDeclarator
+        | DirectDeclarator of tDirectDeclarator
+
 type tInitDeclarator =
     InitDeclarator of tDeclarator
   | InitDeclList of tInitDeclarator list 
   | InitDeclaratorAsn of tDeclarator * tAssignmentOperator * tExpr
 
-type tDeclaration = 
-    Declaration of tDeclarationSpecifiers
-   | DeclarationList of tDeclarationSpecifiers * tInitDeclarator 
+type tDeclarationSpecifiers = 
+        DeclSpecTypeSpec of tTypeSpec
+      | DeclSpecTypeSpecInitList of tTypeSpec * tDeclarationSpecifiers 
 
+type tDeclaration = 
+   Declaration of tDeclarationSpecifiers * tInitDeclarator
+
+type tDeclarationList = tDeclaration list
+
+type tTypeSpecIndicator = 
+        TypeSpec of tTypeSpec
+      | TypeSpecWithDeclSpec of tTypeSpec * tDeclarationSpecifiers
+
+type tCompoundStatement = tDeclarationList * tStatementList

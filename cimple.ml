@@ -74,7 +74,8 @@ let rec string_of_expr = function
    Literal(x) -> "Int(" ^ string_of_int x ^ ")"
   | Float(x) -> "Float(" ^ string_of_float x ^ ")"
   | Noexpr -> "NOEXPR"
-  | AsnExpr(decl, asnOp, e) -> string_of_assignment_op asnOp ^ "(" ^ string_of_declarator decl ^  ", " ^ string_of_expr e ^ ")"
+  | AsnExpr(e1, asnOp, e) -> string_of_assignment_op asnOp ^ "(" ^
+  string_of_identifier e1 ^  ", " ^ string_of_expr e ^ ")"
   | Binop(e1, op, e2) -> string_of_op op ^ "(" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ ")"
   | Unop(e, unOp) -> string_of_unary_op unOp ^ "(" ^ string_of_expr e ^ ")"
 
@@ -91,7 +92,22 @@ let rec string_of_statement = function
   e2) ^ " " ^ (string_of_expr e3) ^ " " ^ (string_of_statement s)
   | While(e, s) -> "WHILE " ^ (string_of_expr e) ^ " " ^ (string_of_statement s)
 
+let rec string_of_init_declarator = function
+   InitDeclarator(x) -> string_of_declarator x
+  | InitDeclList([]) -> ""
+  | InitDeclList(h::t) -> let string_of_init_decl_list str
+  initdecl =  str ^ (string_of_init_declarator initdecl) in
+  string_of_init_declarator h ^ "," ^  (List.fold_left string_of_init_decl_list "" t)
+
+
+let string_of_declaration = function DeclarationList(x, y) -> "(" ^ string_of_declaration_specifiers x ^ " " ^
+  string_of_init_declarator y ^ ")"
+        
+
+let string_of_compound_statement = function
+     (x, y) -> string_of_declaration x ^ " " ^ string_of_statement y
+
 let _ =
        let lexbuf = Lexing.from_channel stdin in
-       let statement = Parser.statement_list Scanner.token lexbuf in
-         Printf.printf "%s\n" (string_of_statement statement)       
+       let compound_statement = Parser.compound_statement Scanner.token lexbuf in
+         Printf.printf "%s\n" (string_of_compound_statement compound_statement)
