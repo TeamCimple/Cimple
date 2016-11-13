@@ -19,8 +19,8 @@ COLON ELLIPSIS ASTERISK
 %token QUESTION
 %token EOF
 
-%start compound_statement
-%type <Ast.tCompoundStatement> compound_statement
+%start func_decl
+%type <Ast.tFuncDecl> func_decl
 
 %%
 
@@ -115,4 +115,22 @@ declaration_list:
    | declaration_list declaration { $2 :: $1 }
 
 compound_statement:
-     LBRACKET declaration_list statement_list RBRACKET { ($2, $3) }
+     LBRACKET declaration_list statement_list RBRACKET { ((List.rev $2),
+     (List.rev $3)) }
+
+func_params:
+    declaration_specifiers declarator { FuncParamsDeclared($1, $2) }
+  | declaration_specifiers { ParamDeclWithType($1) }
+
+
+func_params_list:
+   /* Nothing */ { [] }
+   | func_params { [$1] }
+   | func_params_list COMMA func_params { $3 :: $1 }
+
+func_decl:
+     declaration_specifiers declarator LPAREN func_params_list RPAREN compound_statement { {
+             return_type = $1;
+             name = $2;
+             params = ($4);
+             body = $6 }}

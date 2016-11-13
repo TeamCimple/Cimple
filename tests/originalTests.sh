@@ -30,3 +30,5 @@ echo '__________________int a; a = 1;________________________________' >> testOu
 echo '{int a; a = 1;}' | ./cimple >> testOutput.txt
 echo '__________________{int a; int b; int c; a = 1; b = 2; c = 3;}_____________' >> testOutput.txt
 echo '{int a; int b; int c; a = 1; b = 2; c = 3;}' | ./cimple >> testOutput.txt
+echo '__________________int helloWorld(int a, int b) { a = 1; b = 2; }_________' >> testOutput.txt
+echo 'int helloWorld(int a, int b) { a = 1; b = 2; }' | ./cimple >> testOutput.txt

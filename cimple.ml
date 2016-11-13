@@ -111,7 +111,21 @@ let rec string_of_declaration_list = function
 let string_of_compound_statement = function
      (x, y) -> string_of_declaration_list x ^ " " ^ string_of_statement_list y
 
+let string_of_func_param = function
+        | FuncParamsDeclared(decl_specs, declarator) ->
+                        string_of_declaration_specifiers decl_specs ^ " " ^
+                        string_of_declarator declarator
+        | ParamDeclWithType(decl_specs) -> string_of_declaration_specifiers
+        decl_specs
+
+let string_of_func fdecl =
+      string_of_declaration_specifiers fdecl.return_type ^ " " ^
+      string_of_declarator fdecl.name ^ " " ^ String.concat "" (List.map
+      string_of_func_param fdecl.params) ^ " " ^ string_of_compound_statement
+      fdecl.body
+        
+        
 let _ =
        let lexbuf = Lexing.from_channel stdin in
-       let compound_statement = Parser.compound_statement Scanner.token lexbuf in
-         Printf.printf "%s\n" (string_of_compound_statement compound_statement)
+       let func_decl = Parser.func_decl Scanner.token lexbuf in
+         Printf.printf "%s\n" (string_of_func func_decl)

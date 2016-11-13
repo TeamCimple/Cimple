@@ -69,5 +69,16 @@ type tTypeSpecIndicator =
         TypeSpec of tTypeSpec
       | TypeSpecWithDeclSpec of tTypeSpec * tDeclarationSpecifiers
 
+type tFuncParam = 
+      FuncParamsDeclared of tDeclarationSpecifiers * tDeclarator
+      |ParamDeclWithType of tDeclarationSpecifiers
+
+type tFuncParamList = tFuncParam list
+
 type tCompoundStatement = tDeclarationList * tStatementList
 
+type tFuncDecl = {
+        return_type: tDeclarationSpecifiers;
+        name: tDeclarator;
+        params: tFuncParamList;
+        body: tCompoundStatement }
