@@ -81,16 +81,17 @@ let rec string_of_expr = function
 
 
 let rec string_of_statement = function
-    StatementList([]) -> ""
-  | StatementList(h::t) -> let string_of_statement_list str stmt = str ^ (string_of_statement stmt) in
-                           string_of_statement h ^ ", " ^ (List.fold_left string_of_statement_list "" t)
-  | Expr(e) -> "Statement(" ^ string_of_expr e ^ ")"
+   Expr(e) -> "Statement(" ^ string_of_expr e ^ ")"
   | Return(e) -> "RETURN " ^ (string_of_expr e)
   | If(e, s1, s2) -> "IF " ^ (string_of_expr e) ^" " ^ (string_of_statement s1)^ "
   " ^ (string_of_statement s2)
   | For(e1, e2, e3, s) -> "FOR " ^ (string_of_expr e1) ^ " " ^ (string_of_expr
   e2) ^ " " ^ (string_of_expr e3) ^ " " ^ (string_of_statement s)
   | While(e, s) -> "WHILE " ^ (string_of_expr e) ^ " " ^ (string_of_statement s)
+
+let rec string_of_statement_list = function
+        [] -> ""
+       | h :: t -> string_of_statement h ^ ", " ^ (string_of_statement_list t)
 
 let rec string_of_init_declarator = function
    InitDeclarator(x) -> string_of_declarator x
@@ -100,12 +101,15 @@ let rec string_of_init_declarator = function
   string_of_init_declarator h ^ "," ^  (List.fold_left string_of_init_decl_list "" t)
 
 
-let string_of_declaration = function DeclarationList(x, y) -> "(" ^ string_of_declaration_specifiers x ^ " " ^
+let string_of_declaration = function Declaration(x, y) -> "(" ^ string_of_declaration_specifiers x ^ " " ^
   string_of_init_declarator y ^ ")"
         
+let rec string_of_declaration_list = function
+   [] -> ""
+  | h :: t -> string_of_declaration h ^ ", " ^ (string_of_declaration_list t)
 
 let string_of_compound_statement = function
-     (x, y) -> string_of_declaration x ^ " " ^ string_of_statement y
+     (x, y) -> string_of_declaration_list x ^ " " ^ string_of_statement_list y
 
 let _ =
        let lexbuf = Lexing.from_channel stdin in

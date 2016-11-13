@@ -70,3 +70,4 @@ type tTypeSpecIndicator =
       | TypeSpecWithDeclSpec of tTypeSpec * tDeclarationSpecifiers
 
 type tCompoundStatement = tDeclarationList * tStatementList
+
