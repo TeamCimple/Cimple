@@ -25,6 +25,7 @@ parser.ml parser.mli : parser.mly
 test: cimple
 	cat tests/functionDeclaration.test | ./cimple > tests/functionDeclaration.out
 	cat tests/functionDeclaration.2.test | ./cimple > tests/functionDeclaration.2.out
+	cat tests/functionDeclaration.3.test | ./cimple > tests/functionDeclaration.3.out
 
 .PHONY : clean
 clean :

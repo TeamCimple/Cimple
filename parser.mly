@@ -30,7 +30,14 @@ statement_list:
 
 statement:
   expr_opt SEMICOLON { Expr $1 }
-  | RETURN SEMICOLON { Return Noexpr }
+  | selection_statement { $1 }
+  | compound_statement { $1 }
+  | RETURN expr_opt SEMICOLON { Return $2 }
+
+selection_statement:
+  IF LPAREN expr RPAREN statement { If($3, $5, EmptyElse) }
+  | IF LPAREN expr RPAREN statement ELSE statement  {If($3, $5, $7)}
+
 
 expr_opt:
   /* Nothing */ {Noexpr}
@@ -41,7 +48,8 @@ expr:
  | assignment_expression { $1 }
 
 assignment_expression:
-  IDENTIFIER assignment_operator expr { AsnExpr(Identifier($1), $2, $3) } 
+  IDENTIFIER assignment_operator expr { AsnExpr(Identifier($1), $2, $3) }
+  | add_expr { $1 }
 
 assignment_operator:
    ASSIGN { Asn }
@@ -121,7 +129,7 @@ declaration_list:
    | declaration_list declaration { $2 :: $1 }
 
 compound_statement:
-     LBRACKET declaration_list statement_list RBRACKET { ((List.rev $2),
+     LBRACKET declaration_list statement_list RBRACKET { CompoundStatement((List.rev $2),
      (List.rev $3)) }
 
 func_params:

@@ -35,15 +35,6 @@ type tExpr =
   | Id of tIdentifier
   | Noexpr
 
-type tStatement = 
-    Expr of tExpr
-  | Return of tExpr
-  | If of tExpr * tStatement * tStatement
-  | For of tExpr * tExpr * tExpr * tStatement
-  | While of tExpr * tStatement
-
-type tStatementList = tStatement list
-
 type tDirectDeclarator = 
         Var of tIdentifier
         | ArrDirDecl of tDirectDeclarator * tExpr
@@ -76,10 +67,22 @@ type tFuncParam =
 
 type tFuncParamList = tFuncParam list
 
+type tStatement = 
+    Expr of tExpr
+  | EmptyElse
+  | Return of tExpr
+  | CompoundStatement of tDeclarationList * tStatement list
+  | If of tExpr * tStatement * tStatement
+  | For of tExpr * tExpr * tExpr * tStatement
+  | While of tExpr * tStatement
+
+type tStatementList = tStatement list
+
+
 type tCompoundStatement = tDeclarationList * tStatementList
 
 type tFuncDecl = {
         return_type: tDeclarationSpecifiers;
         name: tDeclarator;
         params: tFuncParamList;
-        body: tCompoundStatement }
+        body: tStatement }

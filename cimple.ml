@@ -85,25 +85,14 @@ let rec string_of_expr = function
   | Unop(e, unOp) -> string_of_unary_op unOp ^ "(" ^ string_of_expr e ^ ")"
 
 
-let rec string_of_statement = function
-   Expr(e) -> "Statement(" ^ string_of_expr e ^ ")"
-  | Return(e) -> "RETURN " ^ (string_of_expr e)
-  | If(e, s1, s2) -> "IF " ^ (string_of_expr e) ^" " ^ (string_of_statement s1)^ "
-  " ^ (string_of_statement s2)
-  | For(e1, e2, e3, s) -> "FOR " ^ (string_of_expr e1) ^ " " ^ (string_of_expr
-  e2) ^ " " ^ (string_of_expr e3) ^ " " ^ (string_of_statement s)
-  | While(e, s) -> "WHILE " ^ (string_of_expr e) ^ " " ^ (string_of_statement s)
-
-let rec string_of_statement_list = function
-        [] -> ""
-       | h :: t -> string_of_statement h ^ ", " ^ (string_of_statement_list t)
-
 let rec string_of_init_declarator = function
    InitDeclarator(x) -> string_of_declarator x
   | InitDeclList([]) -> ""
   | InitDeclList(h::t) -> let string_of_init_decl_list str
   initdecl =  str ^ (string_of_init_declarator initdecl) in
   string_of_init_declarator h ^ "," ^  (List.fold_left string_of_init_decl_list "" t)
+  | InitDeclaratorAsn(decl, asnop, expr) -> string_of_assignment_op asnop ^ "("
+  ^ string_of_declarator decl ^ " " ^ string_of_expr expr
 
 
 let string_of_declaration = function Declaration(x, y) -> "(" ^ string_of_declaration_specifiers x ^ " " ^
@@ -113,9 +102,24 @@ let rec string_of_declaration_list = function
    [] -> ""
   | h :: t -> string_of_declaration h ^ ", " ^ (string_of_declaration_list t)
 
-let string_of_compound_statement = function
-     (x, y) -> "{\n" ^ "DECL_LIST(" ^ string_of_declaration_list x ^ ")" ^  "\n" ^
-     "STMT_LIST(" ^ string_of_statement_list y ^ "STMT_LIST" ^ "\n}"
+let rec string_of_statement = function
+   Expr(e) -> "Statement(" ^ string_of_expr e ^ ")"
+  | Return(e) -> "RETURN " ^ (string_of_expr e)
+  | If(e, s1, s2) -> "IF " ^ (string_of_expr e) ^" " ^ (string_of_statement s1)^ "
+  " ^ (string_of_statement s2)
+  | EmptyElse -> ""
+  | For(e1, e2, e3, s) -> "FOR " ^ (string_of_expr e1) ^ " " ^ (string_of_expr
+  e2) ^ " " ^ (string_of_expr e3) ^ " " ^ (string_of_statement s)
+  | While(e, s) -> "WHILE " ^ (string_of_expr e) ^ " " ^ (string_of_statement s)
+  | CompoundStatement(dl, sl) -> "{\n" ^ "DECL_LIST(" ^
+  string_of_declaration_list dl ^ ")" ^  "\n" ^
+     "STMT_LIST(" ^ 
+     String.concat ", " (List.map string_of_statement sl) ^ ")" ^ "\n}"
+
+
+let rec string_of_statement_list = function
+        [] -> ""
+       | h :: t -> string_of_statement h ^ ", " ^ (string_of_statement_list t)
 
 let string_of_func_param = function
         | FuncParamsDeclared(decl_specs, declarator) ->
@@ -128,7 +132,7 @@ let string_of_func_param = function
 let string_of_func fdecl = "FuncDecl(\n" ^ 
       string_of_declaration_specifiers fdecl.return_type ^ "\n" ^
       string_of_declarator fdecl.name ^ "\n" ^ "PARAM_LIST(" ^ String.concat ", " (List.map
-      string_of_func_param fdecl.params) ^ ")\n" ^ string_of_compound_statement 
+      string_of_func_param fdecl.params) ^ ")\n" ^ string_of_statement 
       fdecl.body ^ ")"
         
         
