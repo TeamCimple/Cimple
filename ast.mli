@@ -18,9 +18,9 @@ type tTypeSpec =
 
 type tIdentifier = Identifier of string
 
-type tPointer = Pointer of tTypeSpec * tIdentifier
-        | NoPointer
-
+type tPointer = 
+        PtrType of tPointer * tPointer
+        | Pointer
 
 type tStorageClassSpec = Auto | Register | Static | Extern | Typedef
 
@@ -32,6 +32,7 @@ type tExpr =
   | AsnExpr of tIdentifier * tAssignmentOperator * tExpr 
   | Literal of int
   | Float of float
+  | Id of tIdentifier
   | Noexpr
 
 type tStatement = 

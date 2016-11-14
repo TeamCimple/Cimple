@@ -49,8 +49,10 @@ let string_of_storage_class_spec = function
 let string_of_identifier = function
         Identifier(s) -> s
 
-let string_of_pointer = function
-      Pointer(tspec, id) -> "Pointer(" ^ string_of_type_spec tspec ^ string_of_identifier id ^ ")"     
+let rec string_of_ptr = function
+      PtrType(x, y) -> "Pointer(" ^ string_of_ptr x ^
+      string_of_ptr y ^ ")"
+      | Pointer -> "Pointer"
 
 let rec string_of_declaration_specifiers = function
         DeclSpecTypeSpec(tspec) -> "DeclSpecTypeSpec(" ^ string_of_type_spec tspec ^ ")"
@@ -69,10 +71,13 @@ let string_of_variable = function
 
 let string_of_declarator = function
     DirectDeclarator(v) -> string_of_variable v 
-         
+   | PointerDirDecl(ptr, decl) -> string_of_ptr ptr ^ "(" ^ string_of_variable
+   decl ^ ")"
+
 let rec string_of_expr = function 
    Literal(x) -> "Int(" ^ string_of_int x ^ ")"
   | Float(x) -> "Float(" ^ string_of_float x ^ ")"
+  | Id (x) -> "Identifier(" ^ string_of_identifier x ^ ")"
   | Noexpr -> "NOEXPR"
   | AsnExpr(e1, asnOp, e) -> string_of_assignment_op asnOp ^ "(" ^
   string_of_identifier e1 ^  ", " ^ string_of_expr e ^ ")"
@@ -109,20 +114,22 @@ let rec string_of_declaration_list = function
   | h :: t -> string_of_declaration h ^ ", " ^ (string_of_declaration_list t)
 
 let string_of_compound_statement = function
-     (x, y) -> string_of_declaration_list x ^ " " ^ string_of_statement_list y
+     (x, y) -> "{\n" ^ "DECL_LIST(" ^ string_of_declaration_list x ^ ")" ^  "\n" ^
+     "STMT_LIST(" ^ string_of_statement_list y ^ "STMT_LIST" ^ "\n}"
 
 let string_of_func_param = function
         | FuncParamsDeclared(decl_specs, declarator) ->
-                        string_of_declaration_specifiers decl_specs ^ " " ^
-                        string_of_declarator declarator
-        | ParamDeclWithType(decl_specs) -> string_of_declaration_specifiers
-        decl_specs
+                        "PARAM(" ^ string_of_declaration_specifiers
+                        decl_specs ^ " " ^
+                        string_of_declarator declarator ^ ")"
+        | ParamDeclWithType(decl_specs) -> "PARAM(" ^
+        string_of_declaration_specifiers decl_specs ^ ")"
 
-let string_of_func fdecl =
-      string_of_declaration_specifiers fdecl.return_type ^ " " ^
-      string_of_declarator fdecl.name ^ " " ^ String.concat "" (List.map
-      string_of_func_param fdecl.params) ^ " " ^ string_of_compound_statement
-      fdecl.body
+let string_of_func fdecl = "FuncDecl(\n" ^ 
+      string_of_declaration_specifiers fdecl.return_type ^ "\n" ^
+      string_of_declarator fdecl.name ^ "\n" ^ "PARAM_LIST(" ^ String.concat ", " (List.map
+      string_of_func_param fdecl.params) ^ ")\n" ^ string_of_compound_statement 
+      fdecl.body ^ ")"
         
         
 let _ =

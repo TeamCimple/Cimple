@@ -70,6 +70,7 @@ primary_expr:
   LPAREN expr RPAREN         { $2 }
   | FLOAT_LITERAL            { Float($1) }
   | INT_LITERAL               { Literal($1) }
+  | IDENTIFIER               { Id(Identifier($1))}
 
 type_specifier:
     VOID { Void }
@@ -101,8 +102,13 @@ init_declarator:
     declarator  { InitDeclarator($1) }
   | declarator ASSIGN assignment_expression { InitDeclaratorAsn($1, Asn, $3) }
 
+pointer:
+        TIMES pointer { PtrType(Pointer, $2) }
+   | TIMES { Pointer }
+
 declarator:
     direct_declarator { DirectDeclarator($1) }
+   | pointer direct_declarator { PointerDirDecl($1, $2) }
 
 direct_declarator:
     IDENTIFIER { Var(Identifier($1)) }
