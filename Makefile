@@ -23,8 +23,8 @@ parser.ml parser.mli : parser.mly
 .PHONY : test
 
 test: cimple
-	tests/originalTests.sh > originalTests.out
-	cat tests/assign.test | ./cimple > assign.out
+	cat tests/functionDeclaration.test | ./cimple > tests/functionDeclaration.out
+	cat tests/functionDeclaration.2.test | ./cimple > tests/functionDeclaration.2.out
 
 .PHONY : clean
 clean :
