@@ -19,6 +19,8 @@ COLON ELLIPSIS ASTERISK
 %token QUESTION
 %token EOF
 
+%nonassoc NOELSE
+%nonassoc ELSE
 %start func_decl
 %type <Ast.tFuncDecl> func_decl
 
@@ -35,7 +37,7 @@ statement:
   | RETURN expr_opt SEMICOLON { Return $2 }
 
 selection_statement:
-  IF LPAREN expr RPAREN statement { If($3, $5, EmptyElse) }
+  IF LPAREN expr RPAREN statement %prec NOELSE { If($3, $5, EmptyElse) }
   | IF LPAREN expr RPAREN statement ELSE statement  {If($3, $5, $7)}
 
 
@@ -44,8 +46,7 @@ expr_opt:
   | expr          { $1 }
 
 expr:
-  add_expr  { $1 }
- | assignment_expression { $1 }
+  assignment_expression { $1 }
 
 assignment_expression:
   IDENTIFIER assignment_operator expr { AsnExpr(Identifier($1), $2, $3) }
@@ -148,3 +149,5 @@ func_decl:
              name = $2;
              params = ($4);
              body = $6 }}
+
+
