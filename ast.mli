@@ -76,11 +76,6 @@ type tStatement =
   | For of tExpr * tExpr * tExpr * tStatement
   | While of tExpr * tStatement
 
-type tStatementList = tStatement list
-
-
-type tCompoundStatement = tDeclarationList * tStatementList
-
 type tFuncDecl = {
         return_type: tDeclarationSpecifiers;
         name: tDeclarator;
