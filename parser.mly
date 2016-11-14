@@ -153,7 +153,7 @@ struct_declaration:
         STRUCT STRUCT_IDENTIFIER struct_inheritence_opt struct_interface_opt LBRACKET
         declaration_list RBRACKET SEMICOLON { {
                 members = (List.rev $6);
-                name = $2;
+                struct_name = $2;
                 extends = $3;
                 implements = $4;
         } }
@@ -184,7 +184,7 @@ func_params_list:
 func_decl:
      declaration_specifiers declarator LPAREN func_params_list RPAREN compound_statement { {
              return_type = $1;
-             name = $2;
+             func_name = $2;
              params = ($4);
              body = $6 }}
 

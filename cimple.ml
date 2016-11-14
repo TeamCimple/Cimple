@@ -137,13 +137,13 @@ let string_of_func_param = function
 
 let string_of_func fdecl = "FuncDecl(\n" ^ 
       string_of_declaration_specifiers fdecl.return_type ^ "\n" ^
-      string_of_declarator fdecl.name ^ "\n" ^ "PARAM_LIST(" ^ String.concat ", " (List.map
+      string_of_declarator fdecl.func_name ^ "\n" ^ "PARAM_LIST(" ^ String.concat ", " (List.map
       string_of_func_param fdecl.params) ^ ")\n" ^ string_of_statement 
       fdecl.body ^ ")"
          
 let string_of_struct struct_decl = "Struct(\n" ^
         string_of_declaration_list struct_decl.members ^ ", " ^
-        struct_decl.name ^ ", " ^ struct_decl.extends ^ ", " ^
+        struct_decl.struct_name ^ ", " ^ struct_decl.extends ^ ", " ^
         struct_decl.implements ^ ")\n"
 
 let string_of_list_objs f list_objs = String.concat ", " (List.map f list_objs) 

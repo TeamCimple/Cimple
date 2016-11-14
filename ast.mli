@@ -88,7 +88,7 @@ type tStatement =
 
 type tStruct = {
         members: tDeclaration list;
-        name: string;
+        struct_name: string;
         extends: string;
         implements: string;
 }
@@ -96,8 +96,7 @@ type tStruct = {
 
 type tFuncDecl = {
         return_type: tDeclarationSpecifiers;
-        (*return_type: tType;*)
-        name: tDeclarator;
+        func_name: tDeclarator;
         params: tFuncParamList;
         body: tStatement }
 
