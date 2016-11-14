@@ -3,6 +3,8 @@ type tOperator = Add | Sub | Mul | Div | Lsh | Rsh | BitAnd | BitXor | BitOr
 type tAssignmentOperator = Asn | MulAsn | DivAsn | ModAsn | AddAsn | SubAsn |
 LshAsn | RshAsn | AndAsn | XorAsn | OrAsn
 
+type tPostfixOperator = PostPlusPlus | PostMinusMinus | PostDeref | PostEmptyOp
+
 type tTypeQualifier = Const | Volatile
 
 type tTypeSpec = 
@@ -32,6 +34,7 @@ type tExpr =
   | AsnExpr of tIdentifier * tAssignmentOperator * tExpr 
   | Literal of int
   | Float of float
+  | Postfix of tExpr * tPostfixOperator * tExpr
   | Id of tIdentifier
   | Noexpr
 
@@ -76,8 +79,21 @@ type tStatement =
   | For of tExpr * tExpr * tExpr * tStatement
   | While of tExpr * tStatement
 
+type tStruct = {
+        members: tDeclaration list;
+        name: string;
+        extends: string;
+        implements: string;
+}
+
 type tFuncDecl = {
         return_type: tDeclarationSpecifiers;
         name: tDeclarator;
         params: tFuncParamList;
         body: tStatement }
+
+type tProgram = {
+        globals: tDeclaration list;
+        structs: tStruct list;
+        functions: tFuncDecl list;
+} 

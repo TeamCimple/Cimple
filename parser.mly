@@ -4,6 +4,7 @@
 %token <int> INT_LITERAL
 %token <float> FLOAT_LITERAL
 %token <string> IDENTIFIER
+%token <string> STRUCT_IDENTIFIER
 %token ASSIGN
 %token RETURN
 %token PLUS MINUS TIMES DIVIDE 
@@ -14,15 +15,17 @@
 %token STRUCT UNION
 %token SWITCH CASE ENUM DEFAULT IF ELSE
 %token LBRACKET RBRACKET LBRACKET_SQUARE RBRACKET_SQUARE LPAREN RPAREN COMMA
-COLON ELLIPSIS ASTERISK
+COLON ELLIPSIS ASTERISK PERIOD
 %token WHILE DO FOR GOTO CONTINUE BREAK
+%token EXTENDS IMPLEMENTS
 %token QUESTION
 %token EOF
 
 %nonassoc NOELSE
 %nonassoc ELSE
-%start func_decl
-%type <Ast.tFuncDecl> func_decl
+%nonassoc DELENIATOR
+%start program
+%type <Ast.tProgram> program
 
 %%
 
@@ -34,12 +37,16 @@ statement:
   expr_opt SEMICOLON { Expr $1 }
   | selection_statement { $1 }
   | compound_statement { $1 }
+  | iteration_statement { $1 }
   | RETURN expr_opt SEMICOLON { Return $2 }
 
 selection_statement:
   IF LPAREN expr RPAREN statement %prec NOELSE { If($3, $5, EmptyElse) }
   | IF LPAREN expr RPAREN statement ELSE statement  {If($3, $5, $7)}
 
+iteration_statement:
+  WHILE LPAREN expr RPAREN statement { While($3, $5) }
+  | FOR LPAREN expr_opt SEMICOLON expr_opt SEMICOLON expr_opt RPAREN statement { For($3, $5, $7, $9) }
 
 expr_opt:
   /* Nothing */ {Noexpr}
@@ -51,6 +58,14 @@ expr:
 assignment_expression:
   IDENTIFIER assignment_operator expr { AsnExpr(Identifier($1), $2, $3) }
   | add_expr { $1 }
+
+postfix_expr:
+  primary_expr { $1 }
+  | postfix_expr LBRACKET_SQUARE expr RBRACKET_SQUARE { Postfix($1,
+  PostEmptyOp,  $3) }
+  | postfix_expr PERIOD IDENTIFIER { Postfix($1, PostDeref, Id(Identifier($3))) }
+  | postfix_expr PLUS PLUS { Postfix($1, PostPlusPlus, Noexpr) }
+  | postfix_expr MINUS MINUS { Postfix($1, PostMinusMinus, Noexpr) }
 
 assignment_operator:
    ASSIGN { Asn }
@@ -101,7 +116,7 @@ storage_class_specifier:
 
 declaration_specifiers:
     type_specifier { DeclSpecTypeSpec($1) } 
-  | type_specifier declaration_specifiers { DeclSpecTypeSpecInitList($1, $2) }
+  | declaration_specifiers type_specifier { DeclSpecTypeSpecInitList($2, $1) }
 
 init_declarator_list:
     init_declarator { InitDeclList([$1]) }  
@@ -129,6 +144,24 @@ declaration_list:
    /* Nothing */ { [] }
    | declaration_list declaration { $2 :: $1 }
 
+
+struct_declaration:
+        STRUCT STRUCT_IDENTIFIER struct_inheritence_opt struct_interface_opt LBRACKET
+        declaration_list RBRACKET SEMICOLON { {
+                members = (List.rev $6);
+                name = $2;
+                extends = $3;
+                implements = $4;
+        } }
+
+struct_inheritence_opt:
+  EXTENDS STRUCT_IDENTIFIER { $2 }
+  | { "" }
+
+struct_interface_opt:
+   | IMPLEMENTS STRUCT_IDENTIFIER { $2 }
+   |  { "" }
+
 compound_statement:
      LBRACKET declaration_list statement_list RBRACKET { CompoundStatement((List.rev $2),
      (List.rev $3)) }
@@ -150,4 +183,15 @@ func_decl:
              params = ($4);
              body = $6 }}
 
+decls:
+   /* Nothing */ { { globals = []; structs = []; functions = [] }}
+   | decls func_decl { {functions = $2 :: ($1.functions); globals = $1.globals;
+                        structs = $1.structs} }
+   | decls declaration { { functions = $1.functions; globals =  ($2 ::
+           $1.globals);
+   structs = $1.structs }}
+   | decls struct_declaration { {functions = $1.functions; globals =
+           $1.globals; structs = ($2 :: $1.structs)}}
 
+program:
+   decls EOF { $1 }

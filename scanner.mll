@@ -19,6 +19,8 @@ rule token = parse
 | "^=" { XOR_ASSIGN }
 | "|=" { OR_ASSIGN }
 | ['0'-'9']+ as lit { INT_LITERAL(int_of_string lit) }
+| "extends" { EXTENDS }
+| "implements" { IMPLEMENTS }
 | "auto" { AUTO }
 | "register" { REGISTER }
 | "static" { STATIC }
@@ -61,6 +63,9 @@ rule token = parse
 | '?' { QUESTION }
 | ':' { COLON }
 | '*' { ASTERISK }
+| '.' { PERIOD }
 | "..." { ELLIPSIS }
-| ['a'-'z''A'-'Z''_']+['a'-'z''A'-'Z''_''0'-'9']* as lit { IDENTIFIER(lit) }
+| ['a'-'z''_']+['a'-'z''A'-'Z''_''0'-'9']* as lit { IDENTIFIER(lit) }
+| ['A'-'Z']+['a'-'z''A'-'Z''_''0'-'9']* as structLit {
+        STRUCT_IDENTIFIER(structLit) } 
 | eof { EOF }

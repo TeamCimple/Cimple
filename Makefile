@@ -26,6 +26,9 @@ test: cimple
 	cat tests/functionDeclaration.test | ./cimple > tests/functionDeclaration.out
 	cat tests/functionDeclaration.2.test | ./cimple > tests/functionDeclaration.2.out
 	cat tests/functionDeclaration.3.test | ./cimple > tests/functionDeclaration.3.out
+	cat tests/program.test | ./cimple > tests/program.out
+	cat tests/program.1.test | ./cimple > tests/program.1.out
+	cat tests/program.2.test | ./cimple > tests/program.2.out
 
 .PHONY : clean
 clean :
