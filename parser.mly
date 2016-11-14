@@ -115,8 +115,12 @@ storage_class_specifier:
        | TYPEDEF { Typedef }
 
 declaration_specifiers:
-    type_specifier { DeclSpecTypeSpec($1) } 
-  | declaration_specifiers type_specifier { DeclSpecTypeSpecInitList($2, $1) }
+    type_ { DeclSpecTypeSpecAny($1) }
+  | declaration_specifiers type_ { DeclSpecTypeSpecInitList($2, $1) }
+ 
+type_:
+        type_specifier { PrimitiveType($1) }
+      | STRUCT STRUCT_IDENTIFIER { CustomType($2) } 
 
 init_declarator_list:
     init_declarator { InitDeclList([$1]) }  
@@ -175,6 +179,7 @@ func_params_list:
    /* Nothing */ { [] }
    | func_params { [$1] }
    | func_params_list COMMA func_params { $3 :: $1 }
+
 
 func_decl:
      declaration_specifiers declarator LPAREN func_params_list RPAREN compound_statement { {

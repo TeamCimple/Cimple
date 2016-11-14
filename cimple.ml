@@ -39,6 +39,10 @@ let string_of_type_spec = function
       | Signed -> "signed"
       | Unsigned -> "unsigned"
 
+let string_of_type = function
+      PrimitiveType(t) -> string_of_type_spec t
+    | CustomType(t) -> t
+
 let string_of_storage_class_spec = function
         Auto -> "auto"
       | Register -> "register"
@@ -56,7 +60,8 @@ let rec string_of_ptr = function
 
 let rec string_of_declaration_specifiers = function
         DeclSpecTypeSpec(tspec) -> "DeclSpecTypeSpec(" ^ string_of_type_spec tspec ^ ")"
-      | DeclSpecTypeSpecInitList(tspec, idspecs) -> "DeclSpecTypeSpecInitList(" ^ string_of_type_spec tspec ^ ", " ^ string_of_declaration_specifiers idspecs ^ ")" 
+      | DeclSpecTypeSpecInitList(t, idspecs) -> "DeclSpecTypeSpecInitList(" ^ string_of_type t ^ ", " ^ string_of_declaration_specifiers idspecs ^ ")" 
+      | DeclSpecTypeSpecAny(t) -> string_of_type t
 
 let string_of_type_spec_indicator = function
         TypeSpec(tspec) -> "TypeSpec(" ^ string_of_type_spec tspec ^ ")"
@@ -129,6 +134,7 @@ let string_of_func_param = function
         | ParamDeclWithType(decl_specs) -> "PARAM(" ^
         string_of_declaration_specifiers decl_specs ^ ")"
 
+
 let string_of_func fdecl = "FuncDecl(\n" ^ 
       string_of_declaration_specifiers fdecl.return_type ^ "\n" ^
       string_of_declarator fdecl.name ^ "\n" ^ "PARAM_LIST(" ^ String.concat ", " (List.map
@@ -150,4 +156,5 @@ let string_of_program program =
 let _ =
        let lexbuf = Lexing.from_channel stdin in
        let program = Parser.program Scanner.token lexbuf in
-         Printf.printf "%s\n" (string_of_program program)
+       Printf.printf "%s\n" (string_of_program program)
+

@@ -18,6 +18,11 @@ type tTypeSpec =
         | Signed 
         | Unsigned
 
+type tType = 
+     PrimitiveType of tTypeSpec
+   | CustomType of string
+   | CompoundType of tType * tType
+
 type tIdentifier = Identifier of string
 
 type tPointer = 
@@ -53,7 +58,9 @@ type tInitDeclarator =
 
 type tDeclarationSpecifiers = 
         DeclSpecTypeSpec of tTypeSpec
-      | DeclSpecTypeSpecInitList of tTypeSpec * tDeclarationSpecifiers 
+      | DeclSpecTypeSpecAny of tType
+      | DeclSpecTypeSpecInitList of tType * tDeclarationSpecifiers 
+      (*| DeclSpecTypeSpecInitList of tTypeSpec * tDeclarationSpecifiers *)
 
 type tDeclaration = 
    Declaration of tDeclarationSpecifiers * tInitDeclarator
@@ -86,8 +93,10 @@ type tStruct = {
         implements: string;
 }
 
+
 type tFuncDecl = {
         return_type: tDeclarationSpecifiers;
+        (*return_type: tType;*)
         name: tDeclarator;
         params: tFuncParamList;
         body: tStatement }

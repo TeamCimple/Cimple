@@ -1,6 +1,11 @@
 int a = 1;
 
-int main()
+int test()
+{
+	return 1;
+}
+
+int main(int argc)
 {
 	return 0;
 }

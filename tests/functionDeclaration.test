@@ -1,7 +1,13 @@
-int main()
+int aGlobal;
+
+int test()
+{
+}
+
+int main(int argc)
 {
 	int a;
 
-	int b;
+	int b = 1;
 }
 
