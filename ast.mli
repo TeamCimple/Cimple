@@ -38,7 +38,7 @@ type tExpr =
   | Unop of tExpr * tUnaryOperator 
   | AsnExpr of tIdentifier * tAssignmentOperator * tExpr 
   | Literal of int
-  | Float of float
+  | FloatLiteral of float
   | Postfix of tExpr * tPostfixOperator * tExpr
   | Id of tIdentifier
   | Noexpr

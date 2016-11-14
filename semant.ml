@@ -18,7 +18,7 @@ let lookup_type_from_var_name (searchName, (truthVal, foundType)) (varName, varT
  *  tuples for the current scope *)
 let rec type_from_expr (varLookupList, expr)= match expr with
    Literal(_) -> Int
- | Float (_) -> Float
+ | FloatLiteral (_) -> Float
  | Unop(e, _) -> type_from_expr (varLookupList, e)
  | Binop(e1, _, _) -> type_from_expr (varLookupList, e1) 
  | Postfix(e1, _, _) -> type_from_expr (varLookupList, e1) 

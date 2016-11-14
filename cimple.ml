@@ -81,7 +81,7 @@ let string_of_declarator = function
 
 let rec string_of_expr = function 
    Literal(x) -> "Int(" ^ string_of_int x ^ ")"
-  | Float(x) -> "Float(" ^ string_of_float x ^ ")"
+  | FloatLiteral(x) -> "Float(" ^ string_of_float x ^ ")"
   | Id (x) -> "Identifier(" ^ string_of_identifier x ^ ")"
   | Noexpr -> "NOEXPR"
   | AsnExpr(e1, asnOp, e) -> string_of_assignment_op asnOp ^ "(" ^

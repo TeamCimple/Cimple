@@ -92,7 +92,7 @@ mult_expr:
 
 primary_expr:
   LPAREN expr RPAREN         { $2 }
-  | FLOAT_LITERAL            { Float($1) }
+  | FLOAT_LITERAL            { FloatLiteral($1) }
   | INT_LITERAL               { Literal($1) }
   | IDENTIFIER               { Id(Identifier($1))}
 
