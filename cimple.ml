@@ -5,12 +5,16 @@ let string_of_op = function
       | Sub -> "MINUS"
       | Mul -> "TIMES"
       | Div -> "DIVIDE"
+      | Mod -> "MOD"
+      | And -> "AND"
+      | Or -> "OR"
+      | BitAnd -> "BITWISE_AND"
+      | BitOr -> "BITWISE_OR"
+      | Xor -> "XOR"
+      | Not -> "NOT"
       | Lsh -> "LSHIFT"
       | Rsh -> "RSHIFT"
-      | BitAnd -> "BITWISE_AND"
-      | BitXor -> "BITWISE_XOR"
-      | BitOr -> "BITWISE_OR"
-
+     
 let string_of_assignment_op = function
         Asn -> "EQUALS"
       | MulAsn -> "TIMES_EQUALS"
@@ -24,6 +28,14 @@ let string_of_assignment_op = function
       | XorAsn -> "XOR_EQUALS"
       | OrAsn -> "OR_EQUALS"
 
+let string_of_logical_op = function
+        Eql -> "EQUALS"
+      | NotEql -> "NOT_EQUALS"
+      | Less -> "LESS_THAN"
+      | LessEql -> "LESS_THAN_EQUALS"
+      | Greater -> "GREATER_THAN"
+      | GreaterEql -> "GREATER_THAN_EQUALS"
+ 
 let string_of_type_qualifier = function
         Const -> "const"
       | Volatile -> "volatile"

@@ -1,7 +1,9 @@
-type tOperator = Add | Sub | Mul | Div | Lsh | Rsh | BitAnd | BitXor | BitOr
+type tOperator = Add | Sub | Mul | Div | Mod | And | Or | BitAnd | BitOr | Xor | Not | Lsh | Rsh
 
 type tAssignmentOperator = Asn | MulAsn | DivAsn | ModAsn | AddAsn | SubAsn |
 LshAsn | RshAsn | AndAsn | XorAsn | OrAsn
+
+type tLogicalOperator = Eql | NotEql | Less | LessEql | Greater | GreaterEql
 
 type tPostfixOperator = PostPlusPlus | PostMinusMinus | PostDeref | PostEmptyOp
 

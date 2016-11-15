@@ -29,6 +29,8 @@ test: cimple
 	cat tests/program.test | ./cimple > tests/program.out
 	cat tests/program.1.test | ./cimple > tests/program.1.out
 	cat tests/program.2.test | ./cimple > tests/program.2.out
+	cat tests/float_check.test | ./cimple > tests/float_check.out
+	
 
 .PHONY : clean
 clean :

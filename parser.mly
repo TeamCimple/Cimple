@@ -7,7 +7,9 @@
 %token <string> STRUCT_IDENTIFIER
 %token ASSIGN
 %token RETURN
-%token PLUS MINUS TIMES DIVIDE 
+%token PLUS MINUS TIMES DIVIDE MOD
+%token AND OR BITWISE_AND BITWISE_OR XOR NOT LSHIFT RSHIFT
+%token EQUALS NOT_EQUALS LESS_THAN LESS_THAN_EQUALS GREATER_THAN GREATER_THAN_EQUALS
 %token TIMES_ASSIGN DIVIDE_ASSIGN MOD_ASSIGN PLUS_ASSIGN MINUS_ASSIGN LSHIFT_ASSIGN RSHIFT_ASSIGN AND_ASSIGN XOR_ASSIGN OR_ASSIGN 
 %token AUTO REGISTER STATIC EXTERN TYPEDEF
 %token VOID CHAR SHORT INT LONG FLOAT DOUBLE SIGNED UNSIGNED
@@ -80,6 +82,24 @@ assignment_operator:
  | XOR_ASSIGN { XorAsn }
  | OR_ASSIGN { OrAsn }
 
+binary_operator:
+   AND { And }
+ | OR { Or }
+ | BITWISE_AND { BitAnd }
+ | BITWISE_OR { BitOr }
+ | XOR { Xor }
+ | NOT { Not }
+ | LSHIFT { Lsh }
+ | RSHIFT { Rsh }
+
+logical_opeator:
+   EQUALS { Eql }
+ | NOT_EQUALS { NotEql }
+ | LESS_THAN { Less } 
+ | LESS_THAN_EQUALS { LessEql }
+ | GREATER_THAN { Greater }
+ | GREATER_THAN_EQUALS { GreaterEql }
+
 add_expr:
   add_expr PLUS mult_expr { Binop($1, Add, $3) }
   | add_expr MINUS mult_expr { Binop($1, Sub, $3) }
@@ -88,6 +108,7 @@ add_expr:
 mult_expr:
     mult_expr TIMES primary_expr { Binop($1, Mul, $3) }
   | mult_expr DIVIDE primary_expr { Binop($1, Div, $3) }
+  | mult_expr MOD primary_expr { Binop($1, Mod, $3) }
   | primary_expr             { $1 }
 
 primary_expr:

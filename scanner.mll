@@ -12,13 +12,29 @@ rule token = parse
 | "*=" { TIMES_ASSIGN }
 | '/' { DIVIDE }
 | "/=" { DIVIDE_ASSIGN }
+| '%' { MOD }
 | "%=" { MOD_ASSIGN }
+| "<<" { LSHIFT }
 | "<<=" { LSHIFT_ASSIGN }
+| ">>" { RSHIFT }
 | ">>=" { RSHIFT_ASSIGN }
+| "&&" { AND }
+| '&' { BITWISE_AND }
 | "&=" { AND_ASSIGN }
+| '^' { XOR }
 | "^=" { XOR_ASSIGN }
+| "||" { OR }
+| '|' { BITWISE_OR }
 | "|=" { OR_ASSIGN }
+| '~' { NOT }
+| "!=" { NOT_EQUALS }
+| "==" { EQUALS }
+| '<' { LESS_THAN }
+| "<=" { LESS_THAN_EQUALS }
+| ">" { GREATER_THAN }
+| ">=" { GREATER_THAN_EQUALS }
 | ['0'-'9']+ as lit { INT_LITERAL(int_of_string lit) }
+| ['0'-'9']*+'.'+['0'-'9']* as lit { FLOAT_LITERAL(float_of_string lit) }
 | "extends" { EXTENDS }
 | "implements" { IMPLEMENTS }
 | "auto" { AUTO }
