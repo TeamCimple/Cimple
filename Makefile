@@ -1,6 +1,6 @@
 TARFILES = Makefile scanner.mll parser.mly ast.mli cimple.ml
 
-OBJS = parser.cmo scanner.cmo semant.cmo cimple.cmo  
+OBJS = parser.cmo scanner.cmo astutil.cmo semant.cmo cimple.cmo  
 
 cimple: $(OBJS)
 	ocamlc -o cimple $(OBJS)
@@ -46,7 +46,8 @@ parser.cmx: ast.cmi parser.cmi
 scanner.cmo: parser.cmi  
 scanner.cmx: parser.cmx
 parser.cmi: ast.cmi
-semant.cmi: ast.cmi
+semant.cmi: ast.cmi astutil.cmi
 semant.cmo: ast.cmi semant.cmi
 semant.cmx: ast.cmi semant.cmi
-
+astutil.cmi: ast.cmi
+astutil.cmo: ast.cmi

@@ -95,7 +95,6 @@ type tStruct = {
         implements: string;
 }
 
-
 type tFuncDecl = {
         return_type: tDeclarationSpecifiers;
         func_name: tDeclarator;
@@ -106,4 +105,4 @@ type tProgram = {
         globals: tDeclaration list;
         structs: tStruct list;
         functions: tFuncDecl list;
-} 
+}

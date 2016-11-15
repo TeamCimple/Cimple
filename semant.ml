@@ -1,6 +1,4 @@
-
 open Ast
-
 
 let rec type_from_declaration_specifiers = function
    DeclSpecTypeSpec(tspec) -> PrimitiveType(tspec)
@@ -26,3 +24,7 @@ let rec type_from_expr (varLookupList, expr)= match expr with
                         ( match a with 
                           (n, (true, varType)) -> varType
                         | _ -> raise (Failure ("Undeclared identifier")))
+ | AsnExpr(id, _, _) -> type_from_expr (varLookupList, Id(id))
+ | Noexpr -> Void
+
+
