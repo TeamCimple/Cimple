@@ -26,6 +26,14 @@ let lookup_symbol_from_id symbols id = match id with
                                | false -> raise(Failure("Undeclared identifier")) )
  | _ -> raise(Failure("symbol_from_id: parameter is an expression, but not an identifier"))
 
+let check_compatible_types symbols (t1, t2) = match (t1, t2) with
+    (PrimitiveType(pt1), PrimitiveType(pt2)) -> if pt1 == Void || pt2 == Void then
+                                                raise(Failure("Cannot assign to void type"))
+                                                else ()
+                                            (*else (locals@[symbol_from_declaration decl], globals)*)
+   | (CustomType(_), CustomType(_)) -> () 
+   | (StringType, StringType) -> ()
+   | _ -> raise(Failure("check_compatible_types: CompoundType not yet supported"))
 
 let rec type_from_declaration_specifiers = function
    DeclSpecTypeSpec(tspec) -> PrimitiveType(tspec)
@@ -76,22 +84,20 @@ let symbol_from_declaration = function
                                                                type_from_declaration_specifiers declspec)
    | _ -> raise(Failure("symbol_from_declaration: Unrecognized declaration"))    
 
-let check_expr symbols e = match e with
+let rec check_expr symbols e = match e with
      Id(Identifier(name)) -> if (symbol_exists symbols name) == false then
                                 raise(Failure("Undeclared identifier"))
                              else ()
-
-let check_compatible_types symbols (t1, t2) = match (t1, t2) with
-    (PrimitiveType(pt1), PrimitiveType(pt2)) -> if pt1 == Void || pt2 == Void then
-                                                raise(Failure("Cannot assign to void type"))
-                                                else ()
-                                            (*else (locals@[symbol_from_declaration decl], globals)*)
-   (*| (CustomType(_), CustomType(_)) -> (locals@[symbol_from_declaration decl], globals)*)
-   | (CustomType(_), CustomType(_)) -> () 
-   (*| (StringType, StringType) -> (locals@[symbol_from_declaration decl], globals)*)
-   | (StringType, StringType) -> ()
-   | _ -> raise(Failure("check_compatible_types: CompoundType not yet supported"))
-
+   | Binop(e1, _, e2) -> let t1 = type_from_expr symbols e1 in
+                         let t2 = type_from_expr symbols e2 in 
+                         check_compatible_types symbols (t1, t2)
+   | Unop(e, unop) -> check_expr symbols e;
+                      let te = type_from_expr symbols e in 
+                      (match (te, unop) with
+                          (PrimitiveType(Void), _) -> raise(Failure("Cannot apply unary operator to void type"))
+                        | (PrimitiveType(_), _) -> ()
+                        | _ -> raise(Failure("Type/Unary Operator mismatch")))
+                        
 
 (* check_local_declaration is meant to be used as an argument to
  *  a List.fold_left to iterate a functions declaration list *)
