@@ -81,23 +81,36 @@ let check_expr symbols e = match e with
                                 raise(Failure("Undeclared identifier"))
                              else ()
 
+let check_compatible_types symbols (t1, t2) = match (t1, t2) with
+    (PrimitiveType(pt1), PrimitiveType(pt2)) -> if pt1 == Void || pt2 == Void then
+                                                raise(Failure("Cannot assign to void type"))
+                                                else ()
+                                            (*else (locals@[symbol_from_declaration decl], globals)*)
+   (*| (CustomType(_), CustomType(_)) -> (locals@[symbol_from_declaration decl], globals)*)
+   | (CustomType(_), CustomType(_)) -> () 
+   (*| (StringType, StringType) -> (locals@[symbol_from_declaration decl], globals)*)
+   | (StringType, StringType) -> ()
+   | _ -> raise(Failure("check_compatible_types: CompoundType not yet supported"))
+
 
 (* check_local_declaration is meant to be used as an argument to
  *  a List.fold_left to iterate a functions declaration list *)
-let check_local_declaration decl (locals, globals) = match decl with
+let rec check_local_declaration decl (locals, globals) = match decl with
      Declaration(declspec, InitDeclarator(ddecl)) -> if symbol_exists locals (var_name_from_declaration decl) == true then 
                                                         raise(Failure("Duplicate identifier")) 
                                                      else (locals@[symbol_from_declaration decl], globals)
    | Declaration(declspec, InitDeclaratorAsn(declarator, asnOp, expr)) -> 
                    (*ignore(check_expr locals@globals expr);*)
                    (*ignore(symbol_exists locals (var_name_from_declaration decl)); [>Check not already declared <]*)
-                  let VarSymbol(_, t1) = symbol_from_declaration decl in
-                  let t2 = type_from_expr (locals@globals) expr in
-                  (match (t1, t2) with 
-                        (PrimitiveType(pt1), PrimitiveType(pt2)) -> if pt1 == Void || pt2 == Void then
-                                                                        raise(Failure("Cannot assign to void type"))
-                                                                    else (locals@[symbol_from_declaration decl], globals)
-                      | (CustomType(_), CustomType(_)) -> (locals@[symbol_from_declaration decl], globals)
-                      | (StringType, StringType) -> (locals@[symbol_from_declaration decl], globals)
-                      | _ -> raise(Failure("check_local_declaration: CompoundType not yet supported")))
-
+                   let sym = symbol_from_declaration decl in
+                   (match sym with
+                       VarSymbol(_, t1) -> let t2 = type_from_expr locals expr in
+                                               check_compatible_types locals (t1, t2);
+                                               (locals@[sym], globals)
+                     | FuncSymbol(_, t1, _) -> let t2 = type_from_expr locals expr in 
+                                                check_compatible_types locals (t1, t2);
+                                               (locals@[sym], globals))
+  | Declaration(declspec, InitDeclList(x)) -> let build_declaration_list l d = Declaration(declspec, d)::l in 
+                                              let declList = List.rev (List.fold_left build_declaration_list [] x) in
+                                              List.fold_right check_local_declaration declList (locals, globals)
+                                                          
