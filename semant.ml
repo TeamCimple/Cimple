@@ -97,6 +97,16 @@ let rec check_expr symbols e = match e with
                           (PrimitiveType(Void), _) -> raise(Failure("Cannot apply unary operator to void type"))
                         | (PrimitiveType(_), _) -> ()
                         | _ -> raise(Failure("Type/Unary Operator mismatch")))
+   | AsnExpr(id, asnOp, e) -> check_expr symbols (Id(id));
+                              check_expr symbols e;
+                              let t1 = type_from_expr symbols e in
+                              let t2 = type_from_expr symbols (Id(id)) in
+                              (match (t1, t2) with
+                                 (PrimitiveType(Void), _) | (_, PrimitiveType(Void)) -> raise(Failure("Cannot assign to type void"))
+                               | (PrimitiveType(_), CustomType(_)) -> raise(Failure("Cannot assign a struct to a primitive type"))
+                               | (CustomType(_), PrimitiveType(_)) -> raise(Failure("Cannot assign a primitive type to a struct"))
+                               | (StringType, (PrimitiveType(_) | CustomType(_))) -> raise(Failure("Cannot assign a non-string to a string"))
+                               | _ -> ())
                         
 
 (* check_local_declaration is meant to be used as an argument to
