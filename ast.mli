@@ -23,6 +23,7 @@ type tTypeSpec =
 type tType = 
      PrimitiveType of tTypeSpec
    | CustomType of string
+   | StringType
    | CompoundType of tType * tType
 
 type tIdentifier = Identifier of string
@@ -98,7 +99,7 @@ type tStruct = {
 type tFuncDecl = {
         return_type: tDeclarationSpecifiers;
         func_name: tDeclarator;
-        params: tFuncParamList;
+        params: tFuncParam list;
         body: tStatement }
 
 type tProgram = {
@@ -106,3 +107,9 @@ type tProgram = {
         structs: tStruct list;
         functions: tFuncDecl list;
 }
+
+type sSymbol =
+    VarSymbol of string * tType 
+  | FuncSymbol of string * tType * tType list
+
+
