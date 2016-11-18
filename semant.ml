@@ -129,4 +129,9 @@ let rec check_local_declaration decl (locals, globals) = match decl with
   | Declaration(declspec, InitDeclList(x)) -> let build_declaration_list l d = Declaration(declspec, d)::l in 
                                               let declList = List.rev (List.fold_left build_declaration_list [] x) in
                                               List.fold_right check_local_declaration declList (locals, globals)
-                                                          
+
+let rec check_statement stmt (locals, globals) = match stmt with
+     Expr(e) -> check_expr (locals@globals) e
+  | Return(e) -> check_expr (locals@globals) e
+  
+     
