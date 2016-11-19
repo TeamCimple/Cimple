@@ -20,8 +20,10 @@ let rec type_from_declaration_specifiers = function
  | DeclSpecTypeSpecInitList(t, tDeclSpecs) -> CompoundType(t, type_from_declaration_specifiers tDeclSpecs)
  
 let symbol_from_declaration = function 
-     Declaration(declspec, InitDeclarator(ddecl)) -> VarSymbol(var_name_from_direct_declarator ddecl,
-                                                               type_from_declaration_specifiers declspec)
+     Declaration(declspec, t) -> (let x =
+             Declaration(declspec, t) in
+     VarSymbol(var_name_from_declaration x, type_from_declaration_specifiers
+     declspec))
    | _ -> raise(Failure("symbol_from_declaration: Unrecognized declaration"))    
 
 let symbols_from_decls decls = List.map symbol_from_declaration decls
