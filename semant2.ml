@@ -41,4 +41,6 @@ let check_program program =
 
        report_duplicate (fun a -> "duplicate functions: " ^ a) (fnames);
 
+       let has_main = List.mem "main" fnames in
 
+       if has_main then () else raise(Failure("no function main declared")) 
