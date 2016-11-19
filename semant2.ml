@@ -24,6 +24,12 @@ let symbol_from_declaration = function
                                                                type_from_declaration_specifiers declspec)
    | _ -> raise(Failure("symbol_from_declaration: Unrecognized declaration"))    
 
+let symbols_from_decls decls = List.map symbol_from_declaration decls
+
+let get_id_from_symbol = function
+        VarSymbol(id, _) -> id
+   | FuncSymbol(id, _, _) -> id
+
 let get_decls_from_compound_stmt stmt = match stmt with 
         CompoundStatement(x, y) -> x
    | _ -> []
@@ -51,23 +57,24 @@ let check_program program =
        (var_name_from_direct_declarator func.func_name) func m) StringMap.empty
        program.functions in
 
-       (* Build map of global declarations *)
-             let check_function func = 
+        let check_function func = 
                 let local_decls = List.map var_name_from_declaration
                 (get_decls_from_compound_stmt func.body) in
 
                 report_duplicate (fun a -> "duplicate local variable: " ^ a)
                 (local_decls);
 
-                let symbols = List.fold_left (fun m decl -> if StringMap.mem
-                (var_name_from_declaration decl) m then
+
+                let symbol_table = List.fold_left (fun m symbol -> if StringMap.mem
+                (get_id_from_symbol symbol) m then
                         raise(Failure("redefining global")) else StringMap.add
-       (var_name_from_declaration decl) decl m) StringMap.empty
-       (program.globals @ (get_decls_from_compound_stmt func.body))
-       in
+                        (get_id_from_symbol symbol) symbol m) StringMap.empty
+                         (symbols_from_decls program.globals @ (symbols_from_decls
+                         (get_decls_from_compound_stmt func.body)))
+                in
  
 
-                if StringMap.is_empty symbols then () else
+                if StringMap.is_empty symbol_table then () else
                         raise(Failure("sdfsdf"))
 
         in List.iter check_function program.functions;
