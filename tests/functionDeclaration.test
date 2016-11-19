@@ -4,6 +4,10 @@ int test()
 {
 }
 
+int test()
+{
+}
+
 int main(int argc)
 {
 	int a;

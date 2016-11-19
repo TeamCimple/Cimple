@@ -130,8 +130,30 @@ let rec check_local_declaration decl (locals, globals) = match decl with
                                               let declList = List.rev (List.fold_left build_declaration_list [] x) in
                                               List.fold_right check_local_declaration declList (locals, globals)
 
+let check_bool_expr symbols expr = if (type_from_expr symbols expr) != PrimitiveType(Int) then raise
+(Failure ("invalid conditional"))
+else ()
+
+let rec do_all f a x = match x with 
+  | [] -> ()
+  | h :: t -> (f h a); do_all f a t
+
+let check_function func (locals, globals) = 
+
 let rec check_statement stmt (locals, globals) = match stmt with
      Expr(e) -> check_expr (locals@globals) e
-  | Return(e) -> check_expr (locals@globals) e
-  
-     
+  | Return(e) -> if type_from_expr (locals@globals) e !=
+          type_from_declaration_specifiers func.return_type then
+          raise (Failure ("mismatch of return signature and returned value"))
+  else ()
+  | If(e, s1, s2) -> check_bool_expr (locals@globals) e; check_statement s1
+  (locals, globals); check_statement s2 (locals, globals)
+  | EmptyElse -> ();
+  | For(_, e2, _, st) -> check_bool_expr (locals@globals) e2; check_statement st
+  (locals, globals)
+  | While(e, s) -> check_bool_expr (locals@globals) e; check_statement s
+  (locals, globals)
+  | CompoundStatement(dl, sl) -> (do_all check_local_declaration (locals,
+  globals) dl); do_all check_statement (locals, globals) sl
+
+in check_statement func.body (locals, globals)
