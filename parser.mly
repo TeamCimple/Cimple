@@ -3,6 +3,7 @@
 %token SEMICOLON
 %token <int> INT_LITERAL
 %token <float> FLOAT_LITERAL
+%token <string> STRING_LITERAL
 %token <string> IDENTIFIER
 %token <string> STRUCT_IDENTIFIER
 %token ASSIGN
@@ -12,7 +13,7 @@
 %token EQUALS NOT_EQUALS LESS_THAN LESS_THAN_EQUALS GREATER_THAN GREATER_THAN_EQUALS
 %token TIMES_ASSIGN DIVIDE_ASSIGN MOD_ASSIGN PLUS_ASSIGN MINUS_ASSIGN LSHIFT_ASSIGN RSHIFT_ASSIGN AND_ASSIGN XOR_ASSIGN OR_ASSIGN 
 %token AUTO REGISTER STATIC EXTERN TYPEDEF
-%token VOID CHAR SHORT INT LONG FLOAT DOUBLE SIGNED UNSIGNED
+%token VOID CHAR SHORT INT LONG FLOAT DOUBLE SIGNED UNSIGNED STRING
 %token CONST VOLATILE
 %token STRUCT UNION
 %token SWITCH CASE ENUM DEFAULT IF ELSE
@@ -123,7 +124,8 @@ mult_expr:
 primary_expr:
   LPAREN expr RPAREN         { $2 }
   | FLOAT_LITERAL            { FloatLiteral($1) }
-  | INT_LITERAL               { Literal($1) }
+  | INT_LITERAL              { Literal($1) }
+  | STRING_LITERAL           { StringLiteral($1) }
   | IDENTIFIER               { Id(Identifier($1))}
 
 type_specifier:
@@ -136,6 +138,7 @@ type_specifier:
   | DOUBLE { Double }
   | SIGNED { Signed }
   | UNSIGNED { Unsigned }
+  | STRING { String }
 
 storage_class_specifier:
         AUTO   { Auto }  
