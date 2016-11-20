@@ -59,6 +59,7 @@ let get_parameter_list symbol = match symbol with
 let rec type_from_expr symbols expr = match expr with
    Literal(_) -> PrimitiveType(Int)
   | FloatLiteral(_) -> PrimitiveType(Float)
+  | StringLiteral(_) -> PrimitiveType(String)
   | Unop(e, _) -> type_from_expr symbols e
   | Binop(e1, _, _) -> type_from_expr symbols e1
   | Call(Identifier(id), _) -> type_from_identifier symbols id 
@@ -72,10 +73,14 @@ let check_compatible_types t1 t2 = match (t1, t2) with
        | Void, Void -> raise(Failure("Cannot assign to void type"))
        | Int, Float -> raise(Failure("assigning float to int"))
        | Float, Int -> raise(Failure("assigning int to float"))
+       | String, Float -> raise(Failure("assigning float to string"))
+       | String, Int -> raise(Failure("assigning int to string"))
+       | Int, String -> raise(Failure("assigning string to int"))
+       | Float, String -> raise(Failure("assigning string to float"))
        | Int, Int -> ()
-       | Float, Float -> ())
+       | Float, Float -> ()
+       | String, String -> ())
   | (CustomType(_), CustomType(_)) -> ()
-  | (StringType, StringType) -> ()
   | _ -> raise(Failure("check_compatible_types: CompoundType not yet
   supported"))
 
@@ -113,7 +118,6 @@ let rec check_expr symbols e = match e with
                                  (PrimitiveType(Void), _) | (_, PrimitiveType(Void)) -> raise(Failure("Cannot assign to type void"))
                                | (PrimitiveType(_), CustomType(_)) -> raise(Failure("Cannot assign a struct to a primitive type"))
                                | (CustomType(_), PrimitiveType(_)) -> raise(Failure("Cannot assign a primitive type to a struct"))
-                               | (StringType, (PrimitiveType(_) | CustomType(_))) -> raise(Failure("Cannot assign a non-string to a string"))
                                | _ -> ())
 
 let symbols_from_decls decls = List.map symbol_from_declaration decls
@@ -193,10 +197,22 @@ let check_program program =
        let has_main = List.mem "main" fnames in
        if has_main then () else raise(Failure("no function main declared")); 
 
+       let is_printf_redefined = List.mem "printf" fnames in
+       if is_printf_redefined then raise(Failure("cannot redefine printf")) else
+               ();
+
+       let fdecls = program.functions @ [{
+               return_type = DeclSpecTypeSpec(Int); 
+               func_name = DirectDeclarator(Var(Identifier("printf")));
+               params = [FuncParamsDeclared(DeclSpecTypeSpec(String),
+               DirectDeclarator(Var(Identifier("x"))))];
+               body = CompoundStatement([], []);                                          
+       }] in
+
        (* Build map of function declarations *)
        let functions_map = List.fold_left (fun m func -> StringMap.add
        (var_name_from_direct_declarator func.func_name) func m) StringMap.empty
-       program.functions in
+       fdecls in
 
         let check_function func =
                 let func_params = List.map var_name_from_func_param func.params
@@ -219,7 +235,7 @@ let check_program program =
                         (var_name_from_direct_declarator func.func_name))) else StringMap.add
                         (get_id_from_symbol symbol) symbol m) StringMap.empty
                          (symbols_from_decls program.globals @
-                         symbols_from_fdecls program.functions @
+                         symbols_from_fdecls fdecls @
                          (symbols_from_func_params func.params) @ (symbols_from_decls
                          (get_decls_from_compound_stmt func.body)))
                 in

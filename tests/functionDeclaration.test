@@ -8,8 +8,10 @@ int test(int p)
 
 int main(int argc)
 {
+	string c = "abcde";
 	int b = 1;
 	test(b);
+	printf(c);
 	return b;
 }
 

@@ -19,11 +19,11 @@ type tTypeSpec =
         | Double 
         | Signed 
         | Unsigned
+        | String
 
 type tType = 
      PrimitiveType of tTypeSpec
    | CustomType of string
-   | StringType
    | CompoundType of tType * tType
 
 type tIdentifier = Identifier of string
@@ -42,6 +42,7 @@ type tExpr =
   | AsnExpr of tIdentifier * tAssignmentOperator * tExpr 
   | Literal of int
   | FloatLiteral of float
+  | StringLiteral of string
   | Postfix of tExpr * tPostfixOperator * tExpr
   | Call of tIdentifier * tExpr list
   | Id of tIdentifier
