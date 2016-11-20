@@ -1,17 +1,15 @@
 int aGlobal;
+int a;
 
-int test()
+int test(int p)
 {
-}
-
-int test()
-{
+	return 1;
 }
 
 int main(int argc)
 {
-	int a;
-
 	int b = 1;
+	test(b);
+	return b;
 }
 

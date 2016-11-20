@@ -1,5 +1,4 @@
 int a = 1;
-int a = 3;
 
 struct MyStruct extends YourStruct implements HisInterface{
 	int a;

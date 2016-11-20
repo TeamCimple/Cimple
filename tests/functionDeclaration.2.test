@@ -1,4 +1,4 @@
-int some_function()
+int main()
 {
 	23 + 1;
 }
