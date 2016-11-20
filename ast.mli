@@ -43,6 +43,7 @@ type tExpr =
   | Literal of int
   | FloatLiteral of float
   | Postfix of tExpr * tPostfixOperator * tExpr
+  | Call of tIdentifier * tExpr list
   | Id of tIdentifier
   | Noexpr
 

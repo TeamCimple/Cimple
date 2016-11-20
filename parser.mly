@@ -56,6 +56,7 @@ expr_opt:
 
 expr:
   assignment_expression { $1 }
+  | func_call_expr { $1 }
 
 assignment_expression:
   IDENTIFIER assignment_operator expr { AsnExpr(Identifier($1), $2, $3) }
@@ -68,6 +69,14 @@ postfix_expr:
   | postfix_expr PERIOD IDENTIFIER { Postfix($1, PostDeref, Id(Identifier($3))) }
   | postfix_expr PLUS PLUS { Postfix($1, PostPlusPlus, Noexpr) }
   | postfix_expr MINUS MINUS { Postfix($1, PostMinusMinus, Noexpr) }
+
+func_call_expr:
+        IDENTIFIER LPAREN expr_list RPAREN  { Call(Identifier($1), $3) }
+
+expr_list:
+  /* Nothing */ { [] }
+| expr    { [$1] }
+| expr_list COMMA expr { $3 :: $1 }
 
 assignment_operator:
    ASSIGN { Asn }

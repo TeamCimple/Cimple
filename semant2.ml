@@ -15,13 +15,17 @@ let var_name_from_declaration = function
    | _ -> raise(Failure("var_name_from_declaration: not yet supported")) 
 
 let var_name_from_func_param = function
-   | FuncParamsDeclared(_, x) -> var_name_from_direct_declarator x 
+    FuncParamsDeclared(_, x) -> var_name_from_direct_declarator x 
    | _ -> raise(Failure("pointers not supported"))
 
 let rec type_from_declaration_specifiers = function
    DeclSpecTypeSpec(tspec) -> PrimitiveType(tspec)
  | DeclSpecTypeSpecAny(t) -> t
  | DeclSpecTypeSpecInitList(t, tDeclSpecs) -> CompoundType(t, type_from_declaration_specifiers tDeclSpecs)
+
+let type_from_func_param = function
+    FuncParamsDeclared(t, _) -> type_from_declaration_specifiers t
+   | _ -> raise(Failure("Only supports declared parameters"))
 
 let symbol_from_func_param p = match p with
    | FuncParamsDeclared(decl_specs, decl) ->
@@ -36,31 +40,40 @@ let symbol_from_declaration decl = match decl with
      declspec)
    | _ -> raise(Failure("symbol_from_declaration: Unrecognized declaration"))    
 
+let symbol_from_fdecl fdecl = FuncSymbol(var_name_from_direct_declarator
+        fdecl.func_name, type_from_declaration_specifiers fdecl.return_type,
+        List.map type_from_func_param fdecl.params)
+
 let lookup_symbol_by_id symbols id = try StringMap.find id symbols with
         Not_found -> raise(Failure("undeclared identifier: " ^ id))
- 
 
 let type_from_identifier symbols id = 
         let x = lookup_symbol_by_id symbols id in match x with 
         | VarSymbol(_, t) -> t
         | FuncSymbol(_, t, _) -> t
 
+let get_parameter_list symbol = match symbol with 
+        FuncSymbol(_, _, tlist) -> tlist
+        | _ -> raise(Failure("Shouldn't get parameter list for Var Symbol"))
+
 let rec type_from_expr symbols expr = match expr with
    Literal(_) -> PrimitiveType(Int)
   | FloatLiteral(_) -> PrimitiveType(Float)
   | Unop(e, _) -> type_from_expr symbols e
   | Binop(e1, _, _) -> type_from_expr symbols e1
+  | Call(Identifier(id), _) -> type_from_identifier symbols id 
   | Id(Identifier(id)) -> type_from_identifier symbols id
   | AsnExpr(Identifier(id), _, _) -> type_from_identifier symbols id
   | Noexpr -> PrimitiveType(Void)
 
 
-let check_compatible_types (t1, t2) = match (t1, t2) with
+let check_compatible_types t1 t2 = match (t1, t2) with
        (PrimitiveType(pt1), PrimitiveType(pt2)) -> (match pt1, pt2 with 
        | Void, Void -> raise(Failure("Cannot assign to void type"))
        | Int, Float -> raise(Failure("assigning float to int"))
        | Float, Int -> raise(Failure("assigning int to float"))
-       | Int, Int -> ())
+       | Int, Int -> ()
+       | Float, Float -> ())
   | (CustomType(_), CustomType(_)) -> ()
   | (StringType, StringType) -> ()
   | _ -> raise(Failure("check_compatible_types: CompoundType not yet
@@ -70,9 +83,23 @@ let rec check_expr symbols e = match e with
      Id(Identifier(name)) -> if (StringMap.mem name symbols) == false then
                                 raise(Failure("Undeclared identifier"))
                              else ()
-   | Binop(e1, _, e2) -> let t1 = type_from_expr symbols e1 in
+
+  | Binop(e1, _, e2) -> let t1 = type_from_expr symbols e1 in
                          let t2 = type_from_expr symbols e2 in 
-                         check_compatible_types (t1, t2)
+                         check_compatible_types t1 t2
+
+   | Call(Identifier(id), expr_list) -> ignore (type_from_identifier symbols id); 
+                                        
+                        let paramList = get_parameter_list (lookup_symbol_by_id symbols id) in 
+                                       
+                        let exprList = List.map (type_from_expr symbols) expr_list in
+
+                        if List.length paramList != List.length exprList then 
+                                raise(Failure("Parameter count mismatch"))
+                        else 
+                            List.iter2 check_compatible_types paramList
+                            (List.map (type_from_expr symbols) expr_list)
+
    | Unop(e, unop) -> check_expr symbols e;
                       let te = type_from_expr symbols e in 
                       (match (te, unop) with
@@ -94,6 +121,8 @@ let symbols_from_decls decls = List.map symbol_from_declaration decls
 let symbols_from_func_params func_params = List.map symbol_from_func_param
 func_params
 
+let symbols_from_fdecls fdecls = List.map symbol_from_fdecl fdecls
+
 let get_id_from_symbol = function
         VarSymbol(id, _) -> id
    | FuncSymbol(id, _, _) -> id
@@ -113,15 +142,15 @@ let check_local_declaration symbols decl = match decl with
              let sym = symbol_from_declaration decl in 
              (match sym with
                  VarSymbol(_, t1) -> let t2 = type_from_expr symbols expr in
-                                          check_compatible_types (t1, t2)
+                                          check_compatible_types t1 t2
                 | FuncSymbol(_, t1, _) -> let t2 = type_from_expr symbols expr
-                in check_compatible_types (t1, t2))
+                in check_compatible_types t1 t2)
 
     | _ -> raise(Failure("check_local_declaration not supported"))
 
 
-let check_bool_expr symbols expr = check_compatible_types ((type_from_expr symbols
-expr), (PrimitiveType(Int)))
+let check_bool_expr symbols expr = check_compatible_types (type_from_expr symbols
+expr) (PrimitiveType(Int))
 
 
 let add_to_symbol_table tbl decls = List.fold_left (fun m symbol -> if StringMap.mem
@@ -133,8 +162,8 @@ let add_to_symbol_table tbl decls = List.fold_left (fun m symbol -> if StringMap
  
 let rec check_statement func symbol_table stmt = match stmt with
      Expr(e) -> check_expr symbol_table e
-  | Return(e) -> check_compatible_types ((type_from_expr symbol_table e),
-  (type_from_declaration_specifiers func.return_type))
+  | Return(e) -> check_compatible_types (type_from_expr symbol_table e)
+  (type_from_declaration_specifiers func.return_type)
   | If(e, s1, s2) -> check_bool_expr symbol_table e; check_statement
   func symbol_table s1;  check_statement func symbol_table s2
   | EmptyElse -> ()
@@ -190,6 +219,7 @@ let check_program program =
                         (var_name_from_direct_declarator func.func_name))) else StringMap.add
                         (get_id_from_symbol symbol) symbol m) StringMap.empty
                          (symbols_from_decls program.globals @
+                         symbols_from_fdecls program.functions @
                          (symbols_from_func_params func.params) @ (symbols_from_decls
                          (get_decls_from_compound_stmt func.body)))
                 in
