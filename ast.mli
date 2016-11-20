@@ -70,8 +70,6 @@ type tDeclarationSpecifiers =
 type tDeclaration = 
    Declaration of tDeclarationSpecifiers * tInitDeclarator
 
-type tDeclarationList = tDeclaration list
-
 type tTypeSpecIndicator = 
         TypeSpec of tTypeSpec
       | TypeSpecWithDeclSpec of tTypeSpec * tDeclarationSpecifiers
@@ -86,7 +84,7 @@ type tStatement =
     Expr of tExpr
   | EmptyElse
   | Return of tExpr
-  | CompoundStatement of tDeclarationList * tStatement list
+  | CompoundStatement of tDeclaration list * tStatement list
   | If of tExpr * tStatement * tStatement
   | For of tExpr * tExpr * tExpr * tStatement
   | While of tExpr * tStatement
