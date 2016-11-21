@@ -1,13 +1,8 @@
 
-int add(int x, int y)
-{
-	return x + y;
-}
-
 int main(int argc)
 {
-	string c = "Hello World";
+	string c = "Hello World\n";
 	printf(c);
-	return add(2, 4);
+	return 0;
 } 
 
