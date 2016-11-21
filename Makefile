@@ -1,11 +1,12 @@
 TARFILES = Makefile scanner.mll parser.mly ast.mli cimple.ml
 
-OBJS = parser.cmo scanner.cmo astutil.cmo semant2.cmo codegen.cmo cimple.cmo  
+OBJS = parser.cmo scanner.cmo astutil.cmo semant.cmo codegen.cmo cimple.cmo  
+
+all: clean cimple
 
 cimple: $(OBJS)
 	ocamlc -o cimple $(OBJS)
 
-all: $(OBJS)
 
 
 scanner.ml : scanner.mll
@@ -23,13 +24,14 @@ parser.ml parser.mli : parser.mly
 .PHONY : test
 
 test: cimple
-	cat tests/functionDeclaration.test | ./cimple > tests/functionDeclaration.c
+	cat tests/functionDeclaration.test | ./cimple -a > tests/functionDeclaration.c
 	cat tests/functionDeclaration.2.test | ./cimple > tests/functionDeclaration.2.c
 	cat tests/functionDeclaration.3.test | ./cimple > tests/functionDeclaration.3.c
-	cat tests/program.test | ./cimple > tests/program.c
+	cat tests/program.test | ./cimple -a > tests/program.c
 	cat tests/program.1.test | ./cimple > tests/program.1.c
 	cat tests/program.2.test | ./cimple > tests/program.2.c
 	cat tests/float_check.test | ./cimple > tests/float_check.c
+	cat tests/helloWorld.cpl | ./cimple > tests/helloWorld.c 
 	
 
 .PHONY : clean
@@ -42,15 +44,15 @@ calc.cmx: scanner.cmx parser.cmx ast.cmi
 codegen.cmi: ast.cmi
 codegen.cmo: ast.cmi codegen.cmi
 codegen.cmx: ast.cmi codegen.cmi
-cimple.cmo: codegen.cmo semant2.cmo scanner.cmo parser.cmi ast.cmi
-cimple.cmx: codegen.cmx semant2.cmx scanner.cmx parser.cmx ast.cmi
+cimple.cmo: codegen.cmo semant.cmo scanner.cmo parser.cmi ast.cmi
+cimple.cmx: codegen.cmx semant.cmx scanner.cmx parser.cmx ast.cmi
 parser.cmo: ast.cmi parser.cmi 
 parser.cmx: ast.cmi parser.cmi
 scanner.cmo: parser.cmi  
 scanner.cmx: parser.cmx
 parser.cmi: ast.cmi
-semant2.cmi: ast.cmi astutil.cmi
-semant2.cmo: ast.cmi semant2.cmi
-semant2.cmx: ast.cmi semant2.cmi
-astutil.cmi: ast.cmi
-astutil.cmo: ast.cmi
+semant.cmi: ast.cmi astutil.cmi
+semant.cmo: ast.cmi semant.cmi
+semant.cmx: ast.cmi semant.cmi
+astutil.cmi: ast.cmi astutil.ml
+astutil.cmo: ast.cmi astutil.ml

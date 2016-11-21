@@ -50,10 +50,12 @@ let string_of_type_spec = function
       | Double -> "double"
       | Signed -> "signed"
       | Unsigned -> "unsigned"
+      | String -> "string"
 
-let string_of_type = function
+let rec string_of_type = function
       PrimitiveType(t) -> string_of_type_spec t
     | CustomType(t) -> t
+    | CompoundType(t1, t2) -> string_of_type t1 ^ string_of_type t2
 
 let string_of_storage_class_spec = function
         Auto -> "auto"
@@ -95,12 +97,17 @@ let rec string_of_expr = function
    Literal(x) -> "Int(" ^ string_of_int x ^ ")"
   | FloatLiteral(x) -> "Float(" ^ string_of_float x ^ ")"
   | Id (x) -> "Identifier(" ^ string_of_identifier x ^ ")"
-  | Noexpr -> "NOEXPR"
+  | Noexpr -> ""
   | AsnExpr(e1, asnOp, e) -> string_of_assignment_op asnOp ^ "(" ^
   string_of_identifier e1 ^  ", " ^ string_of_expr e ^ ")"
   | Binop(e1, op, e2) -> string_of_op op ^ "(" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ ")"
   | Unop(e, unOp) -> string_of_unary_op unOp ^ "(" ^ string_of_expr e ^ ")"
+  | Call(id, exprList) -> "Call(FunctionName: " ^ (string_of_identifier id) ^ " Params: " ^ (string_of_expr_list  exprList) ^ ")"
 
+and string_of_expr_list = function
+    [] -> ""
+  | [e] -> string_of_expr e
+  | h::t -> string_of_expr h ^ string_of_expr_list t
 
 let rec string_of_init_declarator = function
    InitDeclarator(x) -> string_of_declarator x
@@ -121,17 +128,17 @@ let rec string_of_declaration_list = function
 
 let rec string_of_statement = function
    Expr(e) -> "Statement(" ^ string_of_expr e ^ ")"
-  | Return(e) -> "RETURN " ^ (string_of_expr e)
+  | Return(e) -> "RETURN(" ^ (string_of_expr e) ^")"
   | If(e, s1, s2) -> "IF " ^ (string_of_expr e) ^" " ^ (string_of_statement s1)^ "
   " ^ (string_of_statement s2)
   | EmptyElse -> ""
   | For(e1, e2, e3, s) -> "FOR " ^ (string_of_expr e1) ^ " " ^ (string_of_expr
   e2) ^ " " ^ (string_of_expr e3) ^ " " ^ (string_of_statement s)
   | While(e, s) -> "WHILE " ^ (string_of_expr e) ^ " " ^ (string_of_statement s)
-  | CompoundStatement(dl, sl) -> "{\n" ^ "DECL_LIST(" ^
-  string_of_declaration_list dl ^ ")" ^  "\n" ^
-     "STMT_LIST(" ^ 
-     String.concat ", " (List.map string_of_statement sl) ^ ")" ^ "\n}"
+  | CompoundStatement(dl, sl) -> "CompoundStatement(Declarations: "  ^
+  string_of_declaration_list dl ^ " " ^
+     "StatementList: " ^ 
+     String.concat ", " (List.map string_of_statement sl) ^ ")"
 
 
 let rec string_of_statement_list = function
@@ -142,25 +149,26 @@ let string_of_func_param = function
         | FuncParamsDeclared(decl_specs, declarator) ->
                         "PARAM(" ^ string_of_declaration_specifiers
                         decl_specs ^ " " ^
-                        string_of_declarator declarator ^ ")"
+                        string_of_declarator declarator ^ ") "
         | ParamDeclWithType(decl_specs) -> "PARAM(" ^
-        string_of_declaration_specifiers decl_specs ^ ")"
+        string_of_declaration_specifiers decl_specs ^ ") "
 
 
-let string_of_func fdecl = "FuncDecl(\n" ^ 
-      string_of_declaration_specifiers fdecl.return_type ^ "\n" ^
-      string_of_declarator fdecl.func_name ^ "\n" ^ "PARAM_LIST(" ^ String.concat ", " (List.map
-      string_of_func_param fdecl.params) ^ ")\n" ^ string_of_statement 
-      fdecl.body ^ ")"
+let string_of_func fdecl = "FuncDecl(Name: " ^ 
+      string_of_declarator fdecl.func_name ^ " ReturnType: " ^
+      string_of_declaration_specifiers fdecl.return_type ^ " Parameters: " ^
+      String.concat ", " (List.map
+      string_of_func_param fdecl.params) ^ " Body: " ^ string_of_statement 
+      fdecl.body ^ ") "
          
-let string_of_struct struct_decl = "Struct(\n" ^
+let string_of_struct struct_decl = "Struct(" ^
         string_of_declaration_list struct_decl.members ^ ", " ^
         struct_decl.struct_name ^ ", " ^ struct_decl.extends ^ ", " ^
-        struct_decl.implements ^ ")\n"
+        struct_decl.implements ^ ")"
 
 let string_of_list_objs f list_objs = String.concat ", " (List.map f list_objs) 
 
 let string_of_program program =  
-        string_of_declaration_list program.globals  ^ "\n " ^ (string_of_list_objs
-        string_of_struct program.structs) ^ "\n " ^ (string_of_list_objs string_of_func
+        string_of_declaration_list program.globals  ^ (string_of_list_objs
+        string_of_struct program.structs) ^ (string_of_list_objs string_of_func
         program.functions)
