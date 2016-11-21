@@ -31,7 +31,8 @@ test: cimple
 	cat tests/program.1.test | ./cimple > tests/program.1.c
 	cat tests/program.2.test | ./cimple > tests/program.2.c
 	cat tests/float_check.test | ./cimple > tests/float_check.c
-	cat tests/helloWorld.cpl | ./cimple > tests/helloWorld.c 
+	cat tests/helloWorld.cpl | ./cimple > tests/helloWorld.c
+	cd tests/parse_trees/pass && ./run_tests.sh
 	
 
 .PHONY : clean
