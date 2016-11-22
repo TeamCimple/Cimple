@@ -1,4 +1,4 @@
-struct Employee{
+struct employee{
 	int age;
 	int salary;
 };
