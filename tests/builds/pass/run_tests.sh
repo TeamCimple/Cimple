@@ -14,13 +14,13 @@ function check_result
 # $1 is the test file name
 function run_test 
 {
-    ERR=$(cat $1 | $CPL > $1.c)
+    EXECUTABLE=${1%.*}
+    ERR=$(cat $1 | $CPL > $EXECUTABLE.c)
     RESULT=$?
 
     check_result $RESULT $ERR
 
-    EXECUTABLE=${1%.*}
-    ERR=$(gcc -o $EXECUTABLE $1.c > /dev/null 2>&1)
+    ERR=$(gcc -o $EXECUTABLE $EXECUTABLE.c > /dev/null 2>&1)
     RESULT=$?
 
     check_result $RESULT $ERR
@@ -39,7 +39,7 @@ function run_test
     
     echo "Test $1 passed"
 
-    rm $EXECUTABLE $EXECUTABLE.out $1.c 
+    rm $EXECUTABLE $EXECUTABLE.out $EXECUTABLE.c 
 }
 
 TESTS=(*.cpl)
