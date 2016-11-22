@@ -1,0 +1,16 @@
+int aGlobal;
+int a;
+
+int test(int p)
+{
+	return 1;
+}
+
+int main(int argc)
+{
+	int b = 1;
+	test(b);
+	printf(c);
+	return b;
+}
+

@@ -1,0 +1,1 @@
+(int EQUALS(Var(a) Float(345.89),), FuncDecl(Name: Var(main) ReturnType: int Parameters: PARAM(int Var(argc))  Body: CompoundStatement(Declarations:  StatementList: RETURN(Int(0)))) , FuncDecl(Name: Var(test) ReturnType: int Parameters:  Body: CompoundStatement(Declarations:  StatementList: RETURN(Int(1)))) 

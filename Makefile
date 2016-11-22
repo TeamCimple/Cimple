@@ -7,8 +7,6 @@ all: clean cimple
 cimple: $(OBJS)
 	ocamlc -o cimple $(OBJS)
 
-
-
 scanner.ml : scanner.mll
 	ocamllex scanner.mll
 

@@ -16,6 +16,7 @@ function run_test()
         exit 1
     fi
 
+    rm "$1.out"
     echo "Test $1 passed"
 }
 

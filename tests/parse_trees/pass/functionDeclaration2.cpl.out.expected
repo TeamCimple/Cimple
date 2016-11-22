@@ -1,0 +1,1 @@
+FuncDecl(Name: Var(main) ReturnType: int Parameters:  Body: CompoundStatement(Declarations:  StatementList: Statement(PLUS(Int(23), Int(1))))) 
