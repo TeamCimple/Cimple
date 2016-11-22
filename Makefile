@@ -24,17 +24,10 @@ parser.ml parser.mli : parser.mly
 .PHONY : test
 
 test: cimple
-	cat tests/functionDeclaration.test | ./cimple -a > tests/functionDeclaration.c
-	cat tests/functionDeclaration.2.test | ./cimple > tests/functionDeclaration.2.c
-	cat tests/functionDeclaration.3.test | ./cimple > tests/functionDeclaration.3.c
-	cat tests/program.test | ./cimple -a > tests/program.c
-	cat tests/program.1.test | ./cimple > tests/program.1.c
-	cat tests/program.2.test | ./cimple > tests/program.2.c
-	cat tests/float_check.test | ./cimple > tests/float_check.c
-	cat tests/helloWorld.cpl | ./cimple > tests/helloWorld.c
 	cd tests/parse_trees/pass && ./run_tests.sh
 	cd tests/builds/pass && ./run_tests.sh
-	
+	cd tests/builds/fail && ./run_tests.sh
+	echo "All tests passed"
 
 .PHONY : clean
 clean :

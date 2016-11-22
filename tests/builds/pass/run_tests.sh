@@ -4,7 +4,7 @@ CPL="../../../cimple"
 # $1 is the integer return status, $2 is a potential error message
 function check_result
 {
-    if [ $(($1)) -ne $((0)) ]; then
+    if [ $1 -ne 0 ]; then
         echo $2
         exit $1
     fi
