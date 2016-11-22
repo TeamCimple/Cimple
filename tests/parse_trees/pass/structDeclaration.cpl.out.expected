@@ -1,0 +1,1 @@
+Struct((DeclSpecTypeSpec(int) Var(age)), (DeclSPecTypeSpec(int) Var(salary))), employee, , )FuncDecl(Name: Var(main) ReturnType: int Parameters:  Body, RETURN(Int(0)))

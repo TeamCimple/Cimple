@@ -1,0 +1,8 @@
+struct employee{
+	int age;
+	int salary;
+};
+
+int main(){
+	return 0;
+}
