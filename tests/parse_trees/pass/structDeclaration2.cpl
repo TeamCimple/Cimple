@@ -1,0 +1,15 @@
+struct employee{
+	int age;
+	int salary;
+};
+
+struct teacher extends employee{
+	boolean tenured;
+}
+
+int main(int argc){
+	struct teacher prof;
+	prof.age = 40;
+	prof.tenured = true;
+	return 0;
+}
