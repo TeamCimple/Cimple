@@ -79,7 +79,8 @@ let check_compatible_types t1 t2 = match (t1, t2) with
        | Float, String -> raise(Failure("assigning string to float"))
        | Int, Int -> ()
        | Float, Float -> ()
-       | String, String -> ())
+       | String, String -> ()
+       | _ -> raise(Failure("Incompatible types")))
   | (CustomType(_), CustomType(_)) -> ()
   | _ -> raise(Failure("check_compatible_types: CompoundType not yet
   supported"))

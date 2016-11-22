@@ -33,6 +33,7 @@ test: cimple
 	cat tests/float_check.test | ./cimple > tests/float_check.c
 	cat tests/helloWorld.cpl | ./cimple > tests/helloWorld.c
 	cd tests/parse_trees/pass && ./run_tests.sh
+	cd tests/builds/pass && ./run_tests.sh
 	
 
 .PHONY : clean

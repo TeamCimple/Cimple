@@ -136,5 +136,5 @@ fdecl.body)
 let gen_program program = 
         add_header "stdio" ^ "\n" ^ (String.concat ";\n" (List.map gen_declaration
         program.globals)) ^ ";\n\n" ^ (String.concat "\n" (List.map gen_func
-        program.functions));
+        (List.rev program.functions)));
 
