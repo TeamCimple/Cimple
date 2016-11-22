@@ -2,7 +2,7 @@
 CPL="../../../cimple"
 
 # $1 is the integer return status, $2 is a potential error message
-function check_result()
+function check_result
 {
     if [ $(($1)) -ne $((0)) ]; then
         echo $2
@@ -11,7 +11,7 @@ function check_result()
 }
 
 # $1 is the test file name
-function run_test() 
+function run_test 
 {
     ERR=$(cat $1 | $CPL > $1.c)
     RESULT=$?
