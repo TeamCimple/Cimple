@@ -20,11 +20,12 @@ type tTypeSpec =
         | Signed 
         | Unsigned
         | String
+        | AnonFunc
 
 type tType = 
      PrimitiveType of tTypeSpec
    | CustomType of string
-   | CompoundType of tType * tType
+   | AnonFuncType of string * tType * tType list 
 
 type tIdentifier = Identifier of string
 
@@ -49,12 +50,13 @@ type tExpr =
   | Noexpr
 
 type tDirectDeclarator = 
-        Var of tIdentifier
-        | ArrDirDecl of tDirectDeclarator * tExpr
+  Var of tIdentifier
+  | ArrDirDecl of tDirectDeclarator * tExpr
 
 type tDeclarator = 
-        PointerDirDecl of tPointer * tDirectDeclarator
-        | DirectDeclarator of tDirectDeclarator
+  PointerDirDecl of tPointer * tDirectDeclarator
+  | DirectDeclarator of tDirectDeclarator
+  | NullDeclarator
 
 type tInitDeclarator =
     InitDeclarator of tDeclarator
@@ -67,18 +69,21 @@ type tDeclarationSpecifiers =
       | DeclSpecTypeSpecInitList of tType * tDeclarationSpecifiers 
       (*| DeclSpecTypeSpecInitList of tTypeSpec * tDeclarationSpecifiers *)
 
-type tDeclaration = 
-   Declaration of tDeclarationSpecifiers * tInitDeclarator
 
 type tTypeSpecIndicator = 
         TypeSpec of tTypeSpec
       | TypeSpecWithDeclSpec of tTypeSpec * tDeclarationSpecifiers
 
 type tFuncParam = 
-      FuncParamsDeclared of tDeclarationSpecifiers * tDeclarator
-      |ParamDeclWithType of tDeclarationSpecifiers
+   FuncParamsDeclared of tDeclarationSpecifiers * tDeclarator
+  |ParamDeclWithType of tDeclarationSpecifiers
 
 type tFuncParamList = tFuncParam list
+
+
+type tDeclaration = 
+   Declaration of tDeclarationSpecifiers * tInitDeclarator
+
 
 type tStatement = 
     Expr of tExpr
@@ -88,6 +93,8 @@ type tStatement =
   | If of tExpr * tStatement * tStatement
   | For of tExpr * tExpr * tExpr * tStatement
   | While of tExpr * tStatement
+  | Break
+
 
 type tStruct = {
         members: tDeclaration list;
@@ -108,8 +115,15 @@ type tProgram = {
         functions: tFuncDecl list;
 }
 
+type tAnonFuncDecl = {
+        anon_return_type: tType;
+        anon_func_name: tDeclarator;
+        anon_params: tFuncParam list;
+        anon_body: tStatement 
+}
+
 type sSymbol =
     VarSymbol of string * tType 
   | FuncSymbol of string * tType * tType list
-
+  | AnonFuncSymbol of string * tType * tType list
 

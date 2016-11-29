@@ -55,7 +55,6 @@ let string_of_type_spec = function
 let rec string_of_type = function
       PrimitiveType(t) -> string_of_type_spec t
     | CustomType(t) -> t
-    | CompoundType(t1, t2) -> string_of_type t1 ^ string_of_type t2
 
 let string_of_storage_class_spec = function
         Auto -> "auto"

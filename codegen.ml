@@ -93,7 +93,6 @@ let rec gen_init_decl idecl = match idecl with
 let rec gen_type typ = match typ with 
    | PrimitiveType(type_spec) -> gen_type_spec type_spec
    | CustomType(s) -> s
-   | CompoundType(t1, t2) -> "" (* Not sure what this should expand to (GRAHAM) *)
 
 let rec gen_decl_specs ds = match ds with 
    | DeclSpecTypeSpec(ts) -> gen_type_spec ts
@@ -128,6 +127,7 @@ let rec gen_statement stmt = match stmt with
              | _ ->  "{" ^ (String.concat ";\n" (List.map
    gen_declaration decls)) ^ ";" ^ (String.concat "\n" (List.map gen_statement
    stmts)) ^ "}")
+   | Break -> "break;\n" 
  
 let gen_func fdecl = (gen_decl_specs fdecl.return_type) ^ " " ^ (gen_decl
 fdecl.func_name) ^ "(" ^ (gen_func_params fdecl.params) ^ ")" ^ (gen_statement

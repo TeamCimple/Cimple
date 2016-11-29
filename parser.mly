@@ -13,7 +13,7 @@
 %token EQUALS NOT_EQUALS LESS_THAN LESS_THAN_EQUALS GREATER_THAN GREATER_THAN_EQUALS
 %token TIMES_ASSIGN DIVIDE_ASSIGN MOD_ASSIGN PLUS_ASSIGN MINUS_ASSIGN LSHIFT_ASSIGN RSHIFT_ASSIGN AND_ASSIGN XOR_ASSIGN OR_ASSIGN 
 %token AUTO REGISTER STATIC EXTERN TYPEDEF
-%token VOID CHAR SHORT INT LONG FLOAT DOUBLE SIGNED UNSIGNED STRING
+%token VOID CHAR SHORT INT LONG FLOAT DOUBLE SIGNED UNSIGNED STRING FUNC
 %token CONST VOLATILE
 %token STRUCT UNION
 %token SWITCH CASE ENUM DEFAULT IF ELSE
@@ -41,6 +41,7 @@ statement:
   | selection_statement { $1 }
   | compound_statement { $1 }
   | iteration_statement { $1 }
+  | BREAK SEMICOLON { Break }
   | RETURN expr_opt SEMICOLON { Return $2 }
 
 selection_statement:
@@ -111,71 +112,73 @@ logical_opeator:
  | GREATER_THAN_EQUALS { GreaterEql }
 
 add_expr:
-  add_expr PLUS mult_expr { Binop($1, Add, $3) }
-  | add_expr MINUS mult_expr { Binop($1, Sub, $3) }
-  | mult_expr  { $1 }
+   add_expr PLUS mult_expr { Binop($1, Add, $3) }
+ | add_expr MINUS mult_expr { Binop($1, Sub, $3) }
+ | mult_expr  { $1 }
 
 mult_expr:
-    mult_expr TIMES primary_expr { Binop($1, Mul, $3) }
-  | mult_expr DIVIDE primary_expr { Binop($1, Div, $3) }
-  | mult_expr MOD primary_expr { Binop($1, Mod, $3) }
-  | primary_expr             { $1 }
+   mult_expr TIMES primary_expr { Binop($1, Mul, $3) }
+ | mult_expr DIVIDE primary_expr { Binop($1, Div, $3) }
+ | mult_expr MOD primary_expr { Binop($1, Mod, $3) }
+ | primary_expr             { $1 }
 
 primary_expr:
-  LPAREN expr RPAREN         { $2 }
-  | FLOAT_LITERAL            { FloatLiteral($1) }
-  | INT_LITERAL              { Literal($1) }
-  | STRING_LITERAL           { StringLiteral($1) }
-  | IDENTIFIER               { Id(Identifier($1))}
+ LPAREN expr RPAREN         { $2 }
+ | FLOAT_LITERAL            { FloatLiteral($1) }
+ | INT_LITERAL              { Literal($1) }
+ | STRING_LITERAL           { StringLiteral($1) }
+ | IDENTIFIER               { Id(Identifier($1))}
 
 type_specifier:
-    VOID { Void }
-  | CHAR { Char }
-  | SHORT { Short }
-  | INT { Int }
-  | LONG { Long }
-  | FLOAT { Float }
-  | DOUBLE { Double }
-  | SIGNED { Signed }
-  | UNSIGNED { Unsigned }
-  | STRING { String }
+   VOID { Void }
+ | CHAR { Char }
+ | SHORT { Short }
+ | INT { Int }
+ | LONG { Long }
+ | FLOAT { Float }
+ | DOUBLE { Double }
+ | SIGNED { Signed }
+ | UNSIGNED { Unsigned }
+ | STRING { String }
 
 storage_class_specifier:
-        AUTO   { Auto }  
-       | REGISTER { Register }
-       | STATIC   { Static }
-       | EXTERN  { Extern }
-       | TYPEDEF { Typedef }
+   AUTO   { Auto }  
+ | REGISTER { Register }
+ | STATIC   { Static }
+ | EXTERN  { Extern }
+ | TYPEDEF { Typedef }
 
 declaration_specifiers:
-    type_ { DeclSpecTypeSpecAny($1) }
-  | declaration_specifiers type_ { DeclSpecTypeSpecInitList($2, $1) }
+   type_ { DeclSpecTypeSpecAny($1) }
+ | declaration_specifiers type_ { DeclSpecTypeSpecInitList($2, $1) }
  
 type_:
-        type_specifier { PrimitiveType($1) }
-      | STRUCT STRUCT_IDENTIFIER { CustomType($2) } 
+   type_specifier { PrimitiveType($1) }
+ | STRUCT STRUCT_IDENTIFIER { CustomType($2) }
 
 init_declarator_list:
-    init_declarator { InitDeclList([$1]) }  
-  | init_declarator_list COMMA init_declarator { InitDeclList($3::[$1])}
+   init_declarator { InitDeclList([$1]) }  
+ | init_declarator_list COMMA init_declarator { InitDeclList($3::[$1])}
 
 init_declarator:
-    declarator  { InitDeclarator($1) }
-  | declarator ASSIGN assignment_expression { InitDeclaratorAsn($1, Asn, $3) }
+   declarator  { InitDeclarator($1) }
+ | declarator ASSIGN assignment_expression { InitDeclaratorAsn($1, Asn, $3) }
 
 pointer:
-        TIMES pointer { PtrType(Pointer, $2) }
-   | TIMES { Pointer }
+   TIMES pointer { PtrType(Pointer, $2) }
+ | TIMES { Pointer }
 
 declarator:
-    direct_declarator { DirectDeclarator($1) }
-   | pointer direct_declarator { PointerDirDecl($1, $2) }
+   direct_declarator { DirectDeclarator($1) }
+ | pointer direct_declarator { PointerDirDecl($1, $2) }
 
 direct_declarator:
     IDENTIFIER { Var(Identifier($1)) }
 
+
 declaration:
-  declaration_specifiers init_declarator_list SEMICOLON { Declaration($1, $2)}
+   declaration_specifiers init_declarator_list { Declaration($1, $2) }
+ | declaration_specifiers init_declarator_list SEMICOLON { Declaration($1, $2)}
 
 declaration_list:
    /* Nothing */ { [] }
@@ -183,13 +186,13 @@ declaration_list:
 
 
 struct_declaration:
-        STRUCT STRUCT_IDENTIFIER struct_inheritence_opt struct_interface_opt LBRACKET
-        declaration_list RBRACKET SEMICOLON { {
-                members = (List.rev $6);
-                struct_name = $2;
-                extends = $3;
-                implements = $4;
-        } }
+ STRUCT STRUCT_IDENTIFIER struct_inheritence_opt struct_interface_opt LBRACKET
+ declaration_list RBRACKET SEMICOLON { {
+         members = (List.rev $6);
+         struct_name = $2;
+         extends = $3;
+         implements = $4;
+ } }
 
 struct_inheritence_opt:
   EXTENDS STRUCT_IDENTIFIER { $2 }
@@ -220,6 +223,25 @@ func_decl:
              func_name = $2;
              params = ($4);
              body = $6 }}
+
+declarator_opt:
+     /* Nothing */ { NullDeclarator }
+   | declarator { $1 }
+
+anon_func_decl:
+   FUNC LPAREN RPAREN LPAREN func_params_list RPAREN declarator_opt compound_statement { {
+    anon_return_type = PrimitiveType(Void);
+    anon_func_name = $7;
+    anon_params = ($5);
+    anon_body = $8}
+   }
+
+ | FUNC LPAREN type_ RPAREN LPAREN func_params_list RPAREN declarator_opt compound_statement { {
+    anon_return_type = $3;
+    anon_func_name = $8;
+    anon_params = ($6);
+    anon_body = $9}
+ }
 
 decls:
    /* Nothing */ { { globals = []; structs = []; functions = [] }}

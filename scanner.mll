@@ -53,6 +53,7 @@ rule token = parse
 | "double" { DOUBLE }
 | "signed" { SIGNED }
 | "unsigned" { UNSIGNED }
+| "func" { FUNC }
 | "const" { CONST }
 | "volatile" { VOLATILE }
 | "struct" { STRUCT }

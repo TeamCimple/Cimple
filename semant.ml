@@ -21,7 +21,8 @@ let var_name_from_func_param = function
 let rec type_from_declaration_specifiers = function
    DeclSpecTypeSpec(tspec) -> PrimitiveType(tspec)
  | DeclSpecTypeSpecAny(t) -> t
- | DeclSpecTypeSpecInitList(t, tDeclSpecs) -> CompoundType(t, type_from_declaration_specifiers tDeclSpecs)
+ | _ -> raise(Failure("type_from_declaration_specifiers: invalid specifiers"))
+ (*| DeclSpecTypeSpecInitList(t, tDeclSpecs) -> CompoundType(t, type_from_declaration_specifiers tDeclSpecs)*)
 
 let type_from_func_param = function
     FuncParamsDeclared(t, _) -> type_from_declaration_specifiers t
@@ -178,6 +179,7 @@ let rec check_statement func symbol_table stmt = match stmt with
   s
   | CompoundStatement(dl, sl) -> let tbl = add_to_symbol_table symbol_table dl
   in List.iter (check_local_declaration tbl) dl; List.iter (check_statement func tbl) sl
+  | Break -> ()
 
 
 let check_program program =
