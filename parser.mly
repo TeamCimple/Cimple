@@ -59,6 +59,7 @@ expr_opt:
 expr:
   assignment_expression { $1 }
   | func_call_expr { $1 }
+  | anon_func_def { AnonFuncDef($1) }
 
 assignment_expression:
   IDENTIFIER assignment_operator expr { AsnExpr(Identifier($1), $2, $3) }
@@ -73,7 +74,7 @@ postfix_expr:
   | postfix_expr MINUS MINUS { Postfix($1, PostMinusMinus, Noexpr) }
 
 func_call_expr:
-        IDENTIFIER LPAREN expr_list RPAREN  { Call(Identifier($1), $3) }
+   IDENTIFIER LPAREN expr_list RPAREN  { Call(Id(Identifier($1)), $3) }
 
 expr_list:
   /* Nothing */ { [] }
@@ -177,8 +178,7 @@ direct_declarator:
 
 
 declaration:
-   declaration_specifiers init_declarator_list { Declaration($1, $2) }
- | declaration_specifiers init_declarator_list SEMICOLON { Declaration($1, $2)}
+   declaration_specifiers init_declarator_list SEMICOLON { Declaration($1, $2)}
 
 declaration_list:
    /* Nothing */ { [] }
@@ -228,19 +228,17 @@ declarator_opt:
      /* Nothing */ { NullDeclarator }
    | declarator { $1 }
 
-anon_func_decl:
-   FUNC LPAREN RPAREN LPAREN func_params_list RPAREN declarator_opt compound_statement { {
+anon_func_def:
+   FUNC LPAREN RPAREN LPAREN func_params_list RPAREN compound_statement { {
     anon_return_type = PrimitiveType(Void);
-    anon_func_name = $7;
     anon_params = ($5);
-    anon_body = $8}
+    anon_body = $7}
    }
 
- | FUNC LPAREN type_ RPAREN LPAREN func_params_list RPAREN declarator_opt compound_statement { {
+ | FUNC LPAREN type_ RPAREN LPAREN func_params_list RPAREN compound_statement { {
     anon_return_type = $3;
-    anon_func_name = $8;
     anon_params = ($6);
-    anon_body = $9}
+    anon_body = $8}
  }
 
 decls:

@@ -65,7 +65,7 @@ let rec gen_expr expr = match expr with
    | FloatLiteral(x) -> string_of_float x
    | StringLiteral(x) -> x
    | Id(Identifier(id)) -> id
-   | Call(Identifier(id), elist) ->id ^ "(" ^ (String.concat ","  (List.map
+   | Call(Id(Identifier(id)), elist) ->id ^ "(" ^ (String.concat ","  (List.map
    gen_expr elist)) ^ ")"
    | Postfix(e1, pop, e2) -> gen_expr e1 ^ (gen_postfix_op pop) ^ (gen_expr e2)
    | Noexpr -> ""

@@ -63,7 +63,7 @@ let rec type_from_expr symbols expr = match expr with
   | StringLiteral(_) -> PrimitiveType(String)
   | Unop(e, _) -> type_from_expr symbols e
   | Binop(e1, _, _) -> type_from_expr symbols e1
-  | Call(Identifier(id), _) -> type_from_identifier symbols id 
+  | Call(Id(Identifier(s)), _) -> type_from_identifier symbols s 
   | Id(Identifier(id)) -> type_from_identifier symbols id
   | AsnExpr(Identifier(id), _, _) -> type_from_identifier symbols id
   | Noexpr -> PrimitiveType(Void)
@@ -95,7 +95,7 @@ let rec check_expr symbols e = match e with
                          let t2 = type_from_expr symbols e2 in 
                          check_compatible_types t1 t2
 
-   | Call(Identifier(id), expr_list) -> ignore (type_from_identifier symbols id); 
+   | Call(Id(Identifier(id)), expr_list) -> ignore (type_from_identifier symbols id); 
                                         
                         let paramList = get_parameter_list (lookup_symbol_by_id symbols id) in 
                                        

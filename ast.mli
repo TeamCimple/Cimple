@@ -27,7 +27,8 @@ type tType =
    | CustomType of string
    | AnonFuncType of string * tType * tType list 
 
-type tIdentifier = Identifier of string
+type tIdentifier =
+   Identifier of string
 
 type tPointer = 
         PtrType of tPointer * tPointer
@@ -45,56 +46,58 @@ type tExpr =
   | FloatLiteral of float
   | StringLiteral of string
   | Postfix of tExpr * tPostfixOperator * tExpr
-  | Call of tIdentifier * tExpr list
+  | Call of tExpr * tExpr list
   | Id of tIdentifier
+  | AnonFuncDef of tAnonFuncDef
   | Noexpr
 
-type tDirectDeclarator = 
+ and tDirectDeclarator = 
   Var of tIdentifier
   | ArrDirDecl of tDirectDeclarator * tExpr
 
-type tDeclarator = 
+ and tDeclarator = 
   PointerDirDecl of tPointer * tDirectDeclarator
   | DirectDeclarator of tDirectDeclarator
   | NullDeclarator
 
-type tInitDeclarator =
+ and tInitDeclarator =
     InitDeclarator of tDeclarator
   | InitDeclList of tInitDeclarator list 
   | InitDeclaratorAsn of tDeclarator * tAssignmentOperator * tExpr
 
-type tDeclarationSpecifiers = 
-        DeclSpecTypeSpec of tTypeSpec
-      | DeclSpecTypeSpecAny of tType
-      | DeclSpecTypeSpecInitList of tType * tDeclarationSpecifiers 
-      (*| DeclSpecTypeSpecInitList of tTypeSpec * tDeclarationSpecifiers *)
+ and tDeclarationSpecifiers = 
+    DeclSpecTypeSpec of tTypeSpec
+  | DeclSpecTypeSpecAny of tType
+  | DeclSpecTypeSpecInitList of tType * tDeclarationSpecifiers 
 
+ and tTypeSpecIndicator = 
+    TypeSpec of tTypeSpec
+  | TypeSpecWithDeclSpec of tTypeSpec * tDeclarationSpecifiers
 
-type tTypeSpecIndicator = 
-        TypeSpec of tTypeSpec
-      | TypeSpecWithDeclSpec of tTypeSpec * tDeclarationSpecifiers
-
-type tFuncParam = 
+ and tFuncParam = 
    FuncParamsDeclared of tDeclarationSpecifiers * tDeclarator
   |ParamDeclWithType of tDeclarationSpecifiers
 
-type tFuncParamList = tFuncParam list
+ and  tFuncParamList = tFuncParam list
 
-
-type tDeclaration = 
+ and tDeclaration = 
    Declaration of tDeclarationSpecifiers * tInitDeclarator
 
+ and tStatement = 
+   Expr of tExpr
+ | EmptyElse
+ | Return of tExpr
+ | CompoundStatement of tDeclaration list * tStatement list
+ | If of tExpr * tStatement * tStatement
+ | For of tExpr * tExpr * tExpr * tStatement
+ | While of tExpr * tStatement
+ | Break
 
-type tStatement = 
-    Expr of tExpr
-  | EmptyElse
-  | Return of tExpr
-  | CompoundStatement of tDeclaration list * tStatement list
-  | If of tExpr * tStatement * tStatement
-  | For of tExpr * tExpr * tExpr * tStatement
-  | While of tExpr * tStatement
-  | Break
-
+ and tAnonFuncDef = {
+        anon_return_type: tType;
+        anon_params: tFuncParam list;
+        anon_body: tStatement 
+ }
 
 type tStruct = {
         members: tDeclaration list;
@@ -115,12 +118,6 @@ type tProgram = {
         functions: tFuncDecl list;
 }
 
-type tAnonFuncDecl = {
-        anon_return_type: tType;
-        anon_func_name: tDeclarator;
-        anon_params: tFuncParam list;
-        anon_body: tStatement 
-}
 
 type sSymbol =
     VarSymbol of string * tType 

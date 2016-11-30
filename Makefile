@@ -27,6 +27,11 @@ test: cimple
 	cd tests/builds/fail && ./run_tests.sh
 	echo "All tests passed"
 
+.PHONY: ast
+
+ast:
+	cat $(SRC) | ./cimple -a
+
 .PHONY : clean
 clean :
 	rm -f calc parser.ml parser.mli scanner.ml *.cmo *.cmi

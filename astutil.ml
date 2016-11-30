@@ -102,14 +102,20 @@ let rec string_of_expr = function
   string_of_identifier e1 ^  ", " ^ string_of_expr e ^ ")"
   | Binop(e1, op, e2) -> string_of_op op ^ "(" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ ")"
   | Unop(e, unOp) -> string_of_unary_op unOp ^ "(" ^ string_of_expr e ^ ")"
-  | Call(id, exprList) -> "Call(FunctionName: " ^ (string_of_identifier id) ^ " Params: " ^ (string_of_expr_list  exprList) ^ ")"
+  | Call(Id(id), exprList) -> "Call(FunctionName: " ^ (string_of_identifier id) ^ " Params: " ^ (string_of_expr_list  exprList) ^ ")"
+  | AnonFuncDef(anonDef) -> "AnonFuncDef(ReturnType: " ^ (string_of_type anonDef.anon_return_type) ^ ", Params: " ^ (string_of_func_param_list anonDef.anon_params) ^ ", Body: " ^ (string_of_statement anonDef.anon_body) ^ ")" 
+
+and string_of_func_param_list = function
+    [] -> ""
+  | [x] -> string_of_func_param x
+  | h::t -> (string_of_func_param h) ^ ", " ^ (string_of_func_param_list t)
 
 and string_of_expr_list = function
     [] -> ""
   | [e] -> string_of_expr e
   | h::t -> string_of_expr h ^ string_of_expr_list t
 
-let rec string_of_init_declarator = function
+  and  string_of_init_declarator = function
    InitDeclarator(x) -> string_of_declarator x
   | InitDeclList([]) -> ""
   | InitDeclList(h::t) -> let string_of_init_decl_list str
@@ -119,14 +125,14 @@ let rec string_of_init_declarator = function
   ^ string_of_declarator decl ^ " " ^ string_of_expr expr
 
 
-let string_of_declaration = function Declaration(x, y) -> "(" ^ string_of_declaration_specifiers x ^ " " ^
+and string_of_declaration = function Declaration(x, y) -> "(" ^ string_of_declaration_specifiers x ^ " " ^
   string_of_init_declarator y ^ ")"
         
-let rec string_of_declaration_list = function
+and string_of_declaration_list = function
    [] -> ""
   | h :: t -> string_of_declaration h ^ ", " ^ (string_of_declaration_list t)
 
-let rec string_of_statement = function
+  and string_of_statement = function
    Expr(e) -> "Statement(" ^ string_of_expr e ^ ")"
   | Return(e) -> "RETURN(" ^ (string_of_expr e) ^")"
   | If(e, s1, s2) -> "IF " ^ (string_of_expr e) ^" " ^ (string_of_statement s1)^ "
@@ -141,11 +147,11 @@ let rec string_of_statement = function
      String.concat ", " (List.map string_of_statement sl) ^ ")"
 
 
-let rec string_of_statement_list = function
+and string_of_statement_list = function
         [] -> ""
        | h :: t -> string_of_statement h ^ ", " ^ (string_of_statement_list t)
 
-let string_of_func_param = function
+and string_of_func_param = function
         | FuncParamsDeclared(decl_specs, declarator) ->
                         "PARAM(" ^ string_of_declaration_specifiers
                         decl_specs ^ " " ^
