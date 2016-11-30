@@ -124,6 +124,7 @@ and string_of_expr_list = function
   | InitDeclaratorAsn(decl, asnop, expr) -> string_of_assignment_op asnop ^ "("
   ^ string_of_declarator decl ^ " " ^ string_of_expr expr
 
+and string_of_anon_func_decl d = "AnonFuncDecl(Name: " ^ (string_of_identifier d.anon_decl_name) ^ ", ReturnType: " ^ (string_of_type d.anon_decl_return_type) ^ ", Params: " ^ (string_of_func_param_list d.anon_decl_params) ^ ")"
 
 and string_of_declaration = function Declaration(x, y) -> "(" ^ string_of_declaration_specifiers x ^ " " ^
   string_of_init_declarator y ^ ")"
@@ -132,19 +133,16 @@ and string_of_declaration_list = function
    [] -> ""
   | h :: t -> string_of_declaration h ^ ", " ^ (string_of_declaration_list t)
 
-  and string_of_statement = function
-   Expr(e) -> "Statement(" ^ string_of_expr e ^ ")"
-  | Return(e) -> "RETURN(" ^ (string_of_expr e) ^")"
-  | If(e, s1, s2) -> "IF " ^ (string_of_expr e) ^" " ^ (string_of_statement s1)^ "
-  " ^ (string_of_statement s2)
-  | EmptyElse -> ""
-  | For(e1, e2, e3, s) -> "FOR " ^ (string_of_expr e1) ^ " " ^ (string_of_expr
-  e2) ^ " " ^ (string_of_expr e3) ^ " " ^ (string_of_statement s)
-  | While(e, s) -> "WHILE " ^ (string_of_expr e) ^ " " ^ (string_of_statement s)
-  | CompoundStatement(dl, sl) -> "CompoundStatement(Declarations: "  ^
-  string_of_declaration_list dl ^ " " ^
-     "StatementList: " ^ 
-     String.concat ", " (List.map string_of_statement sl) ^ ")"
+and string_of_statement = function
+ Expr(e) -> "Statement(" ^ string_of_expr e ^ ")"
+ | Return(e) -> "RETURN(" ^ (string_of_expr e) ^")"
+ | If(e, s1, s2) -> "IF " ^ (string_of_expr e) ^" " ^ (string_of_statement s1)^ "
+ " ^ (string_of_statement s2)
+ | EmptyElse -> ""
+ | For(e1, e2, e3, s) -> "FOR " ^ (string_of_expr e1) ^ " " ^ (string_of_expr
+ e2) ^ " " ^ (string_of_expr e3) ^ " " ^ (string_of_statement s)
+ | While(e, s) -> "WHILE " ^ (string_of_expr e) ^ " " ^ (string_of_statement s)
+ | CompoundStatement(dl, sl) -> "CompoundStatement(Declarations: "  ^ string_of_declaration_list dl ^ " " ^"StatementList: " ^ String.concat ", " (List.map string_of_statement sl) ^ ")"
 
 
 and string_of_statement_list = function
@@ -158,6 +156,7 @@ and string_of_func_param = function
                         string_of_declarator declarator ^ ") "
         | ParamDeclWithType(decl_specs) -> "PARAM(" ^
         string_of_declaration_specifiers decl_specs ^ ") "
+        | AnonFuncDecl(afd) -> string_of_anon_func_decl afd 
 
 
 let string_of_func fdecl = "FuncDecl(Name: " ^ 

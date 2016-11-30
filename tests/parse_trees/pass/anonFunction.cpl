@@ -1,3 +1,7 @@
+void apply_op(string s, func()(string) op)
+{
+	op(s);
+}
 
 int main( )
 {

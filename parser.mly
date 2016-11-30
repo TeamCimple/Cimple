@@ -209,6 +209,7 @@ compound_statement:
 func_params:
     declaration_specifiers declarator { FuncParamsDeclared($1, $2) }
   | declaration_specifiers { ParamDeclWithType($1) }
+  | anon_func_decl { AnonFuncDecl($1) }
 
 
 func_params_list:
@@ -240,6 +241,18 @@ anon_func_def:
     anon_params = ($6);
     anon_body = $8}
  }
+
+anon_func_decl:
+   FUNC LPAREN RPAREN LPAREN func_params_list RPAREN IDENTIFIER { {
+    anon_decl_return_type = PrimitiveType(Void);
+    anon_decl_params = ($5);
+    anon_decl_name = Identifier($7);}
+  }
+ | FUNC LPAREN type_ RPAREN LPAREN func_params_list RPAREN IDENTIFIER { {
+    anon_decl_return_type = $3;
+    anon_decl_params = ($6);
+    anon_decl_name = Identifier($8);}
+  }
 
 decls:
    /* Nothing */ { { globals = []; structs = []; functions = [] }}

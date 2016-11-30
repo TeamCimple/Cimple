@@ -10,35 +10,34 @@ type tPostfixOperator = PostPlusPlus | PostMinusMinus | PostDeref | PostEmptyOp
 type tTypeQualifier = Const | Volatile
 
 type tTypeSpec = 
-        Void 
-        | Char 
-        | Short 
-        | Int 
-        | Long 
-        | Float 
-        | Double 
-        | Signed 
-        | Unsigned
-        | String
-        | AnonFunc
+    Void 
+  | Char 
+  | Short 
+  | Int 
+  | Long 
+  | Float 
+  | Double 
+  | Signed 
+  | Unsigned
+  | String
 
-type tType = 
-     PrimitiveType of tTypeSpec
-   | CustomType of string
-   | AnonFuncType of string * tType * tType list 
+and tType = 
+   PrimitiveType of tTypeSpec
+ | CustomType of string
+ | AnonFuncType of string * tType * tType list 
 
-type tIdentifier =
+and tIdentifier =
    Identifier of string
 
-type tPointer = 
-        PtrType of tPointer * tPointer
-        | Pointer
+and tPointer = 
+   PtrType of tPointer * tPointer
+ | Pointer
 
-type tStorageClassSpec = Auto | Register | Static | Extern | Typedef
+and tStorageClassSpec = Auto | Register | Static | Extern | Typedef
 
-type tUnaryOperator = PlusPlus
+and tUnaryOperator = PlusPlus
 
-type tExpr =
+and tExpr =
   Binop of tExpr * tOperator * tExpr
   | Unop of tExpr * tUnaryOperator 
   | AsnExpr of tIdentifier * tAssignmentOperator * tExpr 
@@ -49,6 +48,7 @@ type tExpr =
   | Call of tExpr * tExpr list
   | Id of tIdentifier
   | AnonFuncDef of tAnonFuncDef
+  | DeclExpr of tDeclaration
   | Noexpr
 
  and tDirectDeclarator = 
@@ -77,6 +77,7 @@ type tExpr =
  and tFuncParam = 
    FuncParamsDeclared of tDeclarationSpecifiers * tDeclarator
   |ParamDeclWithType of tDeclarationSpecifiers
+  |AnonFuncDecl of tAnonFuncDecl
 
  and  tFuncParamList = tFuncParam list
 
@@ -98,6 +99,12 @@ type tExpr =
         anon_params: tFuncParam list;
         anon_body: tStatement 
  }
+
+and tAnonFuncDecl = {
+        anon_decl_return_type: tType;
+        anon_decl_params: tFuncParam list;
+        anon_decl_name: tIdentifier;
+}
 
 type tStruct = {
         members: tDeclaration list;
