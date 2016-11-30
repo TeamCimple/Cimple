@@ -9,7 +9,7 @@ CPL="../../../cimple -a"
 function run_test() 
 {
     $(cat $1 | $CPL > "$1.out")
-    $(diff "$1.out" "$1.out.expected" > /dev/null)
+    $(diff --ignore-space-change "$1.out" "$1.out.expected" > /dev/null)
     RESULT=$?
     if [ $(($RESULT)) -ne $(($2)) ]; then
         echo "Error: test $1 did not match expected output"
