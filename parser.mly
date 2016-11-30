@@ -225,9 +225,6 @@ func_decl:
              params = ($4);
              body = $6 }}
 
-declarator_opt:
-     /* Nothing */ { NullDeclarator }
-   | declarator { $1 }
 
 anon_func_def:
    FUNC LPAREN RPAREN LPAREN func_params_list RPAREN compound_statement { {

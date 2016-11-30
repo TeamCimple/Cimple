@@ -24,7 +24,7 @@ type tTypeSpec =
 and tType = 
    PrimitiveType of tTypeSpec
  | CustomType of string
- | AnonFuncType of string * tType * tType list 
+ | AnonFuncType of tType * tType list 
 
 and tIdentifier =
    Identifier of string
@@ -58,7 +58,7 @@ and tExpr =
  and tDeclarator = 
   PointerDirDecl of tPointer * tDirectDeclarator
   | DirectDeclarator of tDirectDeclarator
-  | NullDeclarator
+  (*| NullDeclarator*)
 
  and tInitDeclarator =
     InitDeclarator of tDeclarator
@@ -125,9 +125,7 @@ type tProgram = {
         functions: tFuncDecl list;
 }
 
-
 type sSymbol =
     VarSymbol of string * tType 
   | FuncSymbol of string * tType * tType list
-  | AnonFuncSymbol of string * tType * tType list
-
+  | AnonFuncSymbol of string * tType 

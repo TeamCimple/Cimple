@@ -28,17 +28,17 @@ let type_from_func_param = function
     FuncParamsDeclared(t, _) -> type_from_declaration_specifiers t
    | _ -> raise(Failure("Only supports declared parameters"))
 
+let type_list_from_func_param_list l = List.map type_from_func_param l
+    
+let type_from_anon_decl d = AnonFuncType(d.anon_decl_return_type, type_list_from_func_param_list d.anon_decl_params)
+   
 let symbol_from_func_param p = match p with
-   | FuncParamsDeclared(decl_specs, decl) ->
-                   VarSymbol(var_name_from_direct_declarator decl,
-                   type_from_declaration_specifiers decl_specs)
-   | _ -> raise(Failure("symbol_from_func_param not fully implemented. Cannot
-   handle declarations with parameters as types alone"))
+   | FuncParamsDeclared(decl_specs, decl) -> VarSymbol(var_name_from_direct_declarator decl, type_from_declaration_specifiers decl_specs)
+   | AnonFuncDecl(d) -> AnonFuncSymbol(Astutil.string_of_identifier d.anon_decl_name, type_from_anon_decl d) 
+   | _ -> raise(Failure("symbol_from_func_param not fully implemented. Cannot handle declarations with parameters as types alone"))
 
 let symbol_from_declaration decl = match decl with  
-   | Declaration(declspec, _) -> 
-          VarSymbol(var_name_from_declaration decl, type_from_declaration_specifiers
-     declspec)
+    Declaration(declspec, _) ->  VarSymbol(var_name_from_declaration decl, type_from_declaration_specifiers declspec)
    | _ -> raise(Failure("symbol_from_declaration: Unrecognized declaration"))    
 
 let symbol_from_fdecl fdecl = FuncSymbol(var_name_from_direct_declarator
@@ -68,8 +68,16 @@ let rec type_from_expr symbols expr = match expr with
   | AsnExpr(Identifier(id), _, _) -> type_from_identifier symbols id
   | Noexpr -> PrimitiveType(Void)
 
+let rec check_compatible_anon_types t1 t2 =
+        let f a b = if a == b then () else raise(Failure("check_compatible_anon_types: Error, param types not equal"))  in
+        let check_lists_are_equal l1 l2 = List.iter2 f l1 l2 in
+        match (t1, t2) with
+           (AnonFuncType(rType1, plist1), AnonFuncType(rType2, plist2)) -> check_compatible_types rType1 rType2;
+                                                                        check_lists_are_equal plist1 plist2
+         | (_, _) -> raise(Failure("check_compatible_anon_types: Error, invalid anon types passed as arguments"))
+                                                
 
-let check_compatible_types t1 t2 = match (t1, t2) with
+and check_compatible_types t1 t2 = match (t1, t2) with
        (PrimitiveType(pt1), PrimitiveType(pt2)) -> (match pt1, pt2 with 
        | Void, Void -> raise(Failure("Cannot assign to void type"))
        | Int, Float -> raise(Failure("assigning float to int"))
@@ -83,6 +91,7 @@ let check_compatible_types t1 t2 = match (t1, t2) with
        | String, String -> ()
        | _ -> raise(Failure("Incompatible types")))
   | (CustomType(_), CustomType(_)) -> ()
+  | AnonFuncType(_, _), AnonFuncType(_, _) -> check_compatible_anon_types t1 t2
   | _ -> raise(Failure("check_compatible_types: CompoundType not yet
   supported"))
 
