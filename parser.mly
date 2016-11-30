@@ -45,11 +45,11 @@ statement:
   | RETURN expr_opt SEMICOLON { Return $2 }
 
 selection_statement:
-  IF LPAREN expr RPAREN statement %prec NOELSE { If($3, $5, EmptyElse) }
+    IF LPAREN expr RPAREN statement %prec NOELSE { If($3, $5, EmptyElse) }
   | IF LPAREN expr RPAREN statement ELSE statement  {If($3, $5, $7)}
 
 iteration_statement:
-  WHILE LPAREN expr RPAREN statement { While($3, $5) }
+    WHILE LPAREN expr RPAREN statement { While($3, $5) }
   | FOR LPAREN expr_opt SEMICOLON expr_opt SEMICOLON expr_opt RPAREN statement { For($3, $5, $7, $9) }
 
 expr_opt:
@@ -62,11 +62,11 @@ expr:
   | anon_func_def { AnonFuncDef($1) }
 
 assignment_expression:
-  IDENTIFIER assignment_operator expr { AsnExpr(Identifier($1), $2, $3) }
+    IDENTIFIER assignment_operator expr { AsnExpr(Identifier($1), $2, $3) }
   | add_expr { $1 }
 
 postfix_expr:
-  primary_expr { $1 }
+    primary_expr { $1 }
   | postfix_expr LBRACKET_SQUARE expr RBRACKET_SQUARE { Postfix($1,
   PostEmptyOp,  $3) }
   | postfix_expr PERIOD IDENTIFIER { Postfix($1, PostDeref, Id(Identifier($3))) }
@@ -163,7 +163,7 @@ init_declarator_list:
 
 init_declarator:
    declarator  { InitDeclarator($1) }
- | declarator ASSIGN assignment_expression { InitDeclaratorAsn($1, Asn, $3) }
+ | declarator ASSIGN expr { InitDeclaratorAsn($1, Asn, $3) }
 
 pointer:
    TIMES pointer { PtrType(Pointer, $2) }

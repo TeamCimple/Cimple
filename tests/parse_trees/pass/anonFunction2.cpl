@@ -1,0 +1,11 @@
+int apply_int_op(int param, func(int)(int) op)
+{
+	return op(param);
+}
+
+int main()
+{
+	int a = 1;
+	int b = apply_int_op(1, func(int)(int x) { return a + x;});
+	return apply_int_op(b, func(int)(int x) { return x - 2; });
+}
