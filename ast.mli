@@ -45,8 +45,7 @@ and tExpr =
   | FloatLiteral of float
   | StringLiteral of string
   | Postfix of tExpr * tPostfixOperator * tExpr
-  | Call of tExpr * tExpr list
-  | MethodCall of tIdentifier * tExpr
+  | Call of string * tExpr * tExpr list
   | Id of tIdentifier
   | AnonFuncDef of tAnonFuncDef
   | DeclExpr of tDeclaration
@@ -143,5 +142,7 @@ type tProgram = {
 
 type sSymbol =
     VarSymbol of string * tType
-  | FuncSymbol of string * tType * tType list * (string * string)
-  | AnonFuncSymbol of string * tType 
+  | FuncSymbol of string * tFuncDecl
+  | StructSymbol of string * tStruct
+  | InterfaceSymbol of string * tInterface
+  | AnonFuncSymbol of string * tType
