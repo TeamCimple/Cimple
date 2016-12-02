@@ -59,6 +59,7 @@ expr_opt:
 expr:
   assignment_expression { $1 }
   | func_call_expr { $1 }
+  | method_call_expr { $1 }
   | anon_func_def { AnonFuncDef($1) }
 
 assignment_expression:
@@ -75,6 +76,9 @@ postfix_expr:
 
 func_call_expr:
    IDENTIFIER LPAREN expr_list RPAREN  { Call(Id(Identifier($1)), $3) }
+
+method_call_expr:
+   IDENTIFIER PERIOD func_call_expr { MethodCall(Identifier($1), $3) }
 
 expr_list:
   /* Nothing */ { [] }

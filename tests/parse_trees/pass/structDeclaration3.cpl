@@ -15,6 +15,10 @@ int (MyStruct m) help() {
 	return 0;
 }
 
+int (MyStruct m) help2() {
+	return m.help();
+}
+
 int main() {
 	return 0;
 }

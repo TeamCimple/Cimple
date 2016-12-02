@@ -103,6 +103,8 @@ let rec string_of_expr = function
   | Binop(e1, op, e2) -> string_of_op op ^ "(" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ ")"
   | Unop(e, unOp) -> string_of_unary_op unOp ^ "(" ^ string_of_expr e ^ ")"
   | Call(Id(id), exprList) -> "Call(FunctionName: " ^ (string_of_identifier id) ^ " Params: " ^ (string_of_expr_list  exprList) ^ ")"
+  | MethodCall(id, e) -> "MethodCall(Receiver: " ^ string_of_identifier id ^ ","
+  ^ string_of_expr e
   | AnonFuncDef(anonDef) -> "AnonFuncDef(ReturnType: " ^ (string_of_type anonDef.anon_return_type) ^ ", Params: " ^ (string_of_func_param_list anonDef.anon_params) ^ ", Body: " ^ (string_of_statement anonDef.anon_body) ^ ")" 
 
 and string_of_func_param_list = function
@@ -178,7 +180,7 @@ let string_of_struct struct_decl = "Struct(" ^
         string_of_declaration_list struct_decl.members ^ ", " ^
         struct_decl.struct_name ^ ", " ^ (string_of_constructor
         struct_decl.constructor) ^ "," ^  struct_decl.extends ^ ", " ^
-        struct_decl.implements ^ "," ^ ")"
+        struct_decl.implements ^ ")"
 
 let string_of_list_objs f list_objs = String.concat ", " (List.map f list_objs) 
 

@@ -43,7 +43,7 @@ let symbol_from_declaration decl = match decl with
 
 let symbol_from_fdecl fdecl = FuncSymbol(var_name_from_direct_declarator
         fdecl.func_name, type_from_declaration_specifiers fdecl.return_type,
-        List.map type_from_func_param fdecl.params)
+        List.map type_from_func_param fdecl.params, fdecl.receiver)
 
 let lookup_symbol_by_id symbols id = try StringMap.find id symbols with
         Not_found -> raise(Failure("undeclared identifier: " ^ id))
@@ -51,10 +51,10 @@ let lookup_symbol_by_id symbols id = try StringMap.find id symbols with
 let type_from_identifier symbols id = 
         let x = lookup_symbol_by_id symbols id in match x with 
         | VarSymbol(_, t) -> t
-        | FuncSymbol(_, t, _) -> t
+        | FuncSymbol(_, t, _, _) -> t
 
 let get_parameter_list symbol = match symbol with 
-        FuncSymbol(_, _, tlist) -> tlist
+        FuncSymbol(_, _, tlist, _) -> tlist
         | _ -> raise(Failure("Shouldn't get parameter list for Var Symbol"))
 
 let rec type_from_expr symbols expr = match expr with
@@ -159,7 +159,7 @@ let symbols_from_fdecls fdecls = List.map symbol_from_fdecl fdecls
 
 let get_id_from_symbol = function
         VarSymbol(id, _) -> id
-   | FuncSymbol(id, _, _) -> id
+   | FuncSymbol(id, _, _, _) -> id
 
 let get_decls_from_compound_stmt stmt = match stmt with 
         CompoundStatement(x, y) -> x
@@ -177,7 +177,7 @@ let check_local_declaration symbols decl = match decl with
              (match sym with
                  VarSymbol(_, t1) -> let t2 = type_from_expr symbols expr in
                                           check_compatible_types t1 t2
-                | FuncSymbol(_, t1, _) -> let t2 = type_from_expr symbols expr
+                | FuncSymbol(_, t1, _, _) -> let t2 = type_from_expr symbols expr
                 in check_compatible_types t1 t2)
 
     | _ -> raise(Failure("check_local_declaration not supported"))
