@@ -1,0 +1,14 @@
+
+int main(int argc, char *argv){
+
+	string name = "John";
+	string *p = &name;
+
+	return auxilliary(p);
+
+}
+
+int auxilliary(int *ptr){
+	return 0;
+}
+
