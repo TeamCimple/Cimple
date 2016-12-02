@@ -2,6 +2,9 @@ open Ast
 
 module StringMap = Map.Make(String)
 
+let var_name_from_identifier = function
+ Identifier(s)-> s
+
 let var_name_from_direct_declarator = function
      DirectDeclarator(Var(Identifier(s))) -> s
    | _ -> raise(Failure("Pointers not yet supported"))
@@ -45,8 +48,8 @@ let symbol_from_fdecl fdecl = FuncSymbol(var_name_from_direct_declarator
         fdecl.func_name, type_from_declaration_specifiers fdecl.return_type,
         List.map type_from_func_param fdecl.params)
 
-let lookup_symbol_by_id symbols id = try StringMap.find id symbols with
-        Not_found -> raise(Failure("undeclared identifier: " ^ id))
+let lookup_symbol_by_id symbols id = try StringMap.find (Astutil.string_of_identifier id) symbols with
+        Not_found -> raise(Failure("undeclared identifier: " ^ Astutil.string_of_identifier id))
 
 let type_from_identifier symbols id = 
         let x = lookup_symbol_by_id symbols id in match x with 
@@ -63,9 +66,9 @@ let rec type_from_expr symbols expr = match expr with
   | StringLiteral(_) -> PrimitiveType(String)
   | Unop(e, _) -> type_from_expr symbols e
   | Binop(e1, _, _) -> type_from_expr symbols e1
-  | Call(Id(Identifier(s)), _) -> type_from_identifier symbols s 
-  | Id(Identifier(id)) -> type_from_identifier symbols id
-  | AsnExpr(Identifier(id), _, _) -> type_from_identifier symbols id
+  | Call(Id(id), _) -> type_from_identifier symbols id 
+  | Id(id) -> type_from_identifier symbols id
+  | AsnExpr(id, _, _) -> type_from_identifier symbols id
   | Noexpr -> PrimitiveType(Void)
 
 let rec check_compatible_anon_types t1 t2 =
@@ -104,7 +107,7 @@ let rec check_expr symbols e = match e with
                          let t2 = type_from_expr symbols e2 in 
                          check_compatible_types t1 t2
 
-   | Call(Id(Identifier(id)), expr_list) -> ignore (type_from_identifier symbols id); 
+   | Call(Id(id), expr_list) -> ignore (type_from_identifier symbols id); 
                                         
                         let paramList = get_parameter_list (lookup_symbol_by_id symbols id) in 
                                        
@@ -122,7 +125,7 @@ let rec check_expr symbols e = match e with
                           (PrimitiveType(Void), _) -> raise(Failure("Cannot apply unary operator to void type"))
                         | (PrimitiveType(_), _) -> ()
                         | _ -> raise(Failure("Type/Unary Operator mismatch")))
-   | AsnExpr(Identifier(id), asnOp, e) -> 
+   | AsnExpr(id, asnOp, e) -> 
                               let t1 = type_from_expr symbols e in
                               let t2 = type_from_identifier symbols id in
                               (match (t1, t2) with
