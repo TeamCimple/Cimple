@@ -58,7 +58,6 @@ and tExpr =
  and tDeclarator = 
   PointerDirDecl of tPointer * tDirectDeclarator
   | DirectDeclarator of tDirectDeclarator
-  (*| NullDeclarator*)
 
  and tInitDeclarator =
     InitDeclarator of tDeclarator

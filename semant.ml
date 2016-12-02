@@ -49,8 +49,10 @@ struct_decl)
 
 let symbols_from_structs struct_decls = List.map symbol_from_struct struct_decls
 
-let lookup_symbol_by_id symbols id = try StringMap.find id symbols with
-        Not_found -> raise(Failure("undeclared identifier: " ^ id))
+let lookup_symbol_by_id symbols id = try StringMap.find 
+(Astutil.string_of_identifier id) symbols with
+        Not_found -> raise(Failure("undeclared identifier: " ^
+        Astutil.string_of_identifier id))
 
 let type_from_identifier symbols id = 
         let x = lookup_symbol_by_id symbols id in match x with 
@@ -60,7 +62,7 @@ let type_from_identifier symbols id =
         | StructSymbol(_, struct_decl) -> CustomType(struct_decl.struct_name)
 
 let get_parameter_list symbol = match symbol with
-        FuncSymbol(_, func) -> List.map type_from_func_param func.params
+        FuncSymbol(_, func) -> type_list_from_func_param_list func.params
         | _ -> raise(Failure("Shouldn't get parameter list for Var Symbol"))
 
 let get_struct symbol = match symbol with 
@@ -75,9 +77,9 @@ let rec type_from_expr symbols expr = match expr with
   | StringLiteral(_) -> PrimitiveType(String)
   | Unop(e, _) -> type_from_expr symbols e
   | Binop(e1, _, _) -> type_from_expr symbols e1
-  | Call(_, Id(Identifier(s)), _) -> type_from_identifier symbols s
-  | Id(Identifier(id)) -> type_from_identifier symbols id
-  | AsnExpr(Identifier(id), _, _) -> type_from_identifier symbols id
+  | Call(_, Id(s), _) -> type_from_identifier symbols s
+  | Id(id) -> type_from_identifier symbols id
+  | AsnExpr(id, _, _) -> type_from_identifier symbols id
   | Noexpr -> PrimitiveType(Void)
 
 let rec check_compatible_anon_types t1 t2 =
@@ -108,13 +110,13 @@ and check_compatible_types t1 t2 = match (t1, t2) with
   supported"))
 
 let receiver_has_func receiver symbols func =
-        let receiver_symbol = (lookup_symbol_by_id symbols receiver) in
+        let receiver_symbol = (lookup_symbol_by_id symbols (Identifier(receiver))) in
         let rec has_func symbol func = match symbol with
                 | StructSymbol(type_, struct_) -> (match func.receiver with
                                (type2_, id) -> if (type2_ == type_) then () else
                                        if (struct_.extends != "") then ( let
                                        parent = lookup_symbol_by_id symbols
-                                       struct_.extends in has_func parent func)
+                                       (Identifier(struct_.extends)) in has_func parent func)
                                        else raise(Failure("method does not have
                                        receiver")))
                 | InterfaceSymbol(type_, interface) -> (if (List.mem func
@@ -134,10 +136,11 @@ let rec check_expr symbols e = match e with
                          let t2 = type_from_expr symbols e2 in 
                          check_compatible_types t1 t2
 
-   | Call(receiver, Id(Identifier(id)), expr_list) -> ignore (type_from_identifier symbols id);                      
+   | Call(receiver, Id(id), expr_list) -> ignore (type_from_identifier symbols id);                      
                         ignore (let func_symbol = lookup_symbol_by_id symbols id in let
                         func = get_func func_symbol in 
-                        receiver_has_func receiver symbols func);
+                        if (receiver <> "") then (receiver_has_func receiver
+                        symbols func) else ());
 
                         let paramList = get_parameter_list (lookup_symbol_by_id symbols id) in 
                                       
@@ -155,7 +158,7 @@ let rec check_expr symbols e = match e with
                           (PrimitiveType(Void), _) -> raise(Failure("Cannot apply unary operator to void type"))
                         | (PrimitiveType(_), _) -> ()
                         | _ -> raise(Failure("Type/Unary Operator mismatch")))
-   | AsnExpr(Identifier(id), asnOp, e) -> 
+   | AsnExpr(id, asnOp, e) -> 
                               let t1 = type_from_expr symbols e in
                               let t2 = type_from_identifier symbols id in
                               (match (t1, t2) with
@@ -215,7 +218,7 @@ let check_local_declaration symbols decl = match decl with
                  VarSymbol(_, t1) -> let t2 = type_from_expr symbols expr in
                                           check_compatible_types t1 t2
                 | FuncSymbol(_, func) -> let t1 =
-                        type_from_declaration_specifiers func.return_type in let
+type_from_declaration_specifiers func.return_type in let
                         t2 =  type_from_expr symbols expr
                 in check_compatible_types t1 t2)
 
