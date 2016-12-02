@@ -178,7 +178,7 @@ let string_of_struct struct_decl = "Struct(" ^
 let string_of_list_objs f list_objs = String.concat ", " (List.map f list_objs) 
 
 let string_of_interface interface = "INTERFACE(" ^ interface.name ^
-(string_of_list_objs string_of_func interface.functions) ^ ")"
+(string_of_list_objs string_of_func interface.funcs) ^ ")"
 
 let string_of_program program =  
         string_of_declaration_list program.globals  ^ (string_of_list_objs

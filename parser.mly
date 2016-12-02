@@ -206,7 +206,7 @@ struct_interface_opt:
 interface:
    INTERFACE STRUCT_IDENTIFIER LBRACKET func_decl_list RBRACKET {{
                              name = $2;
-                             functions = $4;
+                             funcs = $4;
                         }} 
 
 compound_statement:

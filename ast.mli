@@ -130,7 +130,7 @@ type tFuncDecl = {
 
 type tInterface = {
         name: string;
-        functions: tFuncDecl list
+        funcs: tFuncDecl list
 }
 
 type tProgram = {
