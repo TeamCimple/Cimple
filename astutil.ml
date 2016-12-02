@@ -162,9 +162,14 @@ and string_of_func_param = function
 let string_of_constructor constructor = "Constructor(" ^ constructor.constructor_name ^ "Body:
         " ^ string_of_statement (constructor.constructor_body) ^ ")"
 
+let string_of_receiver receiver = 
+        match (receiver) with 
+        ("", "") -> ""
+        | (d, u) -> "RECEIVER("^d^","^u^") "
+
 let string_of_func fdecl = "FuncDecl(Name: " ^ 
       string_of_declarator fdecl.func_name ^ " ReturnType: " ^
-      string_of_declaration_specifiers fdecl.return_type ^ " Parameters: " ^
+      string_of_receiver fdecl.receiver ^ string_of_declaration_specifiers fdecl.return_type ^ " Parameters: " ^
       String.concat ", " (List.map
       string_of_func_param fdecl.params) ^ " Body: " ^ string_of_statement 
       fdecl.body ^ ") "

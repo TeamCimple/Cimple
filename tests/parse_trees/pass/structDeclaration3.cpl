@@ -1,0 +1,14 @@
+struct MyStruct {
+	int a;
+	int b;
+	float c;
+};
+
+int (MyStruct m) help() {
+	printf("Hello\n");
+	return 0;
+}
+
+int main() {
+	return 0;
+}

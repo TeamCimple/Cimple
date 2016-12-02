@@ -1,0 +1,2 @@
+Struct((int Var(a),), (int Var(b),), (float Var(c),), , MyStruct, Constructor(Body:
+        CompoundStatement(Declarations:  StatementList: )),, ,)FuncDecl(Name: Var(main) ReturnType: int Parameters:  Body: CompoundStatement(Declarations:  StatementList: RETURN(Int(0)))) , FuncDecl(Name: Var(help) ReturnType: RECEIVER(MyStruct,m) int Parameters:  Body: CompoundStatement(Declarations:  StatementList: Statement(Call(FunctionName: printf Params: String("Hello\n"))), RETURN(Int(0))))
