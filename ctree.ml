@@ -96,7 +96,7 @@ let struct_members_from_anon_body symbols members body =
    | h::t -> let hmembers = members_from_statement symbols members h in
              (hmembers)@(members_from_statement_list symbols (members@hmembers) t)
 
-  and members_from_statement symbols members stmt = match stmt with 
+   and members_from_statement symbols members stmt = match stmt with 
      CompoundStatement(decls, stmtList) -> 
        let dmembers = members@(members_from_declaration_list symbols members decls) in
        members_from_statement_list symbols dmembers stmtList
@@ -113,6 +113,7 @@ let struct_members_from_anon_body symbols members body =
          * symbols: A hash table of the symbols declared in the outside scope.
          * structName: a string that will become the name of the struct in the resulting 
          *              C Program.
+         * def: The Ast.tAnonFuncDef whose body we are looking through to find captured variables
  * ------------------------------------------------------------------------*)
 let capture_struct_from_anon_def symbols structName def = 
   let param_symbols = Semant.symbols_from_func_params def.anon_params in 
