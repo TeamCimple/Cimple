@@ -133,8 +133,27 @@ let rec check_expr symbols e = match e with
 
 let symbols_from_decls decls = List.map symbol_from_declaration decls
 
-let symbols_from_func_params func_params = List.map symbol_from_func_param
-func_params
+let symbols_from_func_params func_params = List.map symbol_from_func_param func_params
+
+let compare_func_params p1 p2 = 
+        let p1_types = List.map type_from_func_param p1 in
+        let p2_types = List.map type_from_func_param p2 in
+        List.iter2 check_compatible_types p1_types p2_types
+
+let compare_func_names n1 n2 = 
+        let n1_name = var_name_from_direct_declarator n1 in
+        let n2_name = var_name_from_direct_declarator n2 in
+        if (n1_name = n2_name) then () else raise(Failure("Function
+        Names do not match"))
+
+let compare_func_return_types r1 r2 = 
+       check_compatible_types (type_from_declaration_specifiers r1)
+  (type_from_declaration_specifiers r2)
+
+let compare_functions f1 f2 = 
+        let _ = compare_func_names f1.func_name f2.func_name in
+        let _ = compare_func_params f1.params f2.params in
+        compare_func_return_types f1.return_type f2.return_type
 
 let symbols_from_fdecls fdecls = List.map symbol_from_fdecl fdecls
 
@@ -218,6 +237,7 @@ let check_program program =
                func_name = DirectDeclarator(Var(Identifier("printf")));
                params = [FuncParamsDeclared(DeclSpecTypeSpec(String),
                DirectDeclarator(Var(Identifier("x"))))];
+               receiver = ("", "");
                body = CompoundStatement([], []);                                          
        }] in
 

@@ -38,6 +38,7 @@ rule token = parse
 | '"' + [' ''0'-'9''a'-'z''A'-'Z''\\']* + '"' as lit { STRING_LITERAL(lit) }
 | "extends" { EXTENDS }
 | "implements" { IMPLEMENTS }
+| "interface" { INTERFACE }
 | "auto" { AUTO }
 | "register" { REGISTER }
 | "static" { STATIC }

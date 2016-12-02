@@ -150,7 +150,7 @@ and string_of_statement_list = function
        | h :: t -> string_of_statement h ^ ", " ^ (string_of_statement_list t)
 
 and string_of_func_param = function
-        | FuncParamsDeclared(decl_specs, declarator) ->
+        FuncParamsDeclared(decl_specs, declarator) ->
                         "PARAM(" ^ string_of_declaration_specifiers
                         decl_specs ^ " " ^
                         string_of_declarator declarator ^ ") "
@@ -159,21 +159,29 @@ and string_of_func_param = function
         | AnonFuncDecl(afd) -> string_of_anon_func_decl afd 
 
 
+let string_of_constructor constructor = "Constructor(" ^ constructor.constructor_name ^ "Body:
+        " ^ string_of_statement (constructor.constructor_body) ^ ")"
+
 let string_of_func fdecl = "FuncDecl(Name: " ^ 
       string_of_declarator fdecl.func_name ^ " ReturnType: " ^
       string_of_declaration_specifiers fdecl.return_type ^ " Parameters: " ^
       String.concat ", " (List.map
       string_of_func_param fdecl.params) ^ " Body: " ^ string_of_statement 
       fdecl.body ^ ") "
-         
+
 let string_of_struct struct_decl = "Struct(" ^
         string_of_declaration_list struct_decl.members ^ ", " ^
-        struct_decl.struct_name ^ ", " ^ struct_decl.extends ^ ", " ^
-        struct_decl.implements ^ ")"
+        struct_decl.struct_name ^ ", " ^ (string_of_constructor
+        struct_decl.constructor) ^ "," ^  struct_decl.extends ^ ", " ^
+        struct_decl.implements ^ "," ^ ")"
 
 let string_of_list_objs f list_objs = String.concat ", " (List.map f list_objs) 
 
+let string_of_interface interface = "INTERFACE(" ^ interface.name ^
+(string_of_list_objs string_of_func interface.functions) ^ ")"
+
 let string_of_program program =  
         string_of_declaration_list program.globals  ^ (string_of_list_objs
+        string_of_interface program.interfaces) ^ (string_of_list_objs
         string_of_struct program.structs) ^ (string_of_list_objs string_of_func
         program.functions)
