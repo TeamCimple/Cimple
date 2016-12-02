@@ -103,6 +103,8 @@ let rec string_of_expr = function
   | Binop(e1, op, e2) -> string_of_op op ^ "(" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ ")"
   | Unop(e, unOp) -> string_of_unary_op unOp ^ "(" ^ string_of_expr e ^ ")"
   | Call(Id(id), exprList) -> "Call(FunctionName: " ^ (string_of_identifier id) ^ " Params: " ^ (string_of_expr_list  exprList) ^ ")"
+  | MethodCall(id, e) -> "MethodCall(Receiver: " ^ string_of_identifier id ^ ","
+  ^ string_of_expr e
   | AnonFuncDef(anonDef) -> "AnonFuncDef(ReturnType: " ^ (string_of_type anonDef.anon_return_type) ^ ", Params: " ^ (string_of_func_param_list anonDef.anon_params) ^ ", Body: " ^ (string_of_statement anonDef.anon_body) ^ ")" 
 
 and string_of_func_param_list = function
@@ -150,7 +152,7 @@ and string_of_statement_list = function
        | h :: t -> string_of_statement h ^ ", " ^ (string_of_statement_list t)
 
 and string_of_func_param = function
-        | FuncParamsDeclared(decl_specs, declarator) ->
+        FuncParamsDeclared(decl_specs, declarator) ->
                         "PARAM(" ^ string_of_declaration_specifiers
                         decl_specs ^ " " ^
                         string_of_declarator declarator ^ ") "
@@ -159,21 +161,34 @@ and string_of_func_param = function
         | AnonFuncDecl(afd) -> string_of_anon_func_decl afd 
 
 
+let string_of_constructor constructor = "Constructor(" ^ constructor.constructor_name ^ "Body:
+        " ^ string_of_statement (constructor.constructor_body) ^ ")"
+
+let string_of_receiver receiver = 
+        match (receiver) with 
+        ("", "") -> ""
+        | (d, u) -> "RECEIVER("^d^","^u^") "
+
 let string_of_func fdecl = "FuncDecl(Name: " ^ 
       string_of_declarator fdecl.func_name ^ " ReturnType: " ^
-      string_of_declaration_specifiers fdecl.return_type ^ " Parameters: " ^
+      string_of_receiver fdecl.receiver ^ string_of_declaration_specifiers fdecl.return_type ^ " Parameters: " ^
       String.concat ", " (List.map
       string_of_func_param fdecl.params) ^ " Body: " ^ string_of_statement 
       fdecl.body ^ ") "
-         
+
 let string_of_struct struct_decl = "Struct(" ^
         string_of_declaration_list struct_decl.members ^ ", " ^
-        struct_decl.struct_name ^ ", " ^ struct_decl.extends ^ ", " ^
+        struct_decl.struct_name ^ ", " ^ (string_of_constructor
+        struct_decl.constructor) ^ "," ^  struct_decl.extends ^ ", " ^
         struct_decl.implements ^ ")"
 
 let string_of_list_objs f list_objs = String.concat ", " (List.map f list_objs) 
 
+let string_of_interface interface = "INTERFACE(" ^ interface.name ^
+(string_of_list_objs string_of_func interface.funcs) ^ ")"
+
 let string_of_program program =  
         string_of_declaration_list program.globals  ^ (string_of_list_objs
+        string_of_interface program.interfaces) ^ (string_of_list_objs
         string_of_struct program.structs) ^ (string_of_list_objs string_of_func
         program.functions)
