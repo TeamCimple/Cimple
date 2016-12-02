@@ -4,7 +4,7 @@ module StringMap = Map.Make(String)
 
 let var_name_from_direct_declarator = function
      DirectDeclarator(Var(Identifier(s))) -> s
-   | _ -> raise(Failure("Pointers not yet supported"))
+   | PointerDirDecl(_, Var(Identifier(s))) -> s
 
 let var_name_from_declaration = function 
      Declaration(_ , InitDeclarator(dd)) -> var_name_from_direct_declarator dd 
