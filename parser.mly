@@ -129,7 +129,7 @@ primary_expr:
  | INT_LITERAL              { Literal($1) }
  | STRING_LITERAL           { StringLiteral($1) }
  | IDENTIFIER               { Id(Identifier($1))}
- | BITWISE_AND IDENTIFIER   { Ampersand, Id(Identifier($2)) }
+ | BITWISE_AND IDENTIFIER   { Address(Ampersand, Id(Identifier($2))) }
 
 type_specifier:
    VOID { Void }

@@ -39,6 +39,9 @@ let gen_logical_op logical_op = match logical_op with
    | Greater -> ">"
    | GreaterEql -> ">="
 
+let gen_address_op address_op = match address_op with
+   | Ampersand -> "&"
+
 let gen_type_qualifier q = match q with
    | Const -> "const"
    | Volatile -> "volatile"
@@ -57,6 +60,10 @@ let gen_type_spec ts = match ts with
 let gen_id id = match id with 
    | Identifier(id) -> id
 
+let gen_pointer ptr = match ptr with
+   | PtrType(p1, p2) -> "**" (* Not sure if ** is the only expected putput for PtrType*)
+   | Pointer -> "*"
+
 let rec gen_expr expr = match expr with 
    | Binop(e1, op, e2) -> (gen_expr e1) ^ (gen_op op) ^ (gen_expr e2)
    | AsnExpr(Identifier(id), assn_op, e2) -> id ^ (gen_assn_op assn_op) ^
@@ -68,6 +75,7 @@ let rec gen_expr expr = match expr with
    | Call(Id(Identifier(id)), elist) ->id ^ "(" ^ (String.concat ","  (List.map
    gen_expr elist)) ^ ")"
    | Postfix(e1, pop, e2) -> gen_expr e1 ^ (gen_postfix_op pop) ^ (gen_expr e2)
+   | Address(address_op, e) -> (gen_address_op address_op) ^ (gen_expr e)
    | Noexpr -> ""
 
 let gen_direct_decl d = match d with 
@@ -76,8 +84,8 @@ let gen_direct_decl d = match d with
 
 let gen_decl d = match d with
    | DirectDeclarator(x) -> gen_direct_decl x
-   | _ -> raise(Failure("do not have pointer direct decl done"))
-
+   | PointerDirDecl(p, x) -> (gen_pointer p) ^ (gen_direct_decl x)
+   
 let rec gen_init_decl idecl = match idecl with
    | InitDeclarator(decl) -> gen_decl decl
    | InitDeclList(decl_list) -> ( match decl_list with 

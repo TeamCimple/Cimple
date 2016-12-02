@@ -66,6 +66,7 @@ let rec type_from_expr symbols expr = match expr with
   | Call(Id(Identifier(s)), _) -> type_from_identifier symbols s 
   | Id(Identifier(id)) -> type_from_identifier symbols id
   | AsnExpr(Identifier(id), _, _) -> type_from_identifier symbols id
+  | Address(_, e) -> type_from_expr symbols e
   | Noexpr -> PrimitiveType(Void)
 
 let rec check_compatible_anon_types t1 t2 =
