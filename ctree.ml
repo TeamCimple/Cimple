@@ -56,6 +56,7 @@ let lookup_symbol_from_symlist_by_id symlist id =
  * Parameters:
          * symbols: A hash table of symbols from outside the scope of the anonymous function def
          * members: A list of function parameters declared in the anon function definition
+         * body: An Ast.tStatement (specifically a CompoundStatement) that is the body of the anonymous function
  *-------------------------------------------------------------------------------- *)
 
 let struct_members_from_anon_body symbols members body = 
