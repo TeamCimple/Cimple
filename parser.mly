@@ -20,7 +20,7 @@
 %token LBRACKET RBRACKET LBRACKET_SQUARE RBRACKET_SQUARE LPAREN RPAREN COMMA
 COLON ELLIPSIS ASTERISK PERIOD
 %token WHILE DO FOR GOTO CONTINUE BREAK
-%token EXTENDS IMPLEMENTS
+%token MAKE EXTENDS IMPLEMENTS 
 %token QUESTION
 %token EOF
 
@@ -136,6 +136,7 @@ primary_expr:
  | STRING_LITERAL           { StringLiteral($1) }
  | IDENTIFIER               { Id(Identifier($1))}
  | BITWISE_AND IDENTIFIER   { Address(Ampersand, Id(Identifier($2))) }
+ | MAKE STRUCT STRUCT_IDENTIFIER LPAREN RPAREN { Make(CustomType($3)) }
 
 type_specifier:
    VOID { Void }

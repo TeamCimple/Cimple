@@ -126,6 +126,7 @@ let rec type_from_expr symbols expr = match expr with
   | Call(_, Id(s), _) -> type_from_identifier symbols s
   | MemAccess(s, Identifier(t)) -> type_from_mem_access s t symbols 
   | Id(id) -> type_from_identifier symbols id
+  | Make(t) -> type_from_declaration_specifiers t
   | AsnExpr(id, _, _) -> type_from_identifier symbols id
   | Noexpr -> PrimitiveType(Void)
 
