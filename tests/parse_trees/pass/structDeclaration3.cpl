@@ -1,0 +1,24 @@
+struct MyStruct {
+	int a;
+	int b;
+	float c;
+
+	MyStruct() {
+		a = 1;
+		b = 2;
+		c = 3.0;
+	}
+};
+
+int (MyStruct m) help() {
+	printf("Hello\n");
+	return 0;
+}
+
+int (MyStruct m) help2() {
+	return m.help();
+}
+
+int main() {
+	return 0;
+}

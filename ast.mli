@@ -47,8 +47,9 @@ and tExpr =
   | FloatLiteral of float
   | StringLiteral of string
   | Postfix of tExpr * tPostfixOperator * tExpr
-  | Call of tExpr * tExpr list
   | Address of tAddressOperator * tExpr
+  | Call of string * tExpr * tExpr list
+  | MemAccess of tIdentifier * tIdentifier
   | Id of tIdentifier
   | AnonFuncDef of tAnonFuncDef
   | DeclExpr of tDeclaration
@@ -61,7 +62,6 @@ and tExpr =
  and tDeclarator = 
   PointerDirDecl of tPointer * tDirectDeclarator
   | DirectDeclarator of tDirectDeclarator
-  (*| NullDeclarator*)
 
  and tInitDeclarator =
     InitDeclarator of tDeclarator
@@ -109,26 +109,43 @@ and tAnonFuncDecl = {
         anon_decl_name: tIdentifier;
 }
 
+type tConstructor = {
+        constructor_name: string;
+        constructor_params: tFuncParam list;
+        constructor_body: tStatement
+}
+
 type tStruct = {
         members: tDeclaration list;
         struct_name: string;
         extends: string;
         implements: string;
+        constructor: tConstructor
 }
 
 type tFuncDecl = {
         return_type: tDeclarationSpecifiers;
         func_name: tDeclarator;
+        receiver: string * string;
         params: tFuncParam list;
-        body: tStatement }
+        body: tStatement 
+}
+
+type tInterface = {
+        name: string;
+        funcs: tFuncDecl list
+}
 
 type tProgram = {
         globals: tDeclaration list;
         structs: tStruct list;
-        functions: tFuncDecl list;
+        interfaces: tInterface list;
+        functions: tFuncDecl list
 }
 
 type sSymbol =
-    VarSymbol of string * tType 
-  | FuncSymbol of string * tType * tType list
-  | AnonFuncSymbol of string * tType 
+    VarSymbol of string * tType
+  | FuncSymbol of string * tFuncDecl
+  | StructSymbol of string * tStruct
+  | InterfaceSymbol of string * tInterface
+  | AnonFuncSymbol of string * tType

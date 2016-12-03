@@ -15,7 +15,7 @@
 %token AUTO REGISTER STATIC EXTERN TYPEDEF
 %token VOID CHAR SHORT INT LONG FLOAT DOUBLE SIGNED UNSIGNED STRING FUNC
 %token CONST VOLATILE
-%token STRUCT UNION
+%token STRUCT UNION INTERFACE
 %token SWITCH CASE ENUM DEFAULT IF ELSE
 %token LBRACKET RBRACKET LBRACKET_SQUARE RBRACKET_SQUARE LPAREN RPAREN COMMA
 COLON ELLIPSIS ASTERISK PERIOD
@@ -58,6 +58,7 @@ expr_opt:
 
 expr:
   assignment_expression { $1 }
+  | member_access_expr { $1 }
   | func_call_expr { $1 }
   | anon_func_def { AnonFuncDef($1) }
 
@@ -74,7 +75,12 @@ postfix_expr:
   | postfix_expr MINUS MINUS { Postfix($1, PostMinusMinus, Noexpr) }
 
 func_call_expr:
-   IDENTIFIER LPAREN expr_list RPAREN  { Call(Id(Identifier($1)), $3) }
+   IDENTIFIER LPAREN expr_list RPAREN  { Call("", Id(Identifier($1)), $3) }
+   | IDENTIFIER PERIOD IDENTIFIER LPAREN expr_list RPAREN { Call($1,
+   Id(Identifier($3)), $5) }
+
+member_access_expr:
+        IDENTIFIER PERIOD IDENTIFIER { MemAccess(Identifier($1), Identifier($3)) }
 
 expr_list:
   /* Nothing */ { [] }
@@ -188,12 +194,13 @@ declaration_list:
 
 struct_declaration:
  STRUCT STRUCT_IDENTIFIER struct_inheritence_opt struct_interface_opt LBRACKET
- declaration_list RBRACKET SEMICOLON { {
+ declaration_list constructor_opt RBRACKET SEMICOLON { {
          members = (List.rev $6);
          struct_name = $2;
          extends = $3;
          implements = $4;
- } }
+         constructor = $7;
+ }}
 
 struct_inheritence_opt:
   EXTENDS STRUCT_IDENTIFIER { $2 }
@@ -202,6 +209,12 @@ struct_inheritence_opt:
 struct_interface_opt:
    | IMPLEMENTS STRUCT_IDENTIFIER { $2 }
    |  { "" }
+
+interface:
+   INTERFACE STRUCT_IDENTIFIER LBRACKET func_decl_list RBRACKET {{
+                             name = $2;
+                             funcs = $4;
+                        }} 
 
 compound_statement:
      LBRACKET declaration_list statement_list RBRACKET { CompoundStatement((List.rev $2),
@@ -219,13 +232,55 @@ func_params_list:
    | func_params_list COMMA func_params { $3 :: $1 }
 
 
+receiver:
+        STRUCT_IDENTIFIER IDENTIFIER {($1, $2)}
+        | {("", "")}
+
+constructor_opt: 
+     STRUCT_IDENTIFIER LPAREN func_params_list RPAREN compound_statement {{
+             constructor_name = $1;
+             constructor_params = $3;
+             constructor_body = $5; 
+     }}
+     | /* Nothing */ {{constructor_name = ""; constructor_params = [];
+     constructor_body = CompoundStatement([],
+     [])}}
+
 func_decl:
      declaration_specifiers declarator LPAREN func_params_list RPAREN compound_statement { {
              return_type = $1;
              func_name = $2;
+             receiver = ("", "");
              params = ($4);
              body = $6 }}
+     | declaration_specifiers LPAREN receiver RPAREN declarator LPAREN
+     func_params_list RPAREN compound_statement {{
+             return_type = $1;
+             func_name = $5;
+             receiver = $3;
+             params = $7;
+             body = $9
+     }}
+     | declaration_specifiers LPAREN receiver RPAREN declarator
+     LPAREN func_params_list RPAREN SEMICOLON {{
+            return_type = $1;
+            func_name = $5;
+            receiver = $3;
+            params = $7;
+            body = CompoundStatement([], [])
+     }}
+     | declaration_specifiers declarator LPAREN func_params_list RPAREN
+     SEMICOLON {{
+            return_type = $1;
+            func_name = $2;
+            receiver = ("", "");
+            params = $4;
+            body = CompoundStatement([], [])
+     }}
 
+func_decl_list:
+        /*Nothing */ { [] }
+        | func_decl_list  func_decl { $2::$1 }
 
 anon_func_def:
    FUNC LPAREN RPAREN LPAREN func_params_list RPAREN compound_statement { {
@@ -253,14 +308,17 @@ anon_func_decl:
   }
 
 decls:
-   /* Nothing */ { { globals = []; structs = []; functions = [] }}
+        /* Nothing */ { { globals = []; structs = []; functions = []; interfaces
+        = [] }}
    | decls func_decl { {functions = $2 :: ($1.functions); globals = $1.globals;
-                        structs = $1.structs} }
+   structs = $1.structs; interfaces = $1.interfaces} }
    | decls declaration { { functions = $1.functions; globals =  ($2 ::
-           $1.globals);
+           $1.globals); interfaces = $1.interfaces;
    structs = $1.structs }}
    | decls struct_declaration { {functions = $1.functions; globals =
-           $1.globals; structs = ($2 :: $1.structs)}}
+           $1.globals; interfaces = $1.interfaces; structs = ($2 :: $1.structs)}}
+   | decls interface { {functions = $1.functions; globals = $1.globals; structs
+   = $1.structs; interfaces = $2 :: ($1.interfaces) } }
 
 program:
    decls EOF { $1 }

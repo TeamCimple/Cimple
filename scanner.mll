@@ -34,10 +34,11 @@ rule token = parse
 | ">" { GREATER_THAN }
 | ">=" { GREATER_THAN_EQUALS }
 | ['0'-'9']+ as lit { INT_LITERAL(int_of_string lit) }
-| ['0'-'9']*+'.'+['0'-'9']* as lit { FLOAT_LITERAL(float_of_string lit) }
+| ['0'-'9']+'.'+['0'-'9']* as lit { FLOAT_LITERAL(float_of_string lit) }
 | '"' + [' ''0'-'9''a'-'z''A'-'Z''\\']* + '"' as lit { STRING_LITERAL(lit) }
 | "extends" { EXTENDS }
 | "implements" { IMPLEMENTS }
+| "interface" { INTERFACE }
 | "auto" { AUTO }
 | "register" { REGISTER }
 | "static" { STATIC }
@@ -77,12 +78,12 @@ rule token = parse
 | ']' { RBRACKET_SQUARE }
 | '(' { LPAREN }
 | ')' { RPAREN }
+| '.' { PERIOD }
 | ',' { COMMA }
 | '=' { ASSIGN }
 | '?' { QUESTION }
 | ':' { COLON }
 | '*' { ASTERISK }
-| '.' { PERIOD }
 | "..." { ELLIPSIS }
 | ['a'-'z''_']+['a'-'z''A'-'Z''_''0'-'9']* as lit { IDENTIFIER(lit) }
 | ['A'-'Z']+['a'-'z''A'-'Z''_''0'-'9']* as structLit {
