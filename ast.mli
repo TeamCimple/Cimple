@@ -46,6 +46,7 @@ and tExpr =
   | StringLiteral of string
   | Postfix of tExpr * tPostfixOperator * tExpr
   | Call of string * tExpr * tExpr list
+  | MemAccess of tIdentifier * tIdentifier
   | Id of tIdentifier
   | AnonFuncDef of tAnonFuncDef
   | DeclExpr of tDeclaration

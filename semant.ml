@@ -49,6 +49,11 @@ struct_decl)
 
 let symbols_from_structs struct_decls = List.map symbol_from_struct struct_decls
 
+let symbol_from_interface interface = InterfaceSymbol(interface.name, interface)
+
+let symbols_from_interfaces interfaces = List.map symbol_from_interface
+interfaces
+
 let lookup_symbol_by_id symbols id = try StringMap.find 
 (Astutil.string_of_identifier id) symbols with
         Not_found -> raise(Failure("undeclared identifier: " ^
@@ -71,6 +76,46 @@ let get_struct symbol = match symbol with
 let get_func symbol = match symbol with 
         FuncSymbol(_, func) -> func
 
+let type_from_mem_access id t symbols  = 
+        let sym = lookup_symbol_by_id symbols id in
+
+        match sym with 
+        VarSymbol(_, type_) ->
+
+                ( match type_ with 
+
+                | CustomType(cust_type) -> 
+
+                        let cust_symb = lookup_symbol_by_id symbols
+                        (Identifier(cust_type)) in
+                        
+                        ( match cust_symb with 
+                        | StructSymbol(_, struct_decl) -> 
+
+                                let list_decl = List.map var_name_from_declaration
+                                struct_decl.members in 
+
+                                if (List.mem t list_decl) then 
+                                        let dec = List.find (fun decl ->
+                                                (var_name_from_declaration decl)
+                                                = t)
+                                                struct_decl.members in  (
+                                                        match (dec) with
+                                                                | Declaration(decl_spec, _) ->
+                                                                        type_from_declaration_specifiers
+                                                                        decl_spec
+                                                                | _ -> raise(Failure("Unhandled
+                                                                        declaration")))
+                               else
+                                       raise(Failure("Invalid member of
+                                       struct"))
+                        )
+                 | _ -> raise(Failure("Non Custom type trying to access
+                 member"))
+                )
+
+       | _ -> raise(Failure("Member Access of non Struct"))
+
 let rec type_from_expr symbols expr = match expr with
    Literal(_) -> PrimitiveType(Int)
   | FloatLiteral(_) -> PrimitiveType(Float)
@@ -78,6 +123,7 @@ let rec type_from_expr symbols expr = match expr with
   | Unop(e, _) -> type_from_expr symbols e
   | Binop(e1, _, _) -> type_from_expr symbols e1
   | Call(_, Id(s), _) -> type_from_identifier symbols s
+  | MemAccess(s, Identifier(t)) -> type_from_mem_access s t symbols 
   | Id(id) -> type_from_identifier symbols id
   | AsnExpr(id, _, _) -> type_from_identifier symbols id
   | Noexpr -> PrimitiveType(Void)
@@ -158,6 +204,7 @@ let rec check_expr symbols e = match e with
                           (PrimitiveType(Void), _) -> raise(Failure("Cannot apply unary operator to void type"))
                         | (PrimitiveType(_), _) -> ()
                         | _ -> raise(Failure("Type/Unary Operator mismatch")))
+   | MemAccess(s, Identifier(t)) -> ignore (type_from_mem_access s t symbols);
    | AsnExpr(id, asnOp, e) -> 
                               let t1 = type_from_expr symbols e in
                               let t2 = type_from_identifier symbols id in
@@ -221,13 +268,12 @@ let check_local_declaration symbols decl = match decl with
 type_from_declaration_specifiers func.return_type in let
                         t2 =  type_from_expr symbols expr
                 in check_compatible_types t1 t2)
-
+    | Declaration(declspec, InitDeclList([InitDeclarator(decl)])) -> ()               
     | _ -> raise(Failure("check_local_declaration not supported"))
 
 
 let check_bool_expr symbols expr = check_compatible_types (type_from_expr symbols
 expr) (PrimitiveType(Int))
-
 
 let add_to_symbol_table tbl decls = List.fold_left (fun m symbol -> if StringMap.mem
        (get_id_from_symbol symbol) m then
@@ -313,6 +359,7 @@ let check_program program =
                          (symbols_from_func_params func.params) @ (symbols_from_decls
                          (get_decls_from_compound_stmt func.body))
                          @ (symbols_from_structs program.structs)
+                         @ (symbols_from_interfaces program.interfaces)
                          @ ([symbol_from_receiver func.receiver]))
 
                 in

@@ -109,6 +109,8 @@ let rec string_of_expr = function
   | Unop(e, unOp) -> string_of_unary_op unOp ^ "(" ^ string_of_expr e ^ ")"
   | Call(obj, Id(id), exprList) -> "Call(" ^ "Receiver(" ^ obj ^")"  ^
   "FunctionName: " ^ (string_of_identifier id) ^ " Params: " ^ (string_of_expr_list  exprList) ^ ")"
+  | MemAccess(Identifier(s), Identifier(t)) -> "Deref(" ^ "Var(" ^ s ^ ")" ^ ","
+  ^ t ^")"
   | AnonFuncDef(anonDef) -> "AnonFuncDef(ReturnType: " ^ (string_of_type anonDef.anon_return_type) ^ ", Params: " ^ (string_of_func_param_list anonDef.anon_params) ^ ", Body: " ^ (string_of_statement anonDef.anon_body) ^ ")" 
 
 and string_of_func_param_list = function
