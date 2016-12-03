@@ -101,6 +101,20 @@ let struct_members_from_anon_body symbols members body =
      CompoundStatement(decls, stmtList) -> 
        let dmembers = members@(members_from_declaration_list symbols members decls) in
        members_from_statement_list symbols dmembers stmtList
+   | Expr(e) -> members_from_expr symbols members e
+   | Return(e) -> members_from_expr symbols members e
+   | If(e, s1, s2) -> let eMembers = members_from_expr symbols members e in 
+                      let s1Members = members_from_statement symbols (members@eMembers) s1 in 
+                      let s2Members = members_from_statement symbols (members@eMembers@s1Members) s2 in
+                      eMembers@s1Members@s2Members
+   | For(e1, e2, e3, s) -> let e1Members = members_from_expr symbols members e1 in
+                           let e2Members = members_from_expr symbols (members@e1Members) e2 in
+                           let e3Members = members_from_expr symbols (members@e1Members@e2Members) e3 in
+                           let sMembers = members_from_statement symbols (members@e1Members@e2Members@e3Members) s in
+                           e1Members@e2Members@e3Members
+   | While(e, s) -> let eMembers = members_from_expr symbols members e in
+                    let sMembers = members_from_statement symbols (members@eMembers) s in
+                    eMembers@sMembers 
    | _ -> []
   in
 
@@ -122,4 +136,4 @@ let capture_struct_from_anon_def symbols structName def =
       struct_name = structName;
       struct_members = struct_members_from_anon_body symbols param_symbols def.anon_body
     }
-  
+
