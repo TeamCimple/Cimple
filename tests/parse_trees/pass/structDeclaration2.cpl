@@ -6,5 +6,6 @@ struct Employee {
 
 int main(int argc){
 	struct Employee prof;
+	int x = prof.age;
 	return 0;
 }

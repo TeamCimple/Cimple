@@ -58,8 +58,8 @@ expr_opt:
 
 expr:
   assignment_expression { $1 }
+  | member_access_expr { $1 }
   | func_call_expr { $1 }
-  | method_call_expr { $1 }
   | anon_func_def { AnonFuncDef($1) }
 
 assignment_expression:
@@ -75,10 +75,12 @@ postfix_expr:
   | postfix_expr MINUS MINUS { Postfix($1, PostMinusMinus, Noexpr) }
 
 func_call_expr:
-   IDENTIFIER LPAREN expr_list RPAREN  { Call(Id(Identifier($1)), $3) }
+   IDENTIFIER LPAREN expr_list RPAREN  { Call("", Id(Identifier($1)), $3) }
+   | IDENTIFIER PERIOD IDENTIFIER LPAREN expr_list RPAREN { Call($1,
+   Id(Identifier($3)), $5) }
 
-method_call_expr:
-   IDENTIFIER PERIOD func_call_expr { MethodCall(Identifier($1), $3) }
+member_access_expr:
+        IDENTIFIER PERIOD IDENTIFIER { MemAccess(Identifier($1), Identifier($3)) }
 
 expr_list:
   /* Nothing */ { [] }

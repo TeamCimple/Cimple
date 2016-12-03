@@ -92,6 +92,11 @@ let string_of_declarator = function
    | PointerDirDecl(ptr, decl) -> string_of_ptr ptr ^ "(" ^ string_of_variable
    decl ^ ")"
 
+let string_of_receiver receiver = 
+        match (receiver) with 
+        ("", "") -> ""
+        | (d, u) -> "RECEIVER("^d^","^u^") "
+
 let rec string_of_expr = function 
    Literal(x) -> "Int(" ^ string_of_int x ^ ")"
   | FloatLiteral(x) -> "Float(" ^ string_of_float x ^ ")"
@@ -102,9 +107,10 @@ let rec string_of_expr = function
   string_of_identifier e1 ^  ", " ^ string_of_expr e ^ ")"
   | Binop(e1, op, e2) -> string_of_op op ^ "(" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ ")"
   | Unop(e, unOp) -> string_of_unary_op unOp ^ "(" ^ string_of_expr e ^ ")"
-  | Call(Id(id), exprList) -> "Call(FunctionName: " ^ (string_of_identifier id) ^ " Params: " ^ (string_of_expr_list  exprList) ^ ")"
-  | MethodCall(id, e) -> "MethodCall(Receiver: " ^ string_of_identifier id ^ ","
-  ^ string_of_expr e
+  | Call(obj, Id(id), exprList) -> "Call(" ^ "Receiver(" ^ obj ^")"  ^
+  "FunctionName: " ^ (string_of_identifier id) ^ " Params: " ^ (string_of_expr_list  exprList) ^ ")"
+  | MemAccess(Identifier(s), Identifier(t)) -> "Deref(" ^ "Var(" ^ s ^ ")" ^ ","
+  ^ t ^")"
   | AnonFuncDef(anonDef) -> "AnonFuncDef(ReturnType: " ^ (string_of_type anonDef.anon_return_type) ^ ", Params: " ^ (string_of_func_param_list anonDef.anon_params) ^ ", Body: " ^ (string_of_statement anonDef.anon_body) ^ ")" 
 
 and string_of_func_param_list = function
@@ -163,11 +169,6 @@ and string_of_func_param = function
 
 let string_of_constructor constructor = "Constructor(" ^ constructor.constructor_name ^ "Body:
         " ^ string_of_statement (constructor.constructor_body) ^ ")"
-
-let string_of_receiver receiver = 
-        match (receiver) with 
-        ("", "") -> ""
-        | (d, u) -> "RECEIVER("^d^","^u^") "
 
 let string_of_func fdecl = "FuncDecl(Name: " ^ 
       string_of_declarator fdecl.func_name ^ " ReturnType: " ^

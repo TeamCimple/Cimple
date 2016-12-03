@@ -17,7 +17,7 @@ let id_exists_in_symlist symlist id =
   let check_sym_id_equal sym id = 
     match sym with
       VarSymbol(name, _) -> name == (Astutil.string_of_identifier id)
-    | FuncSymbol(name, _, _, (_, _)) -> name == (Astutil.string_of_identifier id)
+    | FuncSymbol(name, _) -> name == (Astutil.string_of_identifier id)
     | AnonFuncSymbol(name, _) -> name == (Astutil.string_of_identifier id) 
   in
   let compare_symbol_with_id (id, (hasBeenFound, foundSymbol)) sym = 
@@ -33,7 +33,7 @@ let lookup_symbol_from_symlist_by_id symlist id =
   let check_sym_id_equal sym id = 
     match sym with
       VarSymbol(name, _) -> name == (Astutil.string_of_identifier id)
-    | FuncSymbol(name, _, _, (_, _)) -> name == (Astutil.string_of_identifier id)
+    | FuncSymbol(name, _) -> name == (Astutil.string_of_identifier id)
     | AnonFuncSymbol(name, _) -> name == (Astutil.string_of_identifier id) 
   in
   let compare_symbol_with_id (id, (hasBeenFound, foundSymbol)) sym = 
