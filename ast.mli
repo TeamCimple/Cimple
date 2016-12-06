@@ -17,6 +17,7 @@ type tTypeSpec =
   | Long 
   | Float 
   | Double 
+  | Bool
   | Signed 
   | Unsigned
   | String

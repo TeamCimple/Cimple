@@ -48,6 +48,7 @@ let string_of_type_spec = function
       | Long -> "long"
       | Float -> "float"
       | Double -> "double"
+      | Bool -> "bool"
       | Signed -> "signed"
       | Unsigned -> "unsigned"
       | String -> "string"

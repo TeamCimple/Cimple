@@ -53,6 +53,7 @@ rule token = parse
 | "long" { LONG }
 | "float" { FLOAT }
 | "double" { DOUBLE }
+| "bool" { BOOL }
 | "signed" { SIGNED }
 | "unsigned" { UNSIGNED }
 | "func" { FUNC }

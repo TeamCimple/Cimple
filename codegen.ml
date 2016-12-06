@@ -54,6 +54,7 @@ let gen_type_spec ts = match ts with
    | Long -> "long"
    | Float -> "float"
    | Double -> "double"
+   | Bool -> "bool"
    | Unsigned -> "unsigned"
    | String -> "const char*" (*Probably should do this smarter*)
 
