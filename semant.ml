@@ -56,6 +56,13 @@ let rec type_from_func_param = function
    | _ -> raise(Failure("Only supports declared parameters"))
 
 and type_list_from_func_param_list l = List.map type_from_func_param l
+
+and param_list_has_void params func_name = 
+        List.map (fun param -> if ((type_from_func_param param) = PrimitiveType(Void))
+                               then 
+                                raise(Failure("Using void as a function
+                                        parameter for function: " ^ func_name))
+                                else ()) params
     
 and type_from_anon_decl d = AnonFuncType(d.anon_decl_return_type, type_list_from_func_param_list d.anon_decl_params)
   
@@ -183,7 +190,6 @@ let rec check_compatible_anon_types t1 t2 =
 
 and check_compatible_types t1 t2 = match (t1, t2) with
        (PrimitiveType(pt1), PrimitiveType(pt2)) -> (match pt1, pt2 with 
-       (*| Void, Void -> raise(Failure("Cannot assign to void type"))*)
        | Void, Void -> ()
        | Int, Float -> raise(Failure("assigning float to int"))
        | Float, Int -> raise(Failure("assigning int to float"))
@@ -191,6 +197,7 @@ and check_compatible_types t1 t2 = match (t1, t2) with
        | String, Int -> raise(Failure("assigning int to string"))
        | Int, String -> raise(Failure("assigning string to int"))
        | Float, String -> raise(Failure("assigning string to float"))
+       | Void, Void -> ()
        | Int, Int -> ()
        | Float, Float -> ()
        | String, String -> ()
@@ -370,6 +377,209 @@ let func_decl_from_anon_func_def anonDef = {
 let rec check_anon_func_def symbol_table anonDef =  
     check_statement (func_decl_from_anon_func_def anonDef) symbol_table anonDef.anon_body
 
+(* This function checks 1) Is there a cycle in the inheritence tree and 2)
+ * checks that all extensions are valid i.e. no extending oneself or a non
+ * existenct struct *)
+
+let validate_all_inheritence symbols structs =  
+        let validate_inheritence symbols strct =
+                (* It could be that the struct inside of the symbols map is
+                 * different from the struct we pass into this function is not
+                 * the same as the one in our symbol table since the symbol
+                 * table could be modified.
+                 * *)
+                let StructSymbol(_, struct_) = StringMap.find strct.struct_name symbols in
+                (* Check to see if the parent struct is defined*) 
+                if (StringMap.mem struct_.extends symbols) 
+                then 
+                        let StructSymbol(name, parent_struct) = StringMap.find struct_.extends
+                        symbols in 
+
+                        (* Check if parent struct is a member of struct_'s
+                         * children list. If it is then we have circular
+                         * definition *)
+
+                        if (List.mem parent_struct.struct_name struct_.children)
+                        then 
+                                raise(Failure("Circular inheritence: " ^
+                                parent_struct.struct_name ^ " extends " ^
+                                struct_.struct_name ^ " but is also a parent of
+                                " ^ struct_.struct_name))
+                       else
+                               (* We found our parent struct and are about to
+                                * add ourselves and our children to its children
+                                * list. Sanity check we aren't extending
+                                * ourselves
+                                *  *)
+                               if (struct_.struct_name = name) 
+                               
+                               then
+                                       raise(Failure("Struct: " ^ struct_.struct_name ^"
+                                       cannot extend itself"))
+                               else
+                                       let list_to_add = struct_.children @
+                                         [struct_.struct_name] in
+                                
+                                        let updated_struct = {
+                                                members = parent_struct.members;
+                                                struct_name = parent_struct.struct_name;
+                                                extends = parent_struct.extends;
+                                                implements = parent_struct.implements;
+                                                children = (parent_struct.children @ list_to_add);
+                                                constructor = parent_struct.constructor;
+                                        } in
+                               
+                                        let new_symbol = StructSymbol(name,
+                                        updated_struct) in 
+
+                                        StringMap.add name
+                                        new_symbol symbols
+
+                else 
+                        if (struct_.extends = "") then symbols else
+                                raise(Failure("extending a struct that isn't
+                                defined: " ^ struct_.extends))
+                in 
+                
+        List.fold_left validate_inheritence symbols structs
+
+(* Assumes that the symbol table has been validated for 
+ * inheritence rules and duplicate entries *)
+
+let rec get_parents symbols struct_ = 
+        if (struct_.extends <> "")
+        
+        then 
+                let StructSymbol(_, parent_struct) = StringMap.find
+                struct_.extends symbols in 
+
+                [parent_struct] @ (get_parents symbols parent_struct) 
+       else 
+                []
+(* This function gets the constructor of the closest
+ * ancestor of struct_.  *)
+let rec get_ancestors_constructor symbols struct_ =
+        if (struct_.extends = "")
+        
+        then struct_.constructor
+
+        else
+                let StructSymbol(_, parent_struct) = StringMap.find struct_.extends symbols in
+                        if (parent_struct.constructor.constructor_name = "")
+                                then get_ancestors_constructor symbols parent_struct
+                        else 
+                                parent_struct.constructor
+
+let check_void_decl decl = match decl with 
+        | Declaration(decl_spec, _) -> 
+                        if (type_from_declaration_specifiers decl_spec =
+                                PrimitiveType(Void)) then
+                                        raise(Failure("Invalid Declaration of
+type Void. Trying to declare variable: " ^ var_name_from_declaration decl ^ " as
+void"))
+                        else
+                                ()
+        | _ -> raise(Failure("Unhandled Declaration"))
+        
+        
+
+let update_fields symbols structs = 
+        
+        
+        let _ = validate_all_inheritence symbols structs in
+
+        let update_field symbols strct =
+                let StructSymbol(_, struct_) = StringMap.find strct.struct_name symbols in
+                if (struct_.extends = "")
+                then
+                        symbols
+                else 
+                        let parents = get_parents symbols struct_ in 
+                        match parents with 
+
+                        | [] -> symbols
+                        | _ -> List.fold_left (fun sym parent_struct -> 
+                                                let updated_child_struct = {
+                                                        struct_name =
+                                                                struct_.struct_name;
+                                                        members =
+                                                                struct_.members
+                                                                @
+                                                                parent_struct.members;
+                                                        children =
+                                                                struct_.children;
+                                                        constructor = (if
+                                                                (struct_.constructor.constructor_name
+                                                                = "") then
+                                                                        (get_ancestors_constructor
+                                                                        sym
+                                                                        struct_)
+                                                                      else 
+                                                                        struct_.constructor);
+                                                        implements =
+                                                                struct_.implements;
+                                                        extends =
+                                                                struct_.extends;
+                                                } in 
+
+                                                StringMap.add
+                                                struct_.struct_name
+                                                (StructSymbol(struct_.struct_name,
+                                                updated_child_struct))
+                                                sym) symbols parents in
+                                                                        
+               List.fold_left update_field symbols structs
+
+(* Updates structs in the program object with the ones populated in symbol table *)
+let update_structs_in_program program  =
+        let fdecls = program.functions @ [{
+               return_type = DeclSpecTypeSpec(Int); 
+               func_name = DirectDeclarator(Var(Identifier("printf")));
+               params = [FuncParamsDeclared(DeclSpecTypeSpec(String),
+               DirectDeclarator(Var(Identifier("x"))))];
+               receiver = ("", "");
+               body = CompoundStatement([], []);                                          
+       }] in
+
+       let symbol_table = update_fields (List.fold_left (fun m symbol -> if StringMap.mem
+                (get_id_from_symbol symbol) m then
+                        raise(Failure("redefining identifier")) else StringMap.add
+                        (get_id_from_symbol symbol) symbol m) StringMap.empty
+                         (symbols_from_decls program.globals @
+                         symbols_from_fdecls fdecls @ (symbols_from_structs program.structs)
+                         @ (symbols_from_interfaces program.interfaces)))
+                        program.structs in
+         
+
+        let rec get_structs_from_symbols structs symbol_table = 
+                match structs with 
+                | [] -> []
+                | h::t -> (let StructSymbol(_, struct_) = StringMap.find
+                h.struct_name symbol_table in [struct_] @ get_structs_from_symbols t
+                symbol_table) 
+        in 
+
+        let structs_ = get_structs_from_symbols program.structs symbol_table in 
+        
+        {
+                globals = program.globals;
+                structs = structs_;
+                interfaces = program.interfaces;
+                functions = program.functions;
+        }
+
+let check_struct_fields struct_ = 
+         ignore (List.map check_void_decl struct_.members);
+
+         List.fold_left (fun sym decl -> if
+        (StringMap.mem (var_name_from_declaration decl)
+        sym) then raise(Failure("Struct field: " ^
+        (var_name_from_declaration (decl)) ^ " was redeclared")) else
+                StringMap.add (var_name_from_declaration decl) decl sym)
+        StringMap.empty struct_.members 
+
+
+
 let check_program program =
         let sdecls = List.map var_name_from_declaration program.globals in
         let report_duplicate exceptf list =
@@ -379,11 +589,18 @@ let check_program program =
                         | [] -> ()
                 in helper (List.sort compare list)
         in 
-        
+         
        report_duplicate (fun a -> "duplicate for variable: " ^ a)  (sdecls); 
+
+       ignore (List.map check_void_decl program.globals);
 
        let fnames = List.map (fun func -> var_name_from_direct_declarator func.func_name) program.functions in
        report_duplicate (fun a -> "duplicate functions: " ^ a) (fnames);
+
+       let struct_names = List.map (fun struct_ -> struct_.struct_name)
+       program.structs in 
+
+       report_duplicate (fun a -> "duplicate structs: " ^ a) (struct_names);
 
        let has_main = List.mem "main" fnames in
        if has_main then () else raise(Failure("no function main declared")); 
@@ -391,6 +608,10 @@ let check_program program =
        let is_printf_redefined = List.mem "printf" fnames in
        if is_printf_redefined then raise(Failure("cannot redefine printf")) else
                ();
+     
+       let program = update_structs_in_program program 
+                       in ignore(List.map check_struct_fields program.structs);
+
 
        let fdecls = program.functions @ [{
                return_type = DeclSpecTypeSpec(Int); 
@@ -406,12 +627,15 @@ let check_program program =
        (var_name_from_direct_declarator func.func_name) func m) StringMap.empty
        fdecls in
 
-        let check_function func =
+       let check_function func =
                 let func_params = List.map var_name_from_func_param func.params
                 in
 
                 report_duplicate (fun a -> "duplicate function parameters: " ^
                 a) func_params;
+
+                param_list_has_void func.params (var_name_from_direct_declarator
+                func.func_name);
 
                 let local_decls = List.map var_name_from_declaration
                 (get_decls_from_compound_stmt func.body) in
@@ -443,4 +667,3 @@ let check_program program =
                 (get_stmts_from_compound_stmt func.body); 
                         
         in List.iter check_function program.functions;
-

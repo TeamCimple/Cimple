@@ -66,6 +66,11 @@ assignment_expression:
     IDENTIFIER assignment_operator expr { AsnExpr(Identifier($1), $2, $3) }
   | add_expr { $1 }
 
+initializer_list:
+        /*Nothing */ { [] }
+        | LBRACKET primary_expr RBRACKET { [$2] }
+        | LBRACKET initializer_list COMMA primary_expr RBRACKET { $4 :: $2 }
+
 postfix_expr:
     primary_expr { $1 }
   | postfix_expr LBRACKET_SQUARE expr RBRACKET_SQUARE { Postfix($1,
@@ -181,7 +186,9 @@ declarator:
 
 direct_declarator:
     IDENTIFIER { Var(Identifier($1)) }
-
+    | direct_declarator LBRACKET_SQUARE INT_LITERAL RBRACKET_SQUARE
+    { ArrDirDecl($1, $3) }
+    | direct_declarator LBRACKET_SQUARE RBRACKET { ArrDirDecl($1, -1) }
 
 declaration:
    declaration_specifiers init_declarator_list SEMICOLON { Declaration($1, $2)}
@@ -197,6 +204,7 @@ struct_declaration:
          members = (List.rev $6);
          struct_name = $2;
          extends = $3;
+         children = [""];
          implements = $4;
          constructor = $7;
  }}

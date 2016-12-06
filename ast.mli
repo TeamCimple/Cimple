@@ -54,7 +54,7 @@ and tExpr =
 
  and tDirectDeclarator = 
   Var of tIdentifier
-  | ArrDirDecl of tDirectDeclarator * tExpr
+  | ArrDirDecl of tDirectDeclarator * int
 
  and tDeclarator = 
   PointerDirDecl of tPointer * tDirectDeclarator
@@ -116,6 +116,7 @@ type tStruct = {
         members: tDeclaration list;
         struct_name: string;
         extends: string;
+        children: string list; (*Used to validate inheritence tree*)
         implements: string;
         constructor: tConstructor
 }

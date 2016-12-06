@@ -1,0 +1,9 @@
+struct MyStruct extends MyStruct {
+	int a;
+	int b;
+};
+
+int main()
+{
+	return 0;
+}
