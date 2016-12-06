@@ -76,7 +76,6 @@ let rec gen_expr expr = match expr with
    | Call(_, Id(Identifier(id)), elist) -> id ^ "(" ^ (String.concat ","  (List.map
    gen_expr elist)) ^ ")"
    | MemAccess(Identifier(s), Identifier(t)) -> s ^ "." ^ t
-   | Make(t) -> "make " ^ (gen_decl_specs t) ^ "();"
    | Postfix(e1, pop, e2) -> gen_expr e1 ^ (gen_postfix_op pop) ^ (gen_expr e2)
    | Address(address_op, e) -> (gen_address_op address_op) ^ (gen_expr e)
    | Noexpr -> ""
