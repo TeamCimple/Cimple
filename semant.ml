@@ -29,6 +29,13 @@ let type_from_func_param = function
    | _ -> raise(Failure("Only supports declared parameters"))
 
 let type_list_from_func_param_list l = List.map type_from_func_param l
+
+let param_list_has_void params func_name = 
+        List.map (fun param -> if ((type_from_func_param param) = PrimitiveType(Void))
+                               then 
+                                raise(Failure("Using void as a function
+                                        parameter for function: " ^ func_name))
+                                else ()) params
     
 let type_from_anon_decl d = AnonFuncType(d.anon_decl_return_type, type_list_from_func_param_list d.anon_decl_params)
    
@@ -391,6 +398,19 @@ let rec get_ancestors_constructor symbols struct_ =
                         else 
                                 parent_struct.constructor
 
+let check_void_decl decl = match decl with 
+        | Declaration(decl_spec, _) -> 
+                        if (type_from_declaration_specifiers decl_spec =
+                                PrimitiveType(Void)) then
+                                        raise(Failure("Invalid Declaration of
+type Void. Trying to declare variable: " ^ var_name_from_declaration decl ^ " as
+void"))
+                        else
+                                ()
+        | _ -> raise(Failure("Unhandled Declaration"))
+        
+        
+
 let update_fields symbols structs = 
         
         
@@ -477,7 +497,8 @@ let update_structs_in_program program  =
         }
 
 let check_struct_fields struct_ = 
-         
+         ignore (List.map check_void_decl struct_.members);
+
          List.fold_left (fun sym decl -> if
         (StringMap.mem (var_name_from_declaration decl)
         sym) then raise(Failure("Struct field: " ^
@@ -496,8 +517,10 @@ let check_program program =
                         | [] -> ()
                 in helper (List.sort compare list)
         in 
-        
+         
        report_duplicate (fun a -> "duplicate for variable: " ^ a)  (sdecls); 
+
+       ignore (List.map check_void_decl program.globals);
 
        let fnames = List.map (fun func -> var_name_from_direct_declarator func.func_name) program.functions in
        report_duplicate (fun a -> "duplicate functions: " ^ a) (fnames);
@@ -513,7 +536,7 @@ let check_program program =
        let is_printf_redefined = List.mem "printf" fnames in
        if is_printf_redefined then raise(Failure("cannot redefine printf")) else
                ();
-      
+     
        let program = update_structs_in_program program 
                        in ignore(List.map check_struct_fields program.structs);
 
@@ -538,6 +561,9 @@ let check_program program =
 
                 report_duplicate (fun a -> "duplicate function parameters: " ^
                 a) func_params;
+
+                param_list_has_void func.params (var_name_from_direct_declarator
+                func.func_name);
 
                 let local_decls = List.map var_name_from_declaration
                 (get_decls_from_compound_stmt func.body) in

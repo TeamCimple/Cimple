@@ -190,8 +190,6 @@ direct_declarator:
     { ArrDirDecl($1, $3) }
     | direct_declarator LBRACKET_SQUARE RBRACKET { ArrDirDecl($1, -1) }
 
-
-
 declaration:
    declaration_specifiers init_declarator_list SEMICOLON { Declaration($1, $2)}
 
