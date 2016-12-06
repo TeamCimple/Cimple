@@ -1,0 +1,13 @@
+void apply_op(string s, func()(string) op)
+{
+	op(s);
+}
+
+int main( )
+{
+	string hello = "Hello World";
+	
+	apply_op(hello, func( )(string s) { printf(s); });
+
+	return 0;
+}

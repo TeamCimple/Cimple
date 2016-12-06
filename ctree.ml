@@ -7,6 +7,9 @@ type cStruct = {
   struct_members: Ast.sSymbol list; 
 }
 
+
+let string_of_cStruct s = "CStruct(Name: " ^ s.struct_name ^ ", Symbols: " ^ Astutil.string_of_symbol_list s.struct_members ^ ")"
+
 let id_exists_in_symtable symbols id = 
   try 
     StringMap.find (Astutil.string_of_identifier id) symbols;
@@ -136,4 +139,18 @@ let capture_struct_from_anon_def symbols structName def =
       struct_name = structName;
       struct_members = struct_members_from_anon_body symbols param_symbols def.anon_body
     }
+(* Return (updatedAnonCounter, tFuncDecl) *)
+let c_function_from_anon_function anonCounter anonDef = {
+        return_type = DeclSpecTypeSpecAny(anonDef.anon_return_type);
+        func_name = DirectDeclarator(Var(Identifier("anonFunc_" ^ string_of_int (anonCounter + 1))));
+        receiver = ("", "");
+        params = anonDef.anon_params;
+        body = anonDef.anon_body
+}
 
+let anon_defs_from_expr expr = []
+let anon_defs_from_statement stmt = match stmt with
+   Expr(e) -> anon_defs_from_expr e 
+
+(* Return tAnonFuncDef list *)
+(*let collect_anon_defs_for_func_decl fdecl = *)

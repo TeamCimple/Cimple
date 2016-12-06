@@ -54,7 +54,7 @@ semant.cmo: ast.cmi semant.cmi
 semant.cmx: ast.cmi semant.cmi
 astutil.cmi: ast.cmi astutil.ml
 astutil.cmo: ast.cmi astutil.ml
-ctree.cmi: ast.cmi 
-ctree.cmo: ast.cmi ctree.ml
-ctree.cmx: ast.cmi ctree.cmi
+ctree.cmi: ast.cmi semant.cmi 
+ctree.cmo: ast.cmi semant.cmi ctree.ml
+ctree.cmx: ast.cmi semant.cmi ctree.cmi
 

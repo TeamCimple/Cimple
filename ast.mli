@@ -146,3 +146,5 @@ type sSymbol =
   | StructSymbol of string * tStruct
   | InterfaceSymbol of string * tInterface
   | AnonFuncSymbol of string * tType
+
+
