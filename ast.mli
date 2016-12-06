@@ -50,7 +50,7 @@ and tExpr =
   | Address of tAddressOperator * tExpr
   | Call of string * tExpr * tExpr list
   | MemAccess of tIdentifier * tIdentifier
-  | Make of tType
+  | Make of tDeclarationSpecifiers 
   | Id of tIdentifier
   | AnonFuncDef of tAnonFuncDef
   | DeclExpr of tDeclaration

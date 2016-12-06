@@ -136,7 +136,7 @@ primary_expr:
  | STRING_LITERAL           { StringLiteral($1) }
  | IDENTIFIER               { Id(Identifier($1))}
  | BITWISE_AND IDENTIFIER   { Address(Ampersand, Id(Identifier($2))) }
- | MAKE STRUCT STRUCT_IDENTIFIER LPAREN RPAREN { Make(CustomType($3)) }
+ | MAKE STRUCT STRUCT_IDENTIFIER LPAREN RPAREN { Make(DeclSpecTypeSpecAny(CustomType($3))) }
 
 type_specifier:
    VOID { Void }
