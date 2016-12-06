@@ -146,13 +146,13 @@ let rec check_compatible_anon_types t1 t2 =
 
 and check_compatible_types t1 t2 = match (t1, t2) with
        (PrimitiveType(pt1), PrimitiveType(pt2)) -> (match pt1, pt2 with 
-       | Void, Void -> raise(Failure("Cannot assign to void type"))
        | Int, Float -> raise(Failure("assigning float to int"))
        | Float, Int -> raise(Failure("assigning int to float"))
        | String, Float -> raise(Failure("assigning float to string"))
        | String, Int -> raise(Failure("assigning int to string"))
        | Int, String -> raise(Failure("assigning string to int"))
        | Float, String -> raise(Failure("assigning string to float"))
+       | Void, Void -> ()
        | Int, Int -> ()
        | Float, Float -> ()
        | String, String -> ()
