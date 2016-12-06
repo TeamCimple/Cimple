@@ -1,0 +1,20 @@
+struct HisStruct extends MyStruct {
+	int a;
+	int b;
+	int c;
+};
+
+struct YourStruct extends HisStruct {
+	int a;
+	int t;
+	int v;
+};
+
+struct MyStruct extends YourStruct{
+	int x;
+	int y;
+};
+
+int main() {
+	return 0;
+}
