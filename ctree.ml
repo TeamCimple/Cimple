@@ -2,11 +2,63 @@ open Ast
 
 module StringMap = Map.Make(String)
 
+type cPrimitive =
+    Cvoid 
+  | Cchar
+  | Cshort 
+  | Cint 
+  | Clong 
+  | Cfloat 
+  | Cdouble 
+    
 type cStruct = {
   struct_name: string;
   struct_members: Ast.sSymbol list; 
 }
 
+type cFuncSignature = {
+    func_return_type: cType;
+    func_param_types: cType list; 
+}
+
+and cNonPointerType =
+    CPrimitiveType of cPrimitive
+  | CStruct of cStruct
+
+and cFuncPointer = {
+    cfunc_signature: cFuncSignature;
+    cfunc_name: string;
+}
+
+and cPointer = 
+    CPointer of cNonPointerType
+  | CPointerPointer of cPointer
+  | CFuncPointer of cFuncSignature
+
+and cType = 
+    CType of cNonPointerType
+  | CPointerType of cPointer
+
+
+let cType_from_tTypeSpec = function
+    Void -> CType(CPrimitiveType(Cvoid))  
+  | Char -> CType(CPrimitiveType(Cchar))
+  | Short -> CType(CPrimitiveType(Cshort))
+  | Int -> CType(CPrimitiveType(Cint))
+  | Long -> CType(CPrimitiveType(Clong))
+  | Float -> CType(CPrimitiveType(Cfloat))
+  | Double -> CType(CPrimitiveType(Cdouble))
+  | Signed -> raise(Failure("cType_from_tTypeSpec: Error, Signed unsuported at the moment"))
+  | Unsigned -> raise(Failure("cType_from_tTypeSpec: Error, Unsigned unsuported at the moment"))
+  | String -> CPointerType(CPointer(CPrimitiveType(Cchar))) 
+  | _ -> raise(Failure("cType_from_tTypeSpec: Error, unsupported tTypeSpec"))
+
+let cType_from_tType = function
+    PrimitiveType(tspec) -> cType_from_tTypeSpec tspec
+  | _ -> raise(Failure("cType_from_tType: Error, unsupported tType"))
+
+     
+(*let cType_from_tType*)
 
 let string_of_cStruct s = "CStruct(Name: " ^ s.struct_name ^ ", Symbols: " ^ Astutil.string_of_symbol_list s.struct_members ^ ")"
 
