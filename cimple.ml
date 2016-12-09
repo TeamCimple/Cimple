@@ -1,12 +1,13 @@
 open Codegen
 
-type tAction = Ast | Compile 
+type tAction = Ast | Compile | AnonFuncTest 
 
 let _ =
 
        let action = if Array.length Sys.argv > 1 then
         List.assoc Sys.argv.(1) [ ("-a", Ast);      (* Print the AST only *)
-                              ("-c", Compile) ]     (* Attempt compilation (default) *) 
+                                  ("-c", Compile);       (* Attempt compilation (default) *)
+                                  ("-l", AnonFuncTest) ]     
        else Compile in
 
        let lexbuf = Lexing.from_channel stdin in
@@ -16,3 +17,4 @@ let _ =
               | Compile -> 
                        (Semant.check_program program;
                        Printf.printf "%s\n" (Codegen.gen_program program))
+              | AnonFuncTest -> raise(Failure("Error, -l anonymous function testing not yet ready"))

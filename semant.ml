@@ -2,7 +2,28 @@ open Ast
 
 module StringMap = Map.Make(String)
 
-let rec var_name_from_direct_declarator = function
+let rec string_of_type tp =
+    let string_of_primitive_type = function
+       | Void -> "Void"
+       | Char -> "Char"
+       | Short -> "Short"
+       | Int -> "Int"
+       | Long -> "Long"
+       | Float -> "Float"
+       | Double -> "Double"
+       | Unsigned -> "Unsigned"
+       | String -> "String"
+    in match tp with
+     PrimitiveType(t) -> string_of_primitive_type t
+   | CustomType(s) -> "CustomType(" ^ s ^ ")"
+   | AnonFuncType(t, tlist) -> "AnonFuncType(ReturnType: " ^ string_of_type t ^ ", ParamTypes: " ^ string_of_type_list tlist ^ ")"
+
+and string_of_type_list = function
+    [] -> ""
+  | [x] -> string_of_type x
+  | h::t -> string_of_type h ^ " " ^  string_of_type_list t
+
+let var_name_from_direct_declarator = function
      DirectDeclarator(Var(Identifier(s))) -> s
    | PointerDirDecl(_, Var(Identifier(s))) -> s
    | _ -> raise(Failure("Pointers not yet supported"))
@@ -15,8 +36,12 @@ let var_name_from_declaration = function
                    var_name_from_direct_declarator dd
    | _ -> raise(Failure("var_name_from_declaration: not yet supported")) 
 
+let var_name_from_anon_decl adecl = match adecl.anon_decl_name with
+    Identifier(s) -> s
+
 let var_name_from_func_param = function
-    FuncParamsDeclared(_, x) -> var_name_from_direct_declarator x 
+    FuncParamsDeclared(_, x) -> var_name_from_direct_declarator x
+   | AnonFuncDecl(adecl) -> var_name_from_anon_decl adecl 
    | _ -> raise(Failure("pointers not supported"))
 
 let rec type_from_declaration_specifiers = function
@@ -46,21 +71,25 @@ let type_from_declaration = function
               get_num_pointers ptr)
       | Declaration(decl_spec, _) -> type_from_declaration_specifiers decl_spec
 
-let type_from_func_param = function
-    FuncParamsDeclared(t, _) -> type_from_declaration_specifiers t
+let rec type_from_func_param = function
+     FuncParamsDeclared(t, _) -> type_from_declaration_specifiers t
+   | ParamDeclWithType(declspecs) -> type_from_declaration_specifiers declspecs
+   | AnonFuncDecl(adecl) -> type_from_anon_decl adecl 
    | _ -> raise(Failure("Only supports declared parameters"))
 
-let type_list_from_func_param_list l = List.map type_from_func_param l
+and type_list_from_func_param_list l = List.map type_from_func_param l
 
-let param_list_has_void params func_name = 
+and param_list_has_void params func_name = 
         List.map (fun param -> if ((type_from_func_param param) = PrimitiveType(Void))
                                then 
                                 raise(Failure("Using void as a function
                                         parameter for function: " ^ func_name))
                                 else ()) params
     
-let type_from_anon_decl d = AnonFuncType(d.anon_decl_return_type, type_list_from_func_param_list d.anon_decl_params)
-   
+and type_from_anon_decl d = AnonFuncType(d.anon_decl_return_type, type_list_from_func_param_list d.anon_decl_params)
+  
+let type_from_anon_def d = AnonFuncType(d.anon_return_type, type_list_from_func_param_list d.anon_params)
+
 let symbol_from_func_param p = match p with
    | FuncParamsDeclared(decl_specs, decl) -> VarSymbol(var_name_from_direct_declarator decl, type_from_declaration_specifiers decl_specs)
    | AnonFuncDecl(d) -> AnonFuncSymbol(Astutil.string_of_identifier d.anon_decl_name, type_from_anon_decl d) 
@@ -89,16 +118,27 @@ let lookup_symbol_by_id symbols id = try StringMap.find
         Not_found -> raise(Failure("undeclared identifier: " ^
         Astutil.string_of_identifier id))
 
+let func_decl_from_anon_def anonDef = {
+    return_type = DeclSpecTypeSpecAny(anonDef.anon_return_type);
+    func_name = DirectDeclarator(Var(Identifier("")));
+    receiver = ("", "");
+    params = anonDef.anon_params;
+    body = anonDef.anon_body
+}
 let type_from_identifier symbols id = 
         let x = lookup_symbol_by_id symbols id in match x with 
         | VarSymbol(_, t) -> t
         | FuncSymbol(_, func) -> type_from_declaration_specifiers
         func.return_type
         | StructSymbol(_, struct_decl) -> CustomType(struct_decl.struct_name)
+        | AnonFuncSymbol(_, t) -> t 
 
 let get_parameter_list symbol = match symbol with
         FuncSymbol(_, func) -> type_list_from_func_param_list func.params
-        | _ -> raise(Failure("Shouldn't get parameter list for Var Symbol"))
+      | AnonFuncSymbol(_, t) -> (match t with 
+              AnonFuncType(_, tlist) -> tlist
+            | _ -> raise(Failure("get_parameter_list: Error, invalid type for Anonymous function")))
+      | _ -> raise(Failure("Shouldn't get parameter list for Var Symbol"))
 
 let get_struct symbol = match symbol with 
         StructSymbol(_, struct_) -> struct_
@@ -170,10 +210,14 @@ let rec type_from_expr symbols expr = match expr with
                                                  * and then add count to the
                                                  * existing pointer type *)
                                 | _ -> PointerType(typ_, 1))
+  | AnonFuncDef(adef) -> type_from_anon_def adef
   | Noexpr -> PrimitiveType(Void)
 
 let rec check_compatible_anon_types t1 t2 =
-        let f a b = if a == b then () else raise(Failure("check_compatible_anon_types: Error, param types not equal"))  in
+        let f a b =
+            let error_str = "t1 = " ^ string_of_type t1 ^ ", t2 = " ^ string_of_type t2
+            in
+            if a = b then () else raise(Failure("check_compatible_anon_types: Error, param types not equal: " ^ error_str))  in
         let check_lists_are_equal l1 l2 = List.iter2 f l1 l2 in
         match (t1, t2) with
            (AnonFuncType(rType1, plist1), AnonFuncType(rType2, plist2)) -> check_compatible_types rType1 rType2;
@@ -183,6 +227,7 @@ let rec check_compatible_anon_types t1 t2 =
 
 and check_compatible_types t1 t2 = match (t1, t2) with
        (PrimitiveType(pt1), PrimitiveType(pt2)) -> (match pt1, pt2 with 
+       | Void, Void -> ()
        | Int, Float -> raise(Failure("assigning float to int"))
        | Float, Int -> raise(Failure("assigning int to float"))
        | String, Float -> raise(Failure("assigning float to string"))
@@ -247,6 +292,13 @@ let check_constructor symbols struct_name params =
   
        | _ -> raise(Failure("not handled\n"))
                 
+               
+let rec check_compatible_type_lists tl1 tl2 = match (tl1, tl2) with
+    ([], []) -> ()
+  | ([x], [y]) -> check_compatible_types x y
+  | (h1::t1, h2::t2) -> check_compatible_types h1 h2;
+                        check_compatible_type_lists t1 t2
+  | _ -> raise(Failure("check_compatible_type_lists: type lists are incompatible"))
 
 let rec check_expr symbols e = match e with
      Id(Identifier(name)) -> if (StringMap.mem name symbols) == false then
@@ -259,20 +311,23 @@ let rec check_expr symbols e = match e with
    | Pointify(e) -> ()
 
    | Call(receiver, Id(id), expr_list) -> ignore (type_from_identifier symbols id);                      
-                        ignore (let func_symbol = lookup_symbol_by_id symbols id in let
-                        func = get_func func_symbol in 
-                        if (receiver <> "") then (receiver_has_func receiver
-                        symbols func) else ());
+                        ignore (let func_symbol = lookup_symbol_by_id symbols id in 
+                            (match func_symbol with
+                              FuncSymbol(_, _) -> 
+                                    let func = get_func func_symbol in 
+                                    if (receiver <> "") then (receiver_has_func receiver symbols func) 
+                                    else ();
+                                    let paramList = get_parameter_list (lookup_symbol_by_id symbols id) in               
+                                    let exprList = List.map (type_from_expr symbols) expr_list in
+                                    if List.length paramList != List.length exprList then 
+                                            raise(Failure("Parameter count mismatch"))
+                                    else 
+                                        List.iter2 check_compatible_types paramList
+                                        (List.map (type_from_expr symbols) expr_list)
+                           | AnonFuncSymbol(s, AnonFuncType(returnType, paramTypes)) ->
+                                   let passedParamTypes = List.map (type_from_expr symbols) expr_list in
+                                   check_compatible_type_lists paramTypes passedParamTypes))
 
-                        let paramList = get_parameter_list (lookup_symbol_by_id symbols id) in 
-                                      
-                        let exprList = List.map (type_from_expr symbols) expr_list in
-
-                        if List.length paramList != List.length exprList then 
-                                raise(Failure("Parameter count mismatch"))
-                        else 
-                            List.iter2 check_compatible_types paramList
-                            (List.map (type_from_expr symbols) expr_list)
 
    | Unop(e, unop) -> check_expr symbols e;
                       let te = type_from_expr symbols e in 
@@ -324,9 +379,10 @@ let compare_functions f1 f2 =
 let symbols_from_fdecls fdecls = List.map symbol_from_fdecl fdecls
 
 let get_id_from_symbol = function
-        VarSymbol(id, _) -> id
+     VarSymbol(id, _) -> id
    | FuncSymbol(id, _) -> id
    | StructSymbol(id, _) -> id
+   | AnonFuncSymbol(id, t) -> id
 
 let get_decls_from_compound_stmt stmt = match stmt with 
         CompoundStatement(x, y) -> x
@@ -361,7 +417,8 @@ let add_to_symbol_table tbl decls = List.fold_left (fun m symbol -> if StringMap
                get_id_from_symbol symbol)) else StringMap.add
        (get_id_from_symbol symbol) symbol m) tbl
        (symbols_from_decls decls)
- 
+
+
 let rec check_statement func symbol_table stmt = match stmt with
      Expr(e) -> check_expr symbol_table e
   | Return(e) -> check_compatible_types (type_from_expr symbol_table e)
@@ -377,6 +434,22 @@ let rec check_statement func symbol_table stmt = match stmt with
   in List.iter (check_local_declaration tbl) dl; List.iter (check_statement func tbl) sl
   | Break -> ()
 
+(*let rec check_statement_list func symbol_table stmtList = match stmtList with *)
+    (*[] -> ()*)
+  (*| [x] -> check_statement func symbol_table x*)
+  (*| h::t -> check_statement func symbol_table h;*)
+            (*check_statement_list func symbol_table t*)
+
+let func_decl_from_anon_func_def anonDef = {
+    return_type = DeclSpecTypeSpecAny(anonDef.anon_return_type);
+    func_name = DirectDeclarator(Var(Identifier("")));
+    receiver = ("", "");
+    params = anonDef.anon_params;
+    body = anonDef.anon_body
+}
+
+let rec check_anon_func_def symbol_table anonDef =  
+    check_statement (func_decl_from_anon_func_def anonDef) symbol_table anonDef.anon_body
 
 (* This function checks 1) Is there a cycle in the inheritence tree and 2)
  * checks that all extensions are valid i.e. no extending oneself or a non

@@ -2,10 +2,62 @@ open Ast
 
 module StringMap = Map.Make(String)
 
+type cPrimitive =
+    Cvoid 
+  | Cchar
+  | Cshort 
+  | Cint 
+  | Clong 
+  | Cfloat 
+  | Cdouble 
+    
 type cStruct = {
   struct_name: string;
   struct_members: Ast.sSymbol list; 
 }
+
+type cFuncSignature = {
+    func_return_type: cType;
+    func_param_types: cType list; 
+}
+
+and cNonPointerType =
+    CPrimitiveType of cPrimitive
+  | CStruct of cStruct
+
+and cFuncPointer = {
+    cfunc_signature: cFuncSignature;
+    cfunc_name: string;
+}
+
+and cPointer = 
+    CPointer of cNonPointerType
+  | CPointerPointer of cPointer
+  | CFuncPointer of cFuncSignature
+
+and cType = 
+    CType of cNonPointerType
+  | CPointerType of cPointer
+
+
+let cType_from_tTypeSpec = function
+    Void -> CType(CPrimitiveType(Cvoid))  
+  | Char -> CType(CPrimitiveType(Cchar))
+  | Short -> CType(CPrimitiveType(Cshort))
+  | Int -> CType(CPrimitiveType(Cint))
+  | Long -> CType(CPrimitiveType(Clong))
+  | Float -> CType(CPrimitiveType(Cfloat))
+  | Double -> CType(CPrimitiveType(Cdouble))
+  | Signed -> raise(Failure("cType_from_tTypeSpec: Error, Signed unsuported at the moment"))
+  | Unsigned -> raise(Failure("cType_from_tTypeSpec: Error, Unsigned unsuported at the moment"))
+  | String -> CPointerType(CPointer(CPrimitiveType(Cchar))) 
+  | _ -> raise(Failure("cType_from_tTypeSpec: Error, unsupported tTypeSpec"))
+
+let cType_from_tType = function
+    PrimitiveType(tspec) -> cType_from_tTypeSpec tspec
+  | _ -> raise(Failure("cType_from_tType: Error, unsupported tType"))
+
+let string_of_cStruct s = "CStruct(Name: " ^ s.struct_name ^ ", Symbols: " ^ Astutil.string_of_symbol_list s.struct_members ^ ")"
 
 let id_exists_in_symtable symbols id = 
   try 
@@ -136,4 +188,58 @@ let capture_struct_from_anon_def symbols structName def =
       struct_name = structName;
       struct_members = struct_members_from_anon_body symbols param_symbols def.anon_body
     }
+(* Return (updatedAnonCounter, tFuncDecl) *)
+let c_function_from_anon_function anonCounter anonDef = {
+        return_type = DeclSpecTypeSpecAny(anonDef.anon_return_type);
+        func_name = DirectDeclarator(Var(Identifier("anonFunc_" ^ string_of_int (anonCounter + 1))));
+        receiver = ("", "");
+        params = anonDef.anon_params;
+        body = anonDef.anon_body
+}
 
+let rec anon_defs_from_expr = function
+     AnonFuncDef(anonDef) -> [anonDef]
+   | Binop(e1, op, e2) -> (anon_defs_from_expr e1)@(anon_defs_from_expr e2)
+   | AsnExpr(_, _, e) -> anon_defs_from_expr e
+   | Postfix(e1, _, e2) -> (anon_defs_from_expr e1)@(anon_defs_from_expr e2)
+   | Call(_, e, elist) -> (anon_defs_from_expr e)@(anon_defs_from_expr_list elist)
+   | _ -> [] (* Other expression types cannot possibly contain anonymous function definitions *) 
+
+and anon_defs_from_expr_list = function 
+     [] -> []
+   | [e] -> anon_defs_from_expr e
+   | h::t -> (anon_defs_from_expr h)@(anon_defs_from_expr_list t)
+
+let rec anon_defs_from_declaration = function
+     Declaration(declSpecs, initDecl) -> anon_defs_from_init_declarator initDecl
+
+and anon_defs_from_declaration_list = function
+     [] -> []
+   | [d] -> anon_defs_from_declaration d
+   | h::t -> (anon_defs_from_declaration h)@(anon_defs_from_declaration_list t)
+
+and anon_defs_from_init_declarator = function
+           InitDeclaratorAsn(_, _, e) -> anon_defs_from_expr e
+         | InitDeclList(initDeclList) -> anon_defs_from_init_declarator_list initDeclList
+         | _ -> []
+
+and anon_defs_from_init_declarator_list = function
+     [] -> []
+   | [decl] -> anon_defs_from_init_declarator decl
+   | h::t -> (anon_defs_from_init_declarator h)@(anon_defs_from_init_declarator_list t)
+
+let rec anon_defs_from_statement stmt = match stmt with
+     Expr(e) -> anon_defs_from_expr e
+   | Return(e) -> anon_defs_from_expr e
+   | If(e, s1, s2) -> (anon_defs_from_expr e)@(anon_defs_from_statement s1)@(anon_defs_from_statement s2)
+   | For(e1, e2, e3, s) -> (anon_defs_from_expr e1)@(anon_defs_from_expr e2)@(anon_defs_from_expr e3)@(anon_defs_from_statement s)
+   | While(e, s) -> (anon_defs_from_expr e)@(anon_defs_from_statement s)
+   | CompoundStatement(declList, stmtList) -> (anon_defs_from_declaration_list declList)@(anon_defs_from_statement_list stmtList)
+
+and anon_defs_from_statement_list = function
+     [] -> []
+   | [s] -> anon_defs_from_statement s
+   | h::t -> anon_defs_from_statement_list t
+
+(* Return tAnonFuncDef list *)
+(*let collect_anon_defs_for_func_decl fdecl = *)

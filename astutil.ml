@@ -198,3 +198,18 @@ let string_of_program program =
         string_of_interface program.interfaces) ^ (string_of_list_objs
         string_of_struct program.structs) ^ (string_of_list_objs string_of_func
         program.functions)
+
+let string_of_symbol = function 
+   VarSymbol(s, t) -> "Variable_Symbol(Name: " ^ s ^ ", Type: " ^ string_of_type t ^ ")"
+ | FuncSymbol(s, fdecl) -> "Function_Symbol(Name: " ^ s ^ ")" (* Finish me! *)
+ | StructSymbol(s, strct) -> "Struct_Symbol" (* Finish me! *)
+ | InterfaceSymbol(s, ti) -> "Interface_Symbol" (* Finish me! *)
+ | AnonFuncSymbol(s, t) -> "AnonymousFunction_Symbol(Name: " ^ s ^ ", Type: " ^ string_of_type t ^ ")"
+
+let rec string_of_symbol_list l = match l with
+    [] -> ""
+  | [x] -> string_of_symbol x
+  | h::t -> string_of_symbol h ^ string_of_symbol_list t
+ 
+
+
