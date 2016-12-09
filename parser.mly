@@ -15,7 +15,7 @@
 %token AUTO REGISTER STATIC EXTERN TYPEDEF
 %token VOID CHAR SHORT INT LONG FLOAT DOUBLE SIGNED UNSIGNED STRING FUNC
 %token CONST VOLATILE
-%token STRUCT UNION INTERFACE
+%token STRUCT UNION INTERFACE MAKE
 %token SWITCH CASE ENUM DEFAULT IF ELSE
 %token LBRACKET RBRACKET LBRACKET_SQUARE RBRACKET_SQUARE LPAREN RPAREN COMMA
 COLON ELLIPSIS ASTERISK PERIOD
@@ -60,6 +60,7 @@ expr:
   assignment_expression { $1 }
   | member_access_expr { $1 }
   | func_call_expr { $1 }
+  | make_expr { $1 }
   | anon_func_def { AnonFuncDef($1) }
 
 assignment_expression:
@@ -78,6 +79,15 @@ postfix_expr:
   | postfix_expr PERIOD IDENTIFIER { Postfix($1, PostDeref, Id(Identifier($3))) }
   | postfix_expr PLUS PLUS { Postfix($1, PostPlusPlus, Noexpr) }
   | postfix_expr MINUS MINUS { Postfix($1, PostMinusMinus, Noexpr) }
+
+make_expr:
+        MAKE STRUCT_IDENTIFIER LPAREN expr_list RPAREN { Make(CustomType($2),
+        $4)}
+   | MAKE type_specifier LBRACKET_SQUARE RBRACKET_SQUARE INT_LITERAL {
+           Make(ArrayType(PrimitiveType($2), $5), []) }
+   | MAKE STRUCT_IDENTIFIER LBRACKET_SQUARE RBRACKET_SQUARE INT_LITERAL {
+           Make(ArrayType(CustomType($2), $5), []) }
+
 
 func_call_expr:
    IDENTIFIER LPAREN expr_list RPAREN  { Call("", Id(Identifier($1)), $3) }
@@ -140,6 +150,7 @@ primary_expr:
  | INT_LITERAL              { Literal($1) }
  | STRING_LITERAL           { StringLiteral($1) }
  | IDENTIFIER               { Id(Identifier($1))}
+ | BITWISE_AND primary_expr { Pointify($2) }
 
 type_specifier:
    VOID { Void }

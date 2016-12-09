@@ -4,7 +4,6 @@ type tAssignmentOperator = Asn | MulAsn | DivAsn | ModAsn | AddAsn | SubAsn |
 LshAsn | RshAsn | AndAsn | XorAsn | OrAsn
 
 type tLogicalOperator = Eql | NotEql | Less | LessEql | Greater | GreaterEql
-
 type tPostfixOperator = PostPlusPlus | PostMinusMinus | PostDeref | PostEmptyOp
 
 type tTypeQualifier = Const | Volatile
@@ -24,7 +23,9 @@ type tTypeSpec =
 and tType = 
    PrimitiveType of tTypeSpec
  | CustomType of string
- | AnonFuncType of tType * tType list 
+ | AnonFuncType of tType * tType list
+ | PointerType of tType * int (* Type + number of pointers *)
+ | ArrayType of tType * int  (* Type + number of elements *)
 
 and tIdentifier =
    Identifier of string
@@ -46,6 +47,8 @@ and tExpr =
   | StringLiteral of string
   | Postfix of tExpr * tPostfixOperator * tExpr
   | Call of string * tExpr * tExpr list
+  | Make of tType * tExpr list
+  | Pointify of tExpr
   | MemAccess of tIdentifier * tIdentifier
   | Id of tIdentifier
   | AnonFuncDef of tAnonFuncDef
@@ -147,3 +150,4 @@ type sSymbol =
   | StructSymbol of string * tStruct
   | InterfaceSymbol of string * tInterface
   | AnonFuncSymbol of string * tType
+  | ConstructorSymbol of string * tConstructor
