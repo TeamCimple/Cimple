@@ -71,6 +71,15 @@ let type_from_declaration = function
               get_num_pointers ptr)
       | Declaration(decl_spec, _) -> type_from_declaration_specifiers decl_spec
 
+
+let is_assignment_declaration decl = match decl with
+      | Declaration(decl_spec,
+      InitDeclList([InitDeclaratorAsn(_, _, _)])) -> true
+      | Declaration(decl_spec, InitDeclaratorAsn(PointerDirDecl(ptr, _), _ , _))
+      -> true
+      | _ -> false
+ 
+
 let rec type_from_func_param = function
      FuncParamsDeclared(t, _) -> type_from_declaration_specifiers t
    | ParamDeclWithType(declspecs) -> type_from_declaration_specifiers declspecs
@@ -675,6 +684,36 @@ let check_struct_fields struct_ =
                 StringMap.add (var_name_from_declaration decl) decl sym)
         StringMap.empty struct_.members 
 
+let convert_constructor_to_fdecl constructor = 
+        {
+                return_type = DeclSpecTypeSpecAny(PrimitiveType(Void));
+                func_name =
+                        DirectDeclarator(Var(Identifier(constructor.constructor_name)));
+                body = constructor.constructor_body;
+                params = constructor.constructor_params;
+                receiver = ("", "");
+        }
+
+let check_constructor_definition_in_struct struct_ = 
+        ignore (List.iter (fun decl -> if (is_assignment_declaration decl) then
+                raise(Failure("Cannot have assignment declaration in struct"))
+        else ()) struct_.members);
+
+        let constructor = struct_.constructor in
+        let symbols =  List.fold_left (fun symbol_table sym -> if
+        (StringMap.mem (get_id_from_symbol sym)
+        symbol_table) then raise(Failure("Struct field: " ^
+        (get_id_from_symbol sym) ^ " was redeclared")) else
+                StringMap.add (get_id_from_symbol sym) sym symbol_table) 
+        StringMap.empty (symbols_from_decls struct_.members @
+        symbols_from_func_params constructor.constructor_params) in 
+
+        let func = convert_constructor_to_fdecl constructor in 
+        if (constructor.constructor_name = "") then () else
+                check_statement func
+        symbols constructor.constructor_body
+
+
 let get_method_names struct_ = List.map (fun func -> var_name_from_direct_declarator func.func_name) struct_.methods
 
 
@@ -700,6 +739,9 @@ let check_program program =
 
        let program = update_structs_in_program program 
                        in ignore(List.map check_struct_fields program.structs);
+
+        ignore (List.map check_constructor_definition_in_struct
+        program.structs);
 
        let struct_names = List.map (fun struct_ -> struct_.struct_name)
        program.structs in 
