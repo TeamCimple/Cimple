@@ -115,21 +115,22 @@ type tConstructor = {
         constructor_body: tStatement
 }
 
-type tStruct = {
-        members: tDeclaration list;
-        struct_name: string;
-        extends: string;
-        children: string list; (*Used to validate inheritence tree*)
-        implements: string;
-        constructor: tConstructor
-}
-
 type tFuncDecl = {
         return_type: tDeclarationSpecifiers;
         func_name: tDeclarator;
         receiver: string * string;
         params: tFuncParam list;
         body: tStatement 
+}
+
+type tStruct = {
+        members: tDeclaration list;
+        struct_name: string;
+        methods: tFuncDecl list;
+        extends: string;
+        children: string list; (*Used to validate inheritence tree*)
+        implements: string;
+        constructor: tConstructor
 }
 
 type tInterface = {

@@ -356,6 +356,9 @@ let symbols_from_func_params func_params = List.map symbol_from_func_param func_
 let symbol_from_receiver receiver = match receiver with 
      | (type_, id) -> VarSymbol(id, CustomType(type_))
 
+let type_from_receiver receiver = match receiver with 
+     | (typ_, _) -> typ_
+
 let compare_func_params p1 p2 = 
         let p1_types = List.map type_from_func_param p1 in
         let p2_types = List.map type_from_func_param p2 in
@@ -498,6 +501,7 @@ let validate_all_inheritence symbols structs =
                                                 members = parent_struct.members;
                                                 struct_name = parent_struct.struct_name;
                                                 extends = parent_struct.extends;
+                                                methods = []; 
                                                 implements = parent_struct.implements;
                                                 children = (parent_struct.children @ list_to_add);
                                                 constructor = parent_struct.constructor;
@@ -557,16 +561,31 @@ void"))
         
         
 
-let update_fields symbols structs = 
+let update_fields functions symbols structs  = 
         
         
         let _ = validate_all_inheritence symbols structs in
 
-        let update_field symbols strct =
+        let update_field functions symbols strct =
                 let StructSymbol(_, struct_) = StringMap.find strct.struct_name symbols in
+                let strct_methods = List.filter (fun func -> if
+                        (type_from_receiver func.receiver = strct.struct_name)
+                        then true else 
+                                false) functions in 
                 if (struct_.extends = "")
                 then
-                        symbols
+                        let updated_child_struct = {
+                                struct_name = struct_.struct_name;
+                                members = struct_.members;
+                                children = struct_.children;
+                                methods = strct_methods;
+                                constructor = struct_.constructor;
+                                implements = struct_.implements;
+                                extends = struct_.extends;
+                        } in 
+                        StringMap.add struct_.struct_name
+                        (StructSymbol(struct_.struct_name,
+                        updated_child_struct)) symbols
                 else 
                         let parents = get_parents symbols struct_ in 
                         match parents with 
@@ -582,6 +601,7 @@ let update_fields symbols structs =
                                                                 parent_struct.members;
                                                         children =
                                                                 struct_.children;
+                                                        methods = strct_methods;
                                                         constructor = (if
                                                                 (struct_.constructor.constructor_name
                                                                 = "") then
@@ -601,8 +621,9 @@ let update_fields symbols structs =
                                                 (StructSymbol(struct_.struct_name,
                                                 updated_child_struct))
                                                 sym) symbols parents in
-                                                                        
-               List.fold_left update_field symbols structs
+                                                                       
+               List.fold_left (fun symbols struct_ -> (update_field functions
+               symbols struct_)) symbols structs
 
 (* Updates structs in the program object with the ones populated in symbol table *)
 let update_structs_in_program program  =
@@ -615,12 +636,14 @@ let update_structs_in_program program  =
                body = CompoundStatement([], []);                                          
        }] in
 
-       let symbol_table = update_fields (List.fold_left (fun m symbol -> if StringMap.mem
+       let symbol_table = update_fields program.functions (List.fold_left (fun m symbol -> if StringMap.mem
                 (get_id_from_symbol symbol) m then
                         raise(Failure("redefining identifier")) else StringMap.add
                         (get_id_from_symbol symbol) symbol m) StringMap.empty
                          (symbols_from_decls program.globals @
-                         symbols_from_fdecls fdecls @ (symbols_from_structs program.structs)
+                         symbols_from_fdecls (List.filter (fun func -> if
+                                 (type_from_receiver func.receiver = "") then true
+                                 else false) fdecls) @ (symbols_from_structs program.structs)
                          @ (symbols_from_interfaces program.interfaces)))
                         program.structs in
          
@@ -652,6 +675,7 @@ let check_struct_fields struct_ =
                 StringMap.add (var_name_from_declaration decl) decl sym)
         StringMap.empty struct_.members 
 
+let get_method_names struct_ = List.map (fun func -> var_name_from_direct_declarator func.func_name) struct_.methods
 
 
 let check_program program =
@@ -668,13 +692,25 @@ let check_program program =
 
        ignore (List.map check_void_decl program.globals);
 
-       let fnames = List.map (fun func -> var_name_from_direct_declarator func.func_name) program.functions in
-       report_duplicate (fun a -> "duplicate functions: " ^ a) (fnames);
+       let fnames =  (List.map (fun func -> var_name_from_direct_declarator func.func_name)
+                                (List.filter (fun func -> if (type_from_receiver
+                                func.receiver = "") then true else false) program.functions)) in
+                                report_duplicate (fun a -> "duplicate functions:
+                                        " ^ a) (fnames);
+
+       let program = update_structs_in_program program 
+                       in ignore(List.map check_struct_fields program.structs);
 
        let struct_names = List.map (fun struct_ -> struct_.struct_name)
        program.structs in 
 
        report_duplicate (fun a -> "duplicate structs: " ^ a) (struct_names);
+
+       let check_duplicate_struct struct_ = 
+               report_duplicate (fun a -> "duplicate method: " ^ a)
+       (get_method_names struct_) in
+       
+       List.map check_duplicate_struct (program.structs);
 
        let has_main = List.mem "main" fnames in
        if has_main then () else raise(Failure("no function main declared")); 
@@ -683,11 +719,9 @@ let check_program program =
        if is_printf_redefined then raise(Failure("cannot redefine printf")) else
                ();
      
-       let program = update_structs_in_program program 
-                       in ignore(List.map check_struct_fields program.structs);
-
-
-       let fdecls = program.functions @ [{
+       
+       let fdecls = (List.filter (fun func -> if (type_from_receiver
+       func.receiver = "") then true else false) program.functions) @ [{
                return_type = DeclSpecTypeSpec(Int); 
                func_name = DirectDeclarator(Var(Identifier("printf")));
                params = [FuncParamsDeclared(DeclSpecTypeSpec(String),

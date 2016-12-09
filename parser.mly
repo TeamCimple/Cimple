@@ -216,6 +216,7 @@ struct_declaration:
          struct_name = $2;
          extends = $3;
          children = [""];
+         methods = []; 
          implements = $4;
          constructor = $7;
  }}
@@ -252,6 +253,7 @@ func_params_list:
 
 receiver:
         STRUCT_IDENTIFIER IDENTIFIER {($1, $2)}
+        | STRUCT_IDENTIFIER TIMES IDENTIFIER {($1, $3)}
         | {("", "")}
 
 constructor_opt: 

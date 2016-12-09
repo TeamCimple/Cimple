@@ -10,7 +10,7 @@ type cPrimitive =
   | Clong 
   | Cfloat 
   | Cdouble 
-    
+
 type cStruct = {
   struct_name: string;
   struct_members: Ast.sSymbol list; 
@@ -19,6 +19,11 @@ type cStruct = {
 type cFuncSignature = {
     func_return_type: cType;
     func_param_types: cType list; 
+}
+
+and cFunc = {
+  func_name: string;
+  signature: cFuncSignature;
 }
 
 and cNonPointerType =
