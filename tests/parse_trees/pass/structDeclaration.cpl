@@ -4,5 +4,8 @@ struct Employee {
 };
 
 int main(){
+	int * e;
+
+	e = make Employee(a, b, c);
 	return 0;
 }

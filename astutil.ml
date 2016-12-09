@@ -54,6 +54,7 @@ let string_of_type_spec = function
 
 let rec string_of_type = function
       PrimitiveType(t) -> string_of_type_spec t
+    | PointerType(t, d) -> string_of_type t ^ " depth: " ^ string_of_int d
     | CustomType(t) -> t
 
 let string_of_storage_class_spec = function
@@ -89,8 +90,8 @@ let string_of_variable = function
 
 let string_of_declarator = function
     DirectDeclarator(v) -> string_of_variable v 
-   | PointerDirDecl(ptr, decl) -> string_of_ptr ptr ^ "(" ^ string_of_variable
-   decl ^ ")"
+   | PointerDirDecl(ptr, decl) -> string_of_ptr ptr ^ "("
+   ^ string_of_variable decl ^ ")"
 
 let string_of_receiver receiver = 
         match (receiver) with 
@@ -102,6 +103,7 @@ let rec string_of_expr = function
   | FloatLiteral(x) -> "Float(" ^ string_of_float x ^ ")"
   | StringLiteral(s) -> "String(" ^ s ^ ")" 
   | Id (x) -> "Identifier(" ^ string_of_identifier x ^ ")"
+  | Pointify(e) -> "Pointify(" ^ string_of_expr e ^ ")"
   | Noexpr -> ""
   | AsnExpr(e1, asnOp, e) -> string_of_assignment_op asnOp ^ "(" ^
   string_of_identifier e1 ^  ", " ^ string_of_expr e ^ ")"
@@ -109,6 +111,8 @@ let rec string_of_expr = function
   | Unop(e, unOp) -> string_of_unary_op unOp ^ "(" ^ string_of_expr e ^ ")"
   | Call(obj, Id(id), exprList) -> "Call(" ^ "Receiver(" ^ obj ^")"  ^
   "FunctionName: " ^ (string_of_identifier id) ^ " Params: " ^ (string_of_expr_list  exprList) ^ ")"
+  | Make(typ_, exprList) -> "Make(" ^ string_of_type typ_ ^ string_of_expr_list
+  exprList ^ ")" 
   | MemAccess(Identifier(s), Identifier(t)) -> "Deref(" ^ "Var(" ^ s ^ ")" ^ ","
   ^ t ^")"
   | AnonFuncDef(anonDef) -> "AnonFuncDef(ReturnType: " ^ (string_of_type anonDef.anon_return_type) ^ ", Params: " ^ (string_of_func_param_list anonDef.anon_params) ^ ", Body: " ^ (string_of_statement anonDef.anon_body) ^ ")" 
@@ -128,7 +132,8 @@ and string_of_expr_list = function
   | InitDeclList([]) -> ""
   | InitDeclList(h::t) -> let string_of_init_decl_list str
   initdecl =  str ^ (string_of_init_declarator initdecl) in
-  string_of_init_declarator h ^ "," ^  (List.fold_left string_of_init_decl_list "" t)
+  string_of_init_declarator h ^ "," ^  (List.fold_left string_of_init_decl_list
+  "" t)
   | InitDeclaratorAsn(decl, asnop, expr) -> string_of_assignment_op asnop ^ "("
   ^ string_of_declarator decl ^ " " ^ string_of_expr expr
 
