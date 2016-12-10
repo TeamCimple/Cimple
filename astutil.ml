@@ -106,7 +106,7 @@ let rec string_of_expr = function
   | Pointify(e) -> "Pointify(" ^ string_of_expr e ^ ")"
   | Noexpr -> ""
   | AsnExpr(e1, asnOp, e) -> string_of_assignment_op asnOp ^ "(" ^
-  string_of_identifier e1 ^  ", " ^ string_of_expr e ^ ")"
+  string_of_expr e1 ^  ", " ^ string_of_expr e ^ ")"
   | Binop(e1, op, e2) -> string_of_op op ^ "(" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ ")"
   | Unop(e, unOp) -> string_of_unary_op unOp ^ "(" ^ string_of_expr e ^ ")"
   | Call(obj, Id(id), exprList) -> "Call(" ^ "Receiver(" ^ obj ^")"  ^

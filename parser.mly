@@ -64,7 +64,8 @@ expr:
   | anon_func_def { AnonFuncDef($1) }
 
 assignment_expression:
-    IDENTIFIER assignment_operator expr { AsnExpr(Identifier($1), $2, $3) }
+    IDENTIFIER assignment_operator expr { AsnExpr(Id(Identifier($1)), $2, $3) }
+  | member_access_expr assignment_operator expr { AsnExpr($1, $2, $3) }
   | add_expr { $1 }
 
 initializer_list:

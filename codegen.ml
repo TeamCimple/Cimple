@@ -59,7 +59,7 @@ let gen_id id = match id with
 
 let rec gen_expr expr = match expr with 
    | Binop(e1, op, e2) -> (gen_expr e1) ^ (gen_op op) ^ (gen_expr e2)
-   | AsnExpr(Identifier(id), assn_op, e2) -> id ^ (gen_assn_op assn_op) ^
+   | AsnExpr(Id(Identifier(id)), assn_op, e2) -> id ^ (gen_assn_op assn_op) ^
    (gen_expr e2)
    | Literal(x) -> string_of_int x
    | FloatLiteral(x) -> string_of_float x
@@ -129,13 +129,18 @@ let rec gen_statement stmt = match stmt with
    gen_declaration decls)) ^ ";" ^ (String.concat "\n" (List.map gen_statement
    stmts)) ^ "}")
    | Break -> "break;\n" 
- 
+
+let gen_struct struct_ = "struct " ^ String.lowercase struct_.struct_name ^
+"{" ^ (String.concat ";\n" (List.map gen_declaration struct_.members)) ^ "}" 
+
+
 let gen_func fdecl = (gen_decl_specs fdecl.return_type) ^ " " ^ (gen_decl
 fdecl.func_name) ^ "(" ^ (gen_func_params fdecl.params) ^ ")" ^ (gen_statement
 fdecl.body)
 
 let gen_program program = 
         add_header "stdio" ^ "\n" ^ (String.concat ";\n" (List.map gen_declaration
-        program.globals)) ^ ";\n\n" ^ (String.concat "\n" (List.map gen_func
+        program.globals)) ^ (String.concat ";\n" (List.map gen_struct
+        program.structs)) ^ ";\n\n" ^ (String.concat "\n" (List.map gen_func
         (List.rev program.functions)));
 

@@ -9,26 +9,35 @@ type cPrimitive =
   | Cint 
   | Clong 
   | Cfloat 
-  | Cdouble 
+  | Cdouble
 
-type cStruct = {
-  struct_name: string;
-  struct_members: Ast.sSymbol list; 
+type cProgram = {
+        structs: cStruct list;
+        globals: Ast.tDeclaration list;
+        functions: cFunc list;
 }
 
-type cFuncSignature = {
+and cStruct = {
+  struct_name: string;
+  struct_members: Ast.sSymbol list;
+  method_to_functions: cFunc StringMap.t;
+}
+
+and cFuncSignature = {
     func_return_type: cType;
     func_param_types: cType list; 
 }
 
 and cFunc = {
   func_name: string;
-  signature: cFuncSignature;
+  func_body: Ast.tStatement;
+  func_params: Ast.tFuncParam list;
+  return_type: Ast.tDeclarationSpecifiers;
 }
 
 and cNonPointerType =
     CPrimitiveType of cPrimitive
-  | CStruct of cStruct
+  | CStruct of string
 
 and cFuncPointer = {
     cfunc_signature: cFuncSignature;
@@ -42,7 +51,7 @@ and cPointer =
 
 and cType = 
     CType of cNonPointerType
-  | CPointerType of cPointer
+  | CPointerType of cType * int
 
 
 let cType_from_tTypeSpec = function
@@ -55,12 +64,8 @@ let cType_from_tTypeSpec = function
   | Double -> CType(CPrimitiveType(Cdouble))
   | Signed -> raise(Failure("cType_from_tTypeSpec: Error, Signed unsuported at the moment"))
   | Unsigned -> raise(Failure("cType_from_tTypeSpec: Error, Unsigned unsuported at the moment"))
-  | String -> CPointerType(CPointer(CPrimitiveType(Cchar))) 
+  | String -> CPointerType(CType(CPrimitiveType(Cchar)), 1) 
   | _ -> raise(Failure("cType_from_tTypeSpec: Error, unsupported tTypeSpec"))
-
-let cType_from_tType = function
-    PrimitiveType(tspec) -> cType_from_tTypeSpec tspec
-  | _ -> raise(Failure("cType_from_tType: Error, unsupported tType"))
 
 let string_of_cStruct s = "CStruct(Name: " ^ s.struct_name ^ ", Symbols: " ^ Astutil.string_of_symbol_list s.struct_members ^ ")"
 
@@ -191,7 +196,9 @@ let capture_struct_from_anon_def symbols structName def =
   let param_symbols = Semant.symbols_from_func_params def.anon_params in 
     {
       struct_name = structName;
-      struct_members = struct_members_from_anon_body symbols param_symbols def.anon_body
+      struct_members = struct_members_from_anon_body symbols param_symbols
+      def.anon_body;
+      method_to_functions = StringMap.empty;
     }
 (* Return (updatedAnonCounter, tFuncDecl) *)
 let c_function_from_anon_function anonCounter anonDef = {

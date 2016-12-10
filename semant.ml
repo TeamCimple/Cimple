@@ -208,7 +208,7 @@ let rec type_from_expr symbols expr = match expr with
   | Call(_, Id(s), _) -> type_from_identifier symbols s
   | MemAccess(s, Identifier(t)) -> type_from_mem_access s t symbols 
   | Id(id) -> type_from_identifier symbols id
-  | AsnExpr(id, _, _) -> type_from_identifier symbols id
+  | AsnExpr(expr, _, _) -> type_from_expr symbols expr
   | Pointify(e) -> (let typ_ = type_from_expr symbols e in 
                                 match typ_ with 
                                 | PointerType(base_type, count) ->
@@ -349,9 +349,9 @@ let rec check_expr symbols e = match e with
                          | (PrimitiveType(s), [a]) -> ()
                          | (CustomType(s), e) -> (check_constructor symbols s e)
                          | _ -> raise(Failure("Invalid make")))
-   | AsnExpr(id, asnOp, e) -> 
+   | AsnExpr(expr, asnOp, e) -> 
                               let t1 = type_from_expr symbols e in
-                              let t2 = type_from_identifier symbols id in
+                              let t2 = type_from_expr symbols expr in
                               (match (t1, t2) with
                                  (PrimitiveType(Void), _) | (_, PrimitiveType(Void)) -> raise(Failure("Cannot assign to type void"))
                                | (PrimitiveType(_), CustomType(_)) -> raise(Failure("Cannot assign a struct to a primitive type"))

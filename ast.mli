@@ -41,7 +41,7 @@ and tUnaryOperator = PlusPlus
 and tExpr =
   Binop of tExpr * tOperator * tExpr
   | Unop of tExpr * tUnaryOperator 
-  | AsnExpr of tIdentifier * tAssignmentOperator * tExpr 
+  | AsnExpr of tExpr * tAssignmentOperator * tExpr 
   | Literal of int
   | FloatLiteral of float
   | StringLiteral of string
