@@ -69,6 +69,15 @@ let cType_from_tTypeSpec = function
 
 let string_of_cStruct s = "CStruct(Name: " ^ s.struct_name ^ ", Symbols: " ^ Astutil.string_of_symbol_list s.struct_members ^ ")"
 
+let merge_symtables s1 s2 = 
+    StringMap.merge (fun key v1 v2 ->
+        (match v2, v2 with
+           x, y -> if x != y then 
+                    raise(Failure("concat_symtables: Error - duplicate symbol"))
+                   else x
+        | None, y -> y
+        | x, None -> x)) s1 s2
+            
 let id_exists_in_symtable symbols id = 
   try 
     StringMap.find (Astutil.string_of_identifier id) symbols;
@@ -108,7 +117,6 @@ let lookup_symbol_from_symlist_by_id symlist id =
     (_, (true, foundSym)) -> foundSym
   | _ -> raise(Failure("lookup_symbol_from_symlist_by_id: Error, symbol not in table."))
  
-
 (*------------------- Function struct_members_from_anon_body-------------------------
  * This function returns a list of Ast.sSymbols representing the variables referenced within the body of
  * an anonymous function that are declared outside of it's scope. This list will form the data
@@ -278,5 +286,11 @@ and anon_defs_from_statement_list = function
    | [s] -> anon_defs_from_statement s
    | h::t -> anon_defs_from_statement_list t
 
-(* Return tAnonFuncDef list *)
-(*let collect_anon_defs_for_func_decl fdecl = *)
+
+let rec anon_defs_from_func_decl = function
+    _ -> []
+
+and anon_defs_from_func_decl_list = function
+      [] -> []
+    | [x] -> anon_defs_from_func_decl x
+    | h::t -> (anon_defs_from_func_decl h)@(anon_defs_from_func_decl_list t)
