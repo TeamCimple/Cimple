@@ -2,6 +2,8 @@ open Ast
 
 module StringMap = Map.Make(String)
 
+type cIdentifier = CIdentifier of string
+
 type cPrimitive =
     Cvoid 
   | Cchar
@@ -13,13 +15,13 @@ type cPrimitive =
 
 type cProgram = {
         structs: cStruct list;
-        globals: Ast.tDeclaration list;
+        globals: cDeclaration list;
         functions: cFunc list;
 }
 
 and cStruct = {
   struct_name: string;
-  struct_members: Ast.sSymbol list;
+  struct_members: cSymbol list;
   method_to_functions: cFunc StringMap.t;
 }
 
@@ -29,30 +31,78 @@ and cFuncSignature = {
 }
 
 and cFunc = {
-  func_name: string;
-  func_body: Ast.tStatement;
-  func_params: Ast.tFuncParam list;
-  return_type: Ast.tDeclarationSpecifiers;
+  cfunc_name: string;
+  cfunc_body: cStatement;
+  cfunc_params: cFuncParam list;
+  creturn_type: cType;
 }
 
 and cNonPointerType =
     CPrimitiveType of cPrimitive
   | CStruct of string
 
-and cFuncPointer = {
-    cfunc_signature: cFuncSignature;
-    cfunc_name: string;
-}
-
 and cPointer = 
     CPointer of cNonPointerType
   | CPointerPointer of cPointer
-  | CFuncPointer of cFuncSignature
 
 and cType = 
     CType of cNonPointerType
   | CPointerType of cType * int
+  | CFuncPointer of cFuncSignature
 
+and cExpr = 
+    CBinop of cExpr * tOperator * cExpr
+   | CAsnExpr of cExpr * tAssignmentOperator * cExpr
+   | CLiteral of int
+   | CFloatLiteral of float
+   | CStringLiteral of string
+   | CPostfix of cExpr * tPostfixOperator * cExpr
+   | CCall of string * cExpr * cExpr list
+   | CAlloc of cType * int
+   | CPointify of cExpr
+   | CMemAccess of cIdentifier * cIdentifier
+   | CId of cIdentifier
+   | CDeclExpr of cDeclaration
+   | CNoExpr
+
+and cStatement = 
+    CExpr of cExpr
+    | CEmptyElse
+    | CReturn of cExpr
+    | CCompoundStatement of cDeclaration list * cStatement list
+    | CIf of cExpr * cStatement * cStatement
+    | CFor of cExpr * cExpr * cExpr * cStatement
+    | CWhile of cExpr * cStatement
+    | CBreak
+
+and cDirectDeclarator =
+    CVar of cIdentifier
+
+and cDeclarator = 
+    CDirectDeclarator of cDirectDeclarator
+
+and cInitDeclarator = 
+    CInitDeclarator of cDeclarator
+   |  CInitDeclaratorAsn of cDeclarator * tAssignmentOperator * cExpr 
+
+and cDeclarationSpecifiers = 
+    CDeclSpecTypeSpecAny of cType
+
+and cFuncParam = cType * cIdentifier    
+
+and cDeclaration = 
+    CDeclaration of cDeclarationSpecifiers * cInitDeclarator
+
+and cSymbol = 
+    CVarSymbol of string * cType
+    | CFuncSymbol of string * cFunc
+    | CStructSymbol of string * cStruct
+
+let cStructName_from_tInterface name = 
+        String.concat "" ["_interface"; name]
+
+let cStructName_from_tStruct name = 
+        String.concat "" ["_struct"; name]
 
 let cType_from_tTypeSpec = function
     Void -> CType(CPrimitiveType(Cvoid))  
@@ -67,7 +117,23 @@ let cType_from_tTypeSpec = function
   | String -> CPointerType(CType(CPrimitiveType(Cchar)), 1) 
   | _ -> raise(Failure("cType_from_tTypeSpec: Error, unsupported tTypeSpec"))
 
-let string_of_cStruct s = "CStruct(Name: " ^ s.struct_name ^ ", Symbols: " ^ Astutil.string_of_symbol_list s.struct_members ^ ")"
+let cType_from_tType symbol_table = function
+    PrimitiveType(typeSpec) -> cType_from_tTypeSpec typeSpec
+  | CustomType(s) -> (let sym = StringMap.find s symbol_table in 
+                                        match sym with 
+                                        | StructSymbol(name, _) ->
+                                                        CType(CStruct(cStructName_from_tStruct
+                                        name))
+                                        | InterfaceSymbol(name, _) ->
+                                                        CType(CStruct(cStructName_from_tInterface
+                                        name)))
+  | _ -> raise(Failure("Haven't filled out yet"))
+
+let cSymbol_from_sSymbol = function
+  | _ -> raise(Failure("Not completed"))
+
+(*let string_of_cStruct s = "CStruct(Name: " ^ s.struct_name ^ ", Symbols: " ^
+ * Astutil.string_of_symbol_list s.struct_members ^ ")"*)
 
 let id_exists_in_symtable symbols id = 
   try 
@@ -107,7 +173,9 @@ let lookup_symbol_from_symlist_by_id symlist id =
   match (List.fold_left compare_symbol_with_id (id, (false, VarSymbol("ERROR_SYMBOL", PrimitiveType(Void)))) symlist) with
     (_, (true, foundSym)) -> foundSym
   | _ -> raise(Failure("lookup_symbol_from_symlist_by_id: Error, symbol not in table."))
- 
+
+
+
 
 (*------------------- Function struct_members_from_anon_body-------------------------
  * This function returns a list of Ast.sSymbols representing the variables referenced within the body of
@@ -196,8 +264,8 @@ let capture_struct_from_anon_def symbols structName def =
   let param_symbols = Semant.symbols_from_func_params def.anon_params in 
     {
       struct_name = structName;
-      struct_members = struct_members_from_anon_body symbols param_symbols
-      def.anon_body;
+      struct_members = List.map cSymbol_from_sSymbol (struct_members_from_anon_body
+      symbols param_symbols def.anon_body);
       method_to_functions = StringMap.empty;
     }
 (* Return (updatedAnonCounter, tFuncDecl) *)
@@ -255,3 +323,145 @@ and anon_defs_from_statement_list = function
 
 (* Return tAnonFuncDef list *)
 (*let collect_anon_defs_for_func_decl fdecl = *)
+
+
+let cDeclarationsAndStatements_from_tDeclaration = function
+        | Declaration(decl_specs, InitDeclList
+
+let cDeclarationSpecifiers_from_tDeclarationSpecifiers symbol_table tDeclSpecs = function
+        | DeclSpecTypeSpecAny(tType) ->
+                        CDeclSpecTypeSpecAny(cType_from_tType symbol_table tType)
+
+let cDeclaration_from_tFdecl symbol_table fdecl = 
+        let first_argument = [CPointerType(CType(CPrimitiveType(Cvoid)), 1)] in
+        let cfunc_param_types = first_argument @ List.map (cType_from_tType symbol_table)
+                                     (Semant.type_list_from_func_param_list fdecl.params) in 
+        let cfunc_return_type =
+                cType_from_tType symbol_table (Semant.type_from_declaration_specifiers
+                fdecl.return_type) in
+        let func_signature = {
+                                 func_return_type = cfunc_return_type;
+                                 func_param_types = cfunc_param_types;
+                                } in
+         
+        CVarSymbol((Semant.var_name_from_direct_declarator fdecl.func_name), CFuncPointer(func_signature))
+
+(* The C Struct corresponding to the Cimple Interface consists of 
+ * 1) Function pointers instead of methods. The first argument is a void star *)
+
+let cStruct_from_tInterface symbol_table interface = 
+        let cBodySymbol = [CVarSymbol("body",
+        CPointerType(CType(CPrimitiveType(Cvoid)),
+        1))] in (* This is the void * body that we apply to all the functions *) 
+        let cSymbols = List.map (cDeclaration_from_tFdecl symbol_table) interface.funcs in 
+        {
+                struct_members = cBodySymbol @ cSymbols;
+                struct_name = cStructName_from_tInterface interface.name;
+                method_to_functions = StringMap.empty
+        }
+
+let cSymbol_from_Implements implements =
+        let cstruct_name = cStructName_from_tInterface implements in
+        CVarSymbol(cstruct_name, CPointerType(CType(CStruct(cstruct_name)), 1))
+
+let cFuncParam_from_tFuncParam symbol_table tFuncParam = (cType_from_tType
+symbol_table (Semant.type_from_func_param tFuncParam),
+(CIdentifier(Semant.var_name_from_func_param tFuncParam)))
+
+let cFunc_from_tFunc symbol_table tFunc = 
+        {
+                creturn_type = cType_from_tType symbol_table
+                (Semant.type_from_declaration_specifiers tFunc.return_type);
+
+                cfunc_params = (List.map (cFuncParam_from_tFuncParam
+                symbol_table) tFunc.params);
+
+                cfunc_body = CCompoundStatement([], []);
+
+                cfunc_name = Semant.var_name_from_direct_declarator
+                tFunc.func_name;
+        }
+
+let cStruct_from_tStruct symbol_table tStruct = 
+        let defaultStructMemberSymbols = List.map cSymbol_from_sSymbol (List.map (Semant.symbol_from_declaration)
+        tStruct.members) in 
+
+        (* If there is an interface then add a struct member corresponding to
+         * the interface to our struct *)
+        let cStructMemberSymbols = if (tStruct.implements <> "") then
+                [cSymbol_from_Implements tStruct.implements] @
+                defaultStructMemberSymbols else defaultStructMemberSymbols in
+
+        
+        let (methods_to_cfunctions, cfuncs) = (List.fold_left (fun (sym, cfunc_list) method_ -> 
+                                            (let tfunc_name =
+                                                    Semant.var_name_from_direct_declarator
+                                               method_.func_name in
+                                                       
+                                            let cfunc = {
+                                                creturn_type = (cType_from_tType
+                                                symbol_table
+                                                (Semant.type_from_declaration_specifiers
+                                                method_.return_type));
+                                                
+                                                cfunc_params = (List.map
+                                                (cFuncParam_from_tFuncParam
+                                                symbol_table) method_.params);
+
+                                                cfunc_body = CCompoundStatement([],
+                                                []);
+        
+                                                cfunc_name = String.concat "_"
+                                                [(cStructName_from_tStruct
+                                                tStruct.struct_name);
+                                                tfunc_name];
+                                         } in (StringMap.add tfunc_name cfunc
+                                         sym, cfunc_list @ [cfunc])))
+                                            (StringMap.empty, []) tStruct.methods) in
+
+        ({
+                struct_name = cStructName_from_tStruct tStruct.struct_name;
+                struct_members = cStructMemberSymbols;
+                method_to_functions = methods_to_cfunctions;
+        }, cfuncs)
+                        
+(*let cFunc_from_tFunc uid tFunc symbol_table =
+        let tfunc_name = Semant.var_name_from_direct_declarator tFunc.func_name
+        in
+        let cfunc_name = if (tFunc.receiver = ("", "")) then func_name else
+                        String.concat (String.concat "_" (fst tFunc.receiver))
+                        func_name in
+        let cFunc = {
+                func_name = cfunc_name;
+        }*)
+
+
+let cProgram_from_tProgram program =
+        let updated_program = Semant.update_structs_in_program program in
+
+        let tSymbol_table = Semant.build_symbol_table updated_program in
+
+        let cstructs_and_functions = List.map (cStruct_from_tStruct
+        tSymbol_table) updated_program.structs in 
+
+        let cstructs = List.map fst cstructs_and_functions in 
+
+        let cfuncs_methods = List.map snd cstructs_and_functions in 
+
+        let cStructs = (cstructs @ List.map (cStruct_from_tInterface
+        tSymbol_table) program.interfaces) in
+
+        (* The function bodies have not been filled out yet. Just the parameters
+         * and return types *)
+        let cFuncs = cfuncs_methods @ (List.map (cFunc_from_tFunc tSymbol_table)
+        program.functions)
+        in
+
+        let cGlobals = 
+
+        let cprogram =  
+        {
+                structs = cStructs;
+                globals = [];
+                functions = [];
+        }

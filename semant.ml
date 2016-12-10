@@ -713,6 +713,28 @@ let check_constructor_definition_in_struct struct_ =
                 check_statement func
         symbols constructor.constructor_body
 
+let build_symbol_table program = 
+      let fdecls = (List.filter (fun func -> if (type_from_receiver
+       func.receiver = "") then true else false) program.functions) @ [{
+               return_type = DeclSpecTypeSpec(Int); 
+               func_name = DirectDeclarator(Var(Identifier("printf")));
+               params = [FuncParamsDeclared(DeclSpecTypeSpec(String),
+               DirectDeclarator(Var(Identifier("x"))))];
+               receiver = ("", "");
+               body = CompoundStatement([], []);                                          
+       }] in 
+       
+        List.fold_left (fun m symbol -> if StringMap.mem
+                (get_id_from_symbol symbol) m then
+                        raise(Failure("redefining variable: " ^
+                        get_id_from_symbol symbol)) else StringMap.add
+                        (get_id_from_symbol symbol) symbol m) StringMap.empty
+                          (symbols_from_decls program.globals
+                         @ symbols_from_fdecls fdecls 
+                         @ (symbols_from_structs program.structs)
+                         @ (symbols_from_interfaces program.interfaces))
+
+
 
 let get_method_names struct_ = List.map (fun func -> var_name_from_direct_declarator func.func_name) struct_.methods
 
