@@ -122,16 +122,41 @@ let lookup_symbol_from_symlist_by_id symlist id =
  *-------------------------------------------------------------------------------- *)
 
 let struct_members_from_anon_body symbols members body = 
-  
-  let members_from_expr symbols members e = match e with 
+ 
+  let rec members_from_expr symbols members e = match e with 
       Id(id) -> if (id_exists_in_symtable symbols id) == true then
                   [Semant.lookup_symbol_by_id symbols id]
                 else if (id_exists_in_symlist members id) == true then
-                  [lookup_symbol_from_symlist_by_id members id]
-                else []
-    | _  -> [] 
-  in
-  let rec members_from_init_declarator symbols members initDecl =
+                  []
+                else raise(Failure("members_from_expr: Error - undeclared symbol"))
+   |  Binop(e1, _, e2) -> let e1Members = members_from_expr symbols members e1 in
+                           let e2Members = members_from_expr symbols (members@e1Members) e2 in
+                           e1Members@e2Members
+   |  AsnExpr(e1, _, e2) -> let e1Members = members_from_expr symbols members e1 in
+                            let e2Members = members_from_expr symbols (members@e1Members) e2 in
+                            e1Members@e2Members
+   |  Postfix(e1, _, e2) -> let e1Members = members_from_expr symbols members e1 in
+                            let e2Members = members_from_expr symbols (members@e1Members) e2 in
+                            e1Members@e2Members
+   |  Call(_, e, elist) -> let eMembers = members_from_expr symbols members e in 
+                           let elistMembers = members_from_expr_list symbols (members@eMembers) elist in
+                           eMembers@elistMembers
+   | Make(_, elist) -> members_from_expr_list symbols members elist
+   | Pointify(e) -> members_from_expr symbols members e
+   | MemAccess(id1, id2) -> let id1Members = members_from_expr symbols members (Id(id1)) in 
+                            let id2Members = members_from_expr symbols (members@id1Members) (Id(id2)) in
+                            id1Members@id2Members
+   | AnonFuncDef(def) -> raise(Failure("members_from_expr: Error - nested anonymous functions not supported yet"))
+   | DeclExpr(decl) -> members_from_declaration symbols members decl
+   | _  -> []
+
+   and members_from_expr_list symbols members elist = match elist with
+     [] -> []
+   | [x] -> members_from_expr symbols members x
+   | h::t -> let hMembers = members_from_expr symbols members h in
+             let tMembers = members_from_expr_list symbols members t in
+             hMembers@tMembers
+   and members_from_init_declarator symbols members initDecl =
     match initDecl with 
        InitDeclaratorAsn(_, _, e) -> members_from_expr symbols members e
      | InitDeclList(l) -> members_from_init_declarator_list symbols members l
