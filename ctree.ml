@@ -352,13 +352,16 @@ and anon_defs_from_statement_list = function
    | [s] -> anon_defs_from_statement s
    | h::t -> anon_defs_from_statement_list t
 
-<<<<<<< HEAD
+
 (* Return tAnonFuncDef list *)
 (*let collect_anon_defs_for_func_decl fdecl = *)
+let rec anon_defs_from_func_decl = function
+    _ -> []
 
-
-let cDeclarationsAndStatements_from_tDeclaration = function
-        | Declaration(decl_specs, InitDeclList
+and anon_defs_from_func_decl_list = function
+      [] -> []
+    | [x] -> anon_defs_from_func_decl x
+    | h::t -> (anon_defs_from_func_decl h)@(anon_defs_from_func_decl_list t)
 
 let cDeclarationSpecifiers_from_tDeclarationSpecifiers symbol_table tDeclSpecs = function
         | DeclSpecTypeSpecAny(tType) ->
@@ -478,7 +481,7 @@ let cProgram_from_tProgram program =
 
         let cstructs = List.map fst cstructs_and_functions in 
 
-        let cfuncs_methods = List.map snd cstructs_and_functions in 
+        let cfuncs_methods = List.concat (List.map snd cstructs_and_functions) in 
 
         let cStructs = (cstructs @ List.map (cStruct_from_tInterface
         tSymbol_table) program.interfaces) in
@@ -488,22 +491,9 @@ let cProgram_from_tProgram program =
         let cFuncs = cfuncs_methods @ (List.map (cFunc_from_tFunc tSymbol_table)
         program.functions)
         in
-
-        let cGlobals = 
-
-        let cprogram =  
+ 
         {
                 structs = cStructs;
                 globals = [];
-                functions = [];
+                functions = cFuncs;
         }
-=======
-
-let rec anon_defs_from_func_decl = function
-    _ -> []
-
-and anon_defs_from_func_decl_list = function
-      [] -> []
-    | [x] -> anon_defs_from_func_decl x
-    | h::t -> (anon_defs_from_func_decl h)@(anon_defs_from_func_decl_list t)
->>>>>>> a3030a87c3baa06e0f70b8fd847c5af82525576c
