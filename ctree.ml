@@ -57,7 +57,7 @@ and cExpr =
    | CFloatLiteral of float
    | CStringLiteral of string
    | CCastExpr of cType * cExpr
-   | CPostfix of cExpr * tPostfixOperator * cExpr
+   | CPostfix of cExpr * tPostfixOperator
    | CCall of int * string * cExpr * cExpr list (* The int field is a flag to
    indiciate it is a pointer dereference *)
    | CAlloc of cType * int
@@ -212,9 +212,8 @@ let struct_members_from_anon_body symbols members body =
    |  AsnExpr(e1, _, e2) -> let e1Members = members_from_expr symbols members e1 in
                             let e2Members = members_from_expr symbols (members@e1Members) e2 in
                             e1Members@e2Members
-   |  Postfix(e1, _, e2) -> let e1Members = members_from_expr symbols members e1 in
-                            let e2Members = members_from_expr symbols (members@e1Members) e2 in
-                            e1Members@e2Members
+   |  Postfix(e1, _) -> let e1Members = members_from_expr symbols members e1 in
+                            e1Members
    |  Call(_, e, elist) -> let eMembers = members_from_expr symbols members e in 
                            let elistMembers = members_from_expr_list symbols (members@eMembers) elist in
                            eMembers@elistMembers
@@ -315,7 +314,7 @@ let rec anon_defs_from_expr = function
      AnonFuncDef(anonDef) -> [anonDef]
    | Binop(e1, op, e2) -> (anon_defs_from_expr e1)@(anon_defs_from_expr e2)
    | AsnExpr(_, _, e) -> anon_defs_from_expr e
-   | Postfix(e1, _, e2) -> (anon_defs_from_expr e1)@(anon_defs_from_expr e2)
+   | Postfix(e1, _) -> (anon_defs_from_expr e1)
    | Call(_, e, elist) -> (anon_defs_from_expr e)@(anon_defs_from_expr_list elist)
    | _ -> [] (* Other expression types cannot possibly contain anonymous function definitions *) 
 
@@ -586,6 +585,32 @@ let update_decl decl tSymbol_table cSymbol_table =
                                         | _ -> raise(Failure("Non struct type
                                         decl'd"))))
 
+let rec update_expr texpr tSymbol_table cSymbol_table = match texpr with
+        | Binop(e1, op, e2) -> (let (updated_e1, e1_stmts) = update_expr e1
+                                tSymbol_table cSymbol_table in 
+                        let (updated_e2, e2_stmts) = update_expr e2
+                        tSymbol_table cSymbol_table in 
+
+                        (CBinop(updated_e1, op, updated_e1), e1_stmts @
+                        e2_stmts))
+
+        | AsnExpr(e1, op, e2)  -> (let (updated_e1, e1_stmts) = update_expr e1
+                                tSymbol_table cSymbol_table in 
+                        let (updated_e2, e2_stmts) = update_expr e2
+                        tSymbol_table cSymbol_table in 
+
+                        (CAsnExpr(updated_e1, op, updated_e1), e1_stmts @
+                        e2_stmts))
+        | Literal(d) -> (CLiteral(d), [])
+        | FloatLiteral(d) -> (CFloatLiteral(d), [])
+        | StringLiteral(s) -> (CStringLiteral(s), [])
+        | Postfix(e1, op) -> (let (updated_e1, e1_stmts) = update_expr e1
+                                tSymbol_table cSymbol_table in 
+                        (CPostfix(updated_e1, op), e1_stmts))
+        | _ -> raise(Failure("not finished"))
+ 
+
+
 (*                                
 let rec update_statement tstmt tSymbol_table cSymbol_table =  match tstmt with 
         | CompoundStatement(decls, stmts) -> 
@@ -597,6 +622,8 @@ let rec update_statement tstmt tSymbol_table cSymbol_table =  match tstmt with
         | Break ->  
         
 *)      
+
+
 
 let cProgram_from_tProgram program =
         let updated_program = Semant.update_structs_in_program program in

@@ -28,7 +28,6 @@ let gen_assn_op assn_op = match assn_op with
 let gen_postfix_op pop = match pop with
    | PostPlusPlus -> "++"
    | PostMinusMinus -> "--"
-   | PostDeref -> "."
    | PostEmptyOp -> ""
 
 let gen_logical_op logical_op = match logical_op with 
@@ -65,10 +64,12 @@ let rec gen_expr expr = match expr with
    | FloatLiteral(x) -> string_of_float x
    | StringLiteral(x) -> x
    | Id(Identifier(id)) -> id
+   | CompareExpr(e1, op, e2) -> (gen_expr e1) ^ (gen_logical_op op) ^ (gen_expr
+   e2)
    | Call(_, Id(Identifier(id)), elist) -> id ^ "(" ^ (String.concat ","  (List.map
    gen_expr elist)) ^ ")"
    | MemAccess(Identifier(s), Identifier(t)) -> s ^ "." ^ t
-   | Postfix(e1, pop, e2) -> gen_expr e1 ^ (gen_postfix_op pop) ^ (gen_expr e2)
+   | Postfix(e1, pop) -> gen_expr e1 ^ (gen_postfix_op pop)
    | Noexpr -> ""
 
 let gen_direct_decl d = match d with 
@@ -120,6 +121,8 @@ let rec gen_statement stmt = match stmt with
    gen_statement st ^ "}"
    | If (e1, st, st2) -> "if(" ^ (gen_expr e1) ^ ")" ^ gen_statement st ^ 
             "\nelse " ^ gen_statement st2
+   | For(e1, e2, e3, st) -> "for(" ^ (gen_expr e1) ^ ";" ^ (gen_expr e2) ^ ";" ^
+   (gen_expr e3) ^ ")" ^ gen_statement st
    | Return (expr) -> "return " ^ (gen_expr expr) ^ ";"
    | While (e1, st) -> "while(" ^ (gen_expr e1) ^ ")" ^ gen_statement st ^ "\n"
    | CompoundStatement(decls, stmts) -> (match decls with 

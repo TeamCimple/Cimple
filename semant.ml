@@ -218,6 +218,8 @@ let rec type_from_expr symbols expr = match expr with
                                         PointerType(base_type, count + 1)
                         | _ -> PointerType(typ_, 1))
   | Call(_, Id(s), _) -> type_from_identifier symbols s
+  | CompareExpr(_, _, _) -> PrimitiveType(Int)
+  | Postfix(e1, _) -> type_from_expr symbols e1
   | MemAccess(s, Identifier(t)) -> type_from_mem_access s t symbols 
   | Id(id) -> type_from_identifier symbols id
   | AsnExpr(expr, _, _) -> type_from_expr symbols expr
@@ -284,6 +286,10 @@ and check_compatible_types t1 t2 = match (t1, t2) with
   | (CustomType(_), PrimitiveType(_)) -> raise(Failure("Custom type incompatible
   with primitive type"))
   | (CustomType(_), CustomType(_)) -> ()
+  | (PointerType(_, _), PrimitiveType(_)) -> raise(Failure("Cannot compare
+  pointer and primitive"))
+  | (PrimitiveType(_), PointerType(_, _)) -> raise(Failure("Cannot compare
+  pointer and primitive"))
   | AnonFuncType(_, _), AnonFuncType(_, _) -> check_compatible_anon_types t1 t2
   | _ -> raise(Failure("check_compatible_types: CompoundType not yet
   supported"))
@@ -370,6 +376,25 @@ let rec check_expr symbols e = match e with
                           (PrimitiveType(Void), _) -> raise(Failure("Cannot apply unary operator to void type"))
                         | (PrimitiveType(_), _) -> ()
                         | _ -> raise(Failure("Type/Unary Operator mismatch")))
+   | CompareExpr(e1, op, e2) -> (let t1 = type_from_expr symbols e1 in
+                                    let t2 = type_from_expr symbols e2 in
+                                    match (t1, t2) with 
+                                    | (CustomType(a), _) ->
+                                                    raise(Failure("Cannot
+                                                    compare custom types"))
+                                    | (_, CustomType(s)) -> raise(Failure("Cannot
+                                    compare custom types"))
+                                    | _ -> check_compatible_types
+                                    (type_from_expr symbols e1) (type_from_expr
+                                    symbols e2))
+   | Postfix(e1, op) -> check_expr symbols e1;
+                      let te = type_from_expr symbols e1 in 
+                      (match (te, op) with
+                          (PrimitiveType(Void), _) -> raise(Failure("Cannot
+                          apply postfix operator to void type"))
+                        | (PrimitiveType(_), _) -> ()
+                        | _ -> raise(Failure("Type/Postfix Operator mismatch")))
+      
    | MemAccess(s, Identifier(t)) -> ignore (type_from_mem_access s t symbols);
    | Make(typ_, expr_list) -> (match (typ_, expr_list)  with
                          | (PrimitiveType(s), [a]) -> ()
@@ -461,14 +486,23 @@ let add_to_symbol_table tbl decls = List.fold_left (fun m symbol -> if StringMap
 
 
 let rec check_statement func symbol_table stmt = match stmt with
-     Expr(e) -> check_expr symbol_table e
+     Expr(e) -> (match e with 
+                        | Make(_, _) -> raise(Failure("Cannot have stand
+                        alone make.")) 
+                        | _ -> check_expr symbol_table e)
   | Return(e) -> check_compatible_types (type_from_expr symbol_table e)
   (type_from_declaration_specifiers func.return_type)
   | If(e, s1, s2) -> check_bool_expr symbol_table e; check_statement
   func symbol_table s1;  check_statement func symbol_table s2
   | EmptyElse -> ()
-  | For(_, e2, _, st) -> check_bool_expr symbol_table e2; check_statement
-  func symbol_table st
+  | For(e1, e2, e3, st) -> ( (match (e1, e3) with 
+                                | (Make(_, _), _) -> raise(Failure("Cannot have
+                                stand alone make"))
+                                | (_, Make(_, _)) -> raise(Failure("Cannot have
+                                stand alone make"))
+                                | _ -> ());
+                                check_expr symbol_table e2; check_bool_expr symbol_table e2; check_statement
+                                func symbol_table st)
   | While(e, s) -> check_bool_expr symbol_table e; check_statement func symbol_table
   s
   | CompoundStatement(dl, sl) -> let tbl = add_to_symbol_table symbol_table dl
