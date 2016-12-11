@@ -3,8 +3,10 @@ type tOperator = Add | Sub | Mul | Div | Mod | And | Or | BitAnd | BitOr | Xor |
 type tAssignmentOperator = Asn | MulAsn | DivAsn | ModAsn | AddAsn | SubAsn |
 LshAsn | RshAsn | AndAsn | XorAsn | OrAsn
 
-type tLogicalOperator = Eql | NotEql | Less | LessEql | Greater | GreaterEql
-type tPostfixOperator = PostPlusPlus | PostMinusMinus | PostDeref | PostEmptyOp
+type tLogicalOperator = Eql | NotEql | Less | LessEql | Greater | GreaterEql |
+LogicalAnd | LogicalOr
+
+type tPostfixOperator = PostPlusPlus | PostMinusMinus | PostEmptyOp
 
 type tTypeQualifier = Const | Volatile
 
@@ -43,9 +45,10 @@ and tExpr =
   | Unop of tExpr * tUnaryOperator 
   | AsnExpr of tExpr * tAssignmentOperator * tExpr 
   | Literal of int
+  | CompareExpr of tExpr * tLogicalOperator * tExpr 
   | FloatLiteral of float
   | StringLiteral of string
-  | Postfix of tExpr * tPostfixOperator * tExpr
+  | Postfix of tExpr * tPostfixOperator
   | Call of string * tExpr * tExpr list
   | Make of tType * tExpr list
   | Pointify of tExpr

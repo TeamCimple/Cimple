@@ -584,7 +584,13 @@ let update_decl decl tSymbol_table cSymbol_table =
                                        ) else ([], [])
                                         | _ -> raise(Failure("Non struct type
                                         decl'd"))))
-
+(*
+ * This function takes a cimple expression and returns the pair (C expression,
+ * statement[]). The idea is that some cimple expression may generate multiple
+ * assignment statements such as a make expression with a constructor.
+ * Expressions should not create more declarations, only declarations create
+ * more declarations.
+ *)
 let rec update_expr texpr tSymbol_table cSymbol_table = match texpr with
         | Binop(e1, op, e2) -> (let (updated_e1, e1_stmts) = update_expr e1
                                 tSymbol_table cSymbol_table in 
@@ -599,15 +605,52 @@ let rec update_expr texpr tSymbol_table cSymbol_table = match texpr with
                         let (updated_e2, e2_stmts) = update_expr e2
                         tSymbol_table cSymbol_table in 
 
-                        (CAsnExpr(updated_e1, op, updated_e1), e1_stmts @
-                        e2_stmts))
-        | Literal(d) -> (CLiteral(d), [])
-        | FloatLiteral(d) -> (CFloatLiteral(d), [])
-        | StringLiteral(s) -> (CStringLiteral(s), [])
-        | Postfix(e1, op) -> (let (updated_e1, e1_stmts) = update_expr e1
+                        let e1_type = Semant.type_from_expr tSymbol_table e1 in 
+
+                        let e2_type = Semant.type_from_expr tSymbol_table e2 in 
+
+                        match (e1_type, e2_type) with 
+                        
+                        (* Check if we are assigning custom types. Since we are
+                         * past semantic analysis the only possibilities are 1.
+                         * we are assining a derived class to its ancestor or 2.
+                         * we are assigning the same types. In those cases we
+                         * need to cast *) 
+
+                        | (PointerType(CustomType(s), _),
+                        PointerType(CustomType(t), _)) ->  (if
+                                (Semant.t1_inherits_t2 s t tSymbol_table) then 
+                                (CAsnExpr(updated_e1, op,
+                                CCastExpr((cType_from_tType tSymbol_table
+                                e1_type), updated_e2)), e1_stmts @
+                                e2_stmts)
+                                
+                                else 
+                                        (CAsnExpr(updated_e1, op, updated_e2), e1_stmts
+                                        @ e2_stmts))
+                        | (CustomType(s), CustomType(t)) -> (if
+                                (Semant.t1_inherits_t2 s t tSymbol_table) then 
+                                (CAsnExpr(updated_e1, op,
+                                CCastExpr((cType_from_tType tSymbol_table
+                                e1_type), updated_e2)), e1_stmts @
+                                e2_stmts)
+                                
+                                else 
+                                        (CAsnExpr(updated_e1, op, updated_e2), e1_stmts
+                                        @ e2_stmts))
+
+                        | _ -> (CAsnExpr(updated_e1, op, updated_e2), e1_stmts
+                                        @ e2_stmts)
+                        )
+                   
+     | Call(id, expr, expr_list) -> raise(Failure("not handled")) 
+     | Literal(d) -> (CLiteral(d), [])
+     | FloatLiteral(d) -> (CFloatLiteral(d), [])
+     | StringLiteral(s) -> (CStringLiteral(s), [])
+     | Postfix(e1, op) -> (let (updated_e1, e1_stmts) = update_expr e1
                                 tSymbol_table cSymbol_table in 
                         (CPostfix(updated_e1, op), e1_stmts))
-        | _ -> raise(Failure("not finished"))
+     | _ -> raise(Failure("not finished"))
  
 
 
