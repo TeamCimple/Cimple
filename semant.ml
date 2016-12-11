@@ -78,7 +78,6 @@ let is_assignment_declaration decl = match decl with
       | Declaration(decl_spec, InitDeclaratorAsn(PointerDirDecl(ptr, _), _ , _))
       -> true
       | _ -> false
- 
 
 let rec type_from_func_param = function
      FuncParamsDeclared(t, _) -> type_from_declaration_specifiers t
@@ -127,6 +126,13 @@ let lookup_symbol_by_id symbols id = try StringMap.find
         Not_found -> raise(Failure("undeclared identifier: " ^
         Astutil.string_of_identifier id))
 
+let get_interface symbol_table name = 
+        let sym = lookup_symbol_by_id symbol_table (Identifier(name)) in 
+        match sym with 
+        | InterfaceSymbol(_, interface) -> interface
+        | _ -> raise(Failure("cannot find interface"))
+
+
 let func_decl_from_anon_def anonDef = {
     return_type = DeclSpecTypeSpecAny(anonDef.anon_return_type);
     func_name = DirectDeclarator(Var(Identifier("")));
@@ -140,6 +146,7 @@ let type_from_identifier symbols id =
         | FuncSymbol(_, func) -> type_from_declaration_specifiers
         func.return_type
         | StructSymbol(_, struct_decl) -> CustomType(struct_decl.struct_name)
+        | InterfaceSymbol(name, _) -> CustomType(name)
         | AnonFuncSymbol(_, t) -> t 
 
 let get_parameter_list symbol = match symbol with
@@ -195,6 +202,11 @@ let type_from_mem_access id t symbols  =
 
        | _ -> raise(Failure("Member Access of non Struct"))
 
+let is_interface symbols id = 
+        let sym = lookup_symbol_by_id symbols id in match sym with 
+        | InterfaceSymbol(_, _) -> true
+        | _ -> false
+
 let rec type_from_expr symbols expr = match expr with
    Literal(_) -> PrimitiveType(Int)
   | FloatLiteral(_) -> PrimitiveType(Float)
@@ -206,9 +218,19 @@ let rec type_from_expr symbols expr = match expr with
                                         PointerType(base_type, count + 1)
                         | _ -> PointerType(typ_, 1))
   | Call(_, Id(s), _) -> type_from_identifier symbols s
+  | CompareExpr(_, _, _) -> PrimitiveType(Int)
+  | Postfix(e1, _) -> type_from_expr symbols e1
   | MemAccess(s, Identifier(t)) -> type_from_mem_access s t symbols 
   | Id(id) -> type_from_identifier symbols id
   | AsnExpr(expr, _, _) -> type_from_expr symbols expr
+  | Deref(e) -> (let typ_ = type_from_expr symbols e in 
+                        match typ_ with 
+                        | PointerType(base_type, count) -> 
+                                        if (count = 1) then 
+                                                 base_type
+                                        else
+                                            PointerType(base_type, count-1)
+                       | _ -> raise(Failure("Dereferencing non pointer type")))
   | Pointify(e) -> (let typ_ = type_from_expr symbols e in 
                                 match typ_ with 
                                 | PointerType(base_type, count) ->
@@ -218,23 +240,47 @@ let rec type_from_expr symbols expr = match expr with
                                                  * existing type is a pointer
                                                  * and then add count to the
                                                  * existing pointer type *)
-                                | _ -> PointerType(typ_, 1))
+                                | CustomType(s) -> if (is_interface symbols
+                                (Identifier(s))) then raise(Failure("Cannot make
+                                pointer out of interface")) else
+                                        PointerType(typ_, 1)
+                                | _ -> (match e with
+                                              | Id(id) ->  PointerType(typ_, 1)
+                                              | _ -> raise(Failure("Cannot make pointer out of non-identifier"))))
   | AnonFuncDef(adef) -> type_from_anon_def adef
   | Noexpr -> PrimitiveType(Void)
 
-let rec check_compatible_anon_types t1 t2 =
+let rec t1_inherits_t2 t1 t2 symbols = 
+        let sym1 = (lookup_symbol_by_id symbols (Identifier(t1))) in
+                match sym1 with 
+                | StructSymbol(type_, struct_) -> (let sym2 = (lookup_symbol_by_id
+                         symbols (Identifier(t2))) in match sym2 with
+                         | StructSymbol(type_2, struct2_) ->  
+                                if (struct_.extends <> "") then 
+                                        (if (struct_.extends <> struct2_.struct_name) 
+                                
+                                                then (t1_inherits_t2
+                                                struct_.extends t2 symbols) 
+                                                else false
+                                         ) else (if (type_ = type_2) then true
+                                else false)
+                          | _ -> false)
+                | _ -> false
+
+let rec check_compatible_anon_types symbols t1 t2 =
         let f a b =
             let error_str = "t1 = " ^ string_of_type t1 ^ ", t2 = " ^ string_of_type t2
             in
             if a = b then () else raise(Failure("check_compatible_anon_types: Error, param types not equal: " ^ error_str))  in
         let check_lists_are_equal l1 l2 = List.iter2 f l1 l2 in
         match (t1, t2) with
-           (AnonFuncType(rType1, plist1), AnonFuncType(rType2, plist2)) -> check_compatible_types rType1 rType2;
-                                                                        check_lists_are_equal plist1 plist2
+           (AnonFuncType(rType1, plist1), AnonFuncType(rType2, plist2)) ->
+                   check_compatible_types symbols rType1 rType2;
+                   check_lists_are_equal plist1 plist2
          | (_, _) -> raise(Failure("check_compatible_anon_types: Error, invalid anon types passed as arguments"))
                                                 
 
-and check_compatible_types t1 t2 = match (t1, t2) with
+and check_compatible_types symbols t1 t2 = match (t1, t2) with
        (PrimitiveType(pt1), PrimitiveType(pt2)) -> (match pt1, pt2 with 
        | Void, Void -> ()
        | Int, Float -> raise(Failure("assigning float to int"))
@@ -249,7 +295,7 @@ and check_compatible_types t1 t2 = match (t1, t2) with
        | String, String -> ()
        | _ -> raise(Failure("Incompatible types")))
   | (PointerType(typ1_, c1), PointerType(typ2_, c2)) ->
-                       ignore(check_compatible_types typ1_ typ2_);
+                       ignore(check_compatible_types symbols typ1_ typ2_);
                        if (c1 = c2) then () else raise(Failure("Incompatible
                        pointer depths " ^ (string_of_int c1) ^ " " ^
                        (string_of_int c2))) 
@@ -257,8 +303,14 @@ and check_compatible_types t1 t2 = match (t1, t2) with
   incompatible with custom type"))
   | (CustomType(_), PrimitiveType(_)) -> raise(Failure("Custom type incompatible
   with primitive type"))
-  | (CustomType(_), CustomType(_)) -> ()
-  | AnonFuncType(_, _), AnonFuncType(_, _) -> check_compatible_anon_types t1 t2
+  | (CustomType(a), CustomType(b)) -> if (a = b) then () else (if (t1_inherits_t2 a b symbols) then () else
+          raise(Failure("Incompatible custom types: " ^ a ^ " " ^ b)))
+  | (PointerType(_, _), PrimitiveType(_)) -> raise(Failure("Cannot compare
+  pointer and primitive"))
+  | (PrimitiveType(_), PointerType(_, _)) -> raise(Failure("Cannot compare
+  pointer and primitive"))
+  | AnonFuncType(_, _), AnonFuncType(_, _) -> check_compatible_anon_types
+  symbols t1 t2
   | _ -> raise(Failure("check_compatible_types: CompoundType not yet
   supported"))
 
@@ -267,7 +319,7 @@ let receiver_has_func receiver symbols func =
         let rec has_func symbol func = match symbol with
                 | StructSymbol(type_, struct_) -> (match func.receiver with
                                (type2_, id) -> if (type2_ == type_) then () else
-                                       if (struct_.extends != "") then ( let
+                                       if (struct_.extends <> "") then ( let
                                        parent = lookup_symbol_by_id symbols
                                        (Identifier(struct_.extends)) in has_func parent func)
                                        else raise(Failure("method does not have
@@ -294,7 +346,7 @@ let check_constructor symbols struct_name params =
                     if (constructor.constructor_name = "") then 
                         raise(Failure("Parameters for constructor not defined"))
                else
-                    List.iter2 check_compatible_types
+                    List.iter2 (check_compatible_types symbols)
                     (type_list_from_func_param_list param_list)
                          (List.map (type_from_expr symbols) params)
 
@@ -302,11 +354,11 @@ let check_constructor symbols struct_name params =
        | _ -> raise(Failure("not handled\n"))
                 
                
-let rec check_compatible_type_lists tl1 tl2 = match (tl1, tl2) with
+let rec check_compatible_type_lists symbols tl1 tl2 = match (tl1, tl2) with
     ([], []) -> ()
-  | ([x], [y]) -> check_compatible_types x y
-  | (h1::t1, h2::t2) -> check_compatible_types h1 h2;
-                        check_compatible_type_lists t1 t2
+  | ([x], [y]) -> check_compatible_types symbols x y
+  | (h1::t1, h2::t2) -> check_compatible_types symbols  h1 h2;
+                        check_compatible_type_lists symbols t1 t2
   | _ -> raise(Failure("check_compatible_type_lists: type lists are incompatible"))
 
 let rec check_expr symbols e = match e with
@@ -316,7 +368,7 @@ let rec check_expr symbols e = match e with
 
   | Binop(e1, _, e2) -> let t1 = type_from_expr symbols e1 in
                          let t2 = type_from_expr symbols e2 in 
-                         check_compatible_types t1 t2
+                         check_compatible_types symbols t1 t2
    | Pointify(e) -> ()
 
    | Call(receiver, Id(id), expr_list) -> ignore (type_from_identifier symbols id);                      
@@ -331,11 +383,12 @@ let rec check_expr symbols e = match e with
                                     if List.length paramList != List.length exprList then 
                                             raise(Failure("Parameter count mismatch"))
                                     else 
-                                        List.iter2 check_compatible_types paramList
+                                        List.iter2 (check_compatible_types
+                                        symbols) paramList
                                         (List.map (type_from_expr symbols) expr_list)
                            | AnonFuncSymbol(s, AnonFuncType(returnType, paramTypes)) ->
                                    let passedParamTypes = List.map (type_from_expr symbols) expr_list in
-                                   check_compatible_type_lists paramTypes passedParamTypes))
+                                   check_compatible_type_lists symbols paramTypes passedParamTypes))
 
 
    | Unop(e, unop) -> check_expr symbols e;
@@ -344,6 +397,25 @@ let rec check_expr symbols e = match e with
                           (PrimitiveType(Void), _) -> raise(Failure("Cannot apply unary operator to void type"))
                         | (PrimitiveType(_), _) -> ()
                         | _ -> raise(Failure("Type/Unary Operator mismatch")))
+   | CompareExpr(e1, op, e2) -> (let t1 = type_from_expr symbols e1 in
+                                    let t2 = type_from_expr symbols e2 in
+                                    match (t1, t2) with 
+                                    | (CustomType(a), _) ->
+                                                    raise(Failure("Cannot
+                                                    compare custom types"))
+                                    | (_, CustomType(s)) -> raise(Failure("Cannot
+                                    compare custom types"))
+                                    | _ -> check_compatible_types symbols
+                                    (type_from_expr symbols e1) (type_from_expr
+                                    symbols e2))
+   | Postfix(e1, op) -> check_expr symbols e1;
+                      let te = type_from_expr symbols e1 in 
+                      (match (te, op) with
+                          (PrimitiveType(Void), _) -> raise(Failure("Cannot
+                          apply postfix operator to void type"))
+                        | (PrimitiveType(_), _) -> ()
+                        | _ -> raise(Failure("Type/Postfix Operator mismatch")))
+      
    | MemAccess(s, Identifier(t)) -> ignore (type_from_mem_access s t symbols);
    | Make(typ_, expr_list) -> (match (typ_, expr_list)  with
                          | (PrimitiveType(s), [a]) -> ()
@@ -356,22 +428,25 @@ let rec check_expr symbols e = match e with
                                  (PrimitiveType(Void), _) | (_, PrimitiveType(Void)) -> raise(Failure("Cannot assign to type void"))
                                | (PrimitiveType(_), CustomType(_)) -> raise(Failure("Cannot assign a struct to a primitive type"))
                                | (CustomType(_), PrimitiveType(_)) -> raise(Failure("Cannot assign a primitive type to a struct"))
-                               | _ -> check_compatible_types t1 t2)
+                               | _ -> check_compatible_types symbols t1 t2)
 
 let symbols_from_decls decls = List.map symbol_from_declaration decls
 
 let symbols_from_func_params func_params = List.map symbol_from_func_param func_params
 
-let symbol_from_receiver receiver = match receiver with 
-     | (type_, id) -> VarSymbol(id, CustomType(type_))
+let symbol_from_receiver receiver = match receiver with
+     | (type_, id) -> VarSymbol(id, PointerType(CustomType(type_), 1))
 
 let type_from_receiver receiver = match receiver with 
      | (typ_, _) -> typ_
 
-let compare_func_params p1 p2 = 
+let id_from_receiver receiver = match receiver with 
+     | (_, id) -> id
+
+let compare_func_params symbols p1 p2 = 
         let p1_types = List.map type_from_func_param p1 in
         let p2_types = List.map type_from_func_param p2 in
-        List.iter2 check_compatible_types p1_types p2_types
+        List.iter2 (check_compatible_types symbols) p1_types p2_types
 
 let compare_func_names n1 n2 = 
         let n1_name = var_name_from_direct_declarator n1 in
@@ -379,14 +454,14 @@ let compare_func_names n1 n2 =
         if (n1_name = n2_name) then () else raise(Failure("Function
         Names do not match"))
 
-let compare_func_return_types r1 r2 = 
-       check_compatible_types (type_from_declaration_specifiers r1)
+let compare_func_return_types symbols r1 r2 = 
+       check_compatible_types symbols (type_from_declaration_specifiers r1)
   (type_from_declaration_specifiers r2)
 
-let compare_functions f1 f2 = 
+let compare_functions symbols f1 f2 = 
         let _ = compare_func_names f1.func_name f2.func_name in
-        let _ = compare_func_params f1.params f2.params in
-        compare_func_return_types f1.return_type f2.return_type
+        let _ = compare_func_params symbols f1.params f2.params in
+        compare_func_return_types symbols f1.return_type f2.return_type
 
 let symbols_from_fdecls fdecls = List.map symbol_from_fdecl fdecls
 
@@ -411,16 +486,16 @@ let check_local_declaration symbols decl = match decl with
              let sym = symbol_from_declaration decl in 
              (match sym with
                  VarSymbol(_, t1) -> let t2 = type_from_expr symbols expr in
-                                          check_compatible_types t1 t2
+                                          check_compatible_types symbols t1 t2
                 | FuncSymbol(_, func) -> let t1 =
 type_from_declaration_specifiers func.return_type in let
                         t2 =  type_from_expr symbols expr
-                in check_compatible_types t1 t2)
+                in check_compatible_types symbols t1 t2)
     | Declaration(declspec, InitDeclList([InitDeclarator(decl)])) -> ()               
     | _ -> raise(Failure("check_local_declaration not supported"))
 
 
-let check_bool_expr symbols expr = check_compatible_types (type_from_expr symbols
+let check_bool_expr symbols expr = check_compatible_types symbols (type_from_expr symbols
 expr) (PrimitiveType(Int))
 
 let add_to_symbol_table tbl decls = List.fold_left (fun m symbol -> if StringMap.mem
@@ -432,14 +507,23 @@ let add_to_symbol_table tbl decls = List.fold_left (fun m symbol -> if StringMap
 
 
 let rec check_statement func symbol_table stmt = match stmt with
-     Expr(e) -> check_expr symbol_table e
-  | Return(e) -> check_compatible_types (type_from_expr symbol_table e)
+     Expr(e) -> (match e with 
+                        | Make(_, _) -> raise(Failure("Cannot have stand
+                        alone make.")) 
+                        | _ -> check_expr symbol_table e)
+  | Return(e) -> check_compatible_types symbol_table (type_from_expr symbol_table e)
   (type_from_declaration_specifiers func.return_type)
   | If(e, s1, s2) -> check_bool_expr symbol_table e; check_statement
   func symbol_table s1;  check_statement func symbol_table s2
   | EmptyElse -> ()
-  | For(_, e2, _, st) -> check_bool_expr symbol_table e2; check_statement
-  func symbol_table st
+  | For(e1, e2, e3, st) -> ( (match (e1, e3) with 
+                                | (Make(_, _), _) -> raise(Failure("Cannot have
+                                stand alone make"))
+                                | (_, Make(_, _)) -> raise(Failure("Cannot have
+                                stand alone make"))
+                                | _ -> ());
+                                check_expr symbol_table e2; check_bool_expr symbol_table e2; check_statement
+                                func symbol_table st)
   | While(e, s) -> check_bool_expr symbol_table e; check_statement func symbol_table
   s
   | CompoundStatement(dl, sl) -> let tbl = add_to_symbol_table symbol_table dl
@@ -716,6 +800,27 @@ let check_constructor_definition_in_struct struct_ =
 
 let get_method_names struct_ = List.map (fun func -> var_name_from_direct_declarator func.func_name) struct_.methods
 
+
+let build_symbol_table program =
+       let fdecls = (List.filter (fun func -> if (type_from_receiver
+       func.receiver = "") then true else false) program.functions) @ [{
+                       return_type = DeclSpecTypeSpec(Int);
+                       func_name = DirectDeclarator(Var(Identifier("printf")));
+                       params = [FuncParamsDeclared(DeclSpecTypeSpec(String),
+                       DirectDeclarator(Var(Identifier("x"))))];
+                       receiver = ("", "");
+                       body = CompoundStatement([], []);
+               }] in
+        
+        List.fold_left (fun m symbol -> if StringMap.mem
+                (get_id_from_symbol symbol) m then
+                                raise(Failure("redefining variable: " ^
+                        get_id_from_symbol symbol)) else StringMap.add
+                        (get_id_from_symbol symbol) symbol m) StringMap.empty
+                          (symbols_from_decls program.globals
+                         @ symbols_from_fdecls fdecls
+                         @ (symbols_from_structs program.structs)
+                         @ (symbols_from_interfaces program.interfaces))
 
 let check_program program =
         let sdecls = List.map var_name_from_declaration program.globals in

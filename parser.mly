@@ -8,7 +8,7 @@
 %token <string> STRUCT_IDENTIFIER
 %token ASSIGN
 %token RETURN
-%token PLUS MINUS TIMES DIVIDE MOD
+%token PLUS MINUS TIMES DIVIDE MOD PLUSPLUS MINUSMINUS
 %token AND OR BITWISE_AND BITWISE_OR XOR NOT LSHIFT RSHIFT
 %token EQUALS NOT_EQUALS LESS_THAN LESS_THAN_EQUALS GREATER_THAN GREATER_THAN_EQUALS
 %token TIMES_ASSIGN DIVIDE_ASSIGN MOD_ASSIGN PLUS_ASSIGN MINUS_ASSIGN LSHIFT_ASSIGN RSHIFT_ASSIGN AND_ASSIGN XOR_ASSIGN OR_ASSIGN 
@@ -59,27 +59,46 @@ expr_opt:
 expr:
   assignment_expression { $1 }
   | member_access_expr { $1 }
-  | func_call_expr { $1 }
   | make_expr { $1 }
+  | func_call_expr { $1 }
   | anon_func_def { AnonFuncDef($1) }
 
 assignment_expression:
     IDENTIFIER assignment_operator expr { AsnExpr(Id(Identifier($1)), $2, $3) }
-  | member_access_expr assignment_operator expr { AsnExpr($1, $2, $3) }
-  | add_expr { $1 }
+  | member_access_expr assignment_operator expr { AsnExpr($1, $2, $3)}
+  | logical_or_expression { $1 }
 
-initializer_list:
-        /*Nothing */ { [] }
-        | LBRACKET primary_expr RBRACKET { [$2] }
-        | LBRACKET initializer_list COMMA primary_expr RBRACKET { $4 :: $2 }
+
+logical_or_expression:
+  | logical_and_expression { $1 }
+  | logical_or_expression OR logical_and_expression { CompareExpr($1, LogicalOr,
+  $3) }
+
+logical_and_expression:
+  | equality_expression { $1 }
+  | logical_and_expression AND equality_expression { CompareExpr($1, LogicalAnd,
+  $3) }
+
+equality_expression:
+  | relational_expression { $1 }
+  | equality_expression EQUALS relational_expression { CompareExpr($1, Eql,
+  $3) }
+  | equality_expression NOT_EQUALS relational_expression { CompareExpr($1,
+  NotEql, $3) }
+
+relational_expression:
+  | add_expr { $1 }
+  | relational_expression LESS_THAN add_expr { CompareExpr($1, Less, $3) }
+  | relational_expression GREATER_THAN add_expr { CompareExpr($1, Greater, $3) }
+  | relational_expression LESS_THAN_EQUALS add_expr { CompareExpr($1, LessEql,
+  $3) }
+  | relational_expression GREATER_THAN_EQUALS add_expr { CompareExpr($1,
+  GreaterEql, $3) } 
 
 postfix_expr:
     primary_expr { $1 }
-  | postfix_expr LBRACKET_SQUARE expr RBRACKET_SQUARE { Postfix($1,
-  PostEmptyOp,  $3) }
-  | postfix_expr PERIOD IDENTIFIER { Postfix($1, PostDeref, Id(Identifier($3))) }
-  | postfix_expr PLUS PLUS { Postfix($1, PostPlusPlus, Noexpr) }
-  | postfix_expr MINUS MINUS { Postfix($1, PostMinusMinus, Noexpr) }
+  | postfix_expr PLUSPLUS { Postfix($1, PostPlusPlus) }
+  | postfix_expr MINUSMINUS { Postfix($1, PostMinusMinus) }
 
 make_expr:
         MAKE STRUCT_IDENTIFIER LPAREN expr_list RPAREN { Make(CustomType($2),
@@ -140,10 +159,10 @@ add_expr:
  | mult_expr  { $1 }
 
 mult_expr:
-   mult_expr TIMES primary_expr { Binop($1, Mul, $3) }
- | mult_expr DIVIDE primary_expr { Binop($1, Div, $3) }
- | mult_expr MOD primary_expr { Binop($1, Mod, $3) }
- | primary_expr             { $1 }
+   mult_expr TIMES postfix_expr { Binop($1, Mul, $3) }
+ | mult_expr DIVIDE postfix_expr { Binop($1, Div, $3) }
+ | mult_expr MOD postfix_expr { Binop($1, Mod, $3) }
+ | postfix_expr             { $1 }
 
 primary_expr:
  LPAREN expr RPAREN         { $2 }
@@ -152,6 +171,7 @@ primary_expr:
  | STRING_LITERAL           { StringLiteral($1) }
  | IDENTIFIER               { Id(Identifier($1))}
  | BITWISE_AND primary_expr { Pointify($2) }
+ | TIMES primary_expr       { Deref($2) }
 
 type_specifier:
    VOID { Void }

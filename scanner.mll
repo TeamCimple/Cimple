@@ -4,8 +4,10 @@
 rule token = parse
   [' ' '\t' '\r' '\n'] { token lexbuf }
 | ';' { SEMICOLON }
+| "++" { PLUSPLUS }
 | '+' { PLUS }
 | "+=" { PLUS_ASSIGN }
+| "--" { MINUSMINUS }
 | '-' { MINUS }
 | "-=" { MINUS_ASSIGN }
 | '*' { TIMES }

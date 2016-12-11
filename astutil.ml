@@ -14,7 +14,12 @@ let string_of_op = function
       | Not -> "NOT"
       | Lsh -> "LSHIFT"
       | Rsh -> "RSHIFT"
-     
+
+let string_of_postfix_op = function 
+      | PostPlusPlus -> "++"
+      | PostMinusMinus -> "--"
+      | PostEmptyOp -> ""
+
 let string_of_assignment_op = function
         Asn -> "EQUALS"
       | MulAsn -> "TIMES_EQUALS"
@@ -103,7 +108,12 @@ let rec string_of_expr = function
   | FloatLiteral(x) -> "Float(" ^ string_of_float x ^ ")"
   | StringLiteral(s) -> "String(" ^ s ^ ")" 
   | Id (x) -> "Identifier(" ^ string_of_identifier x ^ ")"
+  | Deref(e) -> "Deref(" ^ string_of_expr e ^ ")"
   | Pointify(e) -> "Pointify(" ^ string_of_expr e ^ ")"
+  | Postfix(e1, op) -> "Postfix(" ^ string_of_expr e1 ^ "," ^
+  (string_of_postfix_op op) ^ ")" 
+  | CompareExpr(e1, op, e2) -> "Compare(" ^ string_of_expr e1 ^ "," ^
+  string_of_logical_op op ^ "," ^ string_of_expr e2 ^ ")"
   | Noexpr -> ""
   | AsnExpr(e1, asnOp, e) -> string_of_assignment_op asnOp ^ "(" ^
   string_of_expr e1 ^  ", " ^ string_of_expr e ^ ")"
