@@ -17,4 +17,7 @@ let _ =
               | Compile -> 
                        (Semant.check_program program;
                        Printf.printf "%s\n" (Codegen.gen_program program))
-              | AnonFuncTest -> raise(Failure("Error, -l anonymous function testing not yet ready"))
+              | AnonFuncTest -> 
+                      Printf.printf "\n\nPrinting test results for anonymous function\n";
+                      test_anon_defs program;
+                      Printf.printf "\n\n"

@@ -352,21 +352,23 @@ let rec anon_defs_from_statement stmt = match stmt with
 and anon_defs_from_statement_list = function
      [] -> []
    | [s] -> anon_defs_from_statement s
-   | h::t -> anon_defs_from_statement_list t
+   | h::t -> (anon_defs_from_statement h)@(anon_defs_from_statement_list t)
 
 
-let rec anon_defs_from_func_decl = function
-    _ -> []
+let rec anon_defs_from_func_decl fdecl = anon_defs_from_statement fdecl.body
 
 and anon_defs_from_func_decl_list = function
       [] -> []
     | [x] -> anon_defs_from_func_decl x
     | h::t -> (anon_defs_from_func_decl h)@(anon_defs_from_func_decl_list t)
 
-let print_anon_defs = function
+let rec print_anon_def anonDef = 
+    Printf.printf "%s" (Astutil.string_of_anon_def anonDef)
+
+and print_anon_defs = function
       [] -> ()
-    | [x] -> ()
-    | h::t -> ()
+    | [x] -> print_anon_def x
+    | h::t -> print_anon_def h; print_anon_defs t
 
 let cDeclarationSpecifiers_from_tDeclarationSpecifiers symbol_table tDeclSpecs = function
         | DeclSpecTypeSpecAny(tType) ->
