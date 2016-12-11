@@ -287,6 +287,7 @@ and anon_defs_from_statement_list = function
    | h::t -> anon_defs_from_statement_list t
 
 
+(* Finish this *)
 let rec anon_defs_from_func_decl = function
     _ -> []
 
@@ -294,3 +295,9 @@ and anon_defs_from_func_decl_list = function
       [] -> []
     | [x] -> anon_defs_from_func_decl x
     | h::t -> (anon_defs_from_func_decl h)@(anon_defs_from_func_decl_list t)
+
+
+let print_anon_defs = function
+      [] -> ()
+    | [x] -> ()
+    | h::t -> ()
