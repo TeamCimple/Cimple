@@ -388,11 +388,14 @@ let symbols_from_decls decls = List.map symbol_from_declaration decls
 
 let symbols_from_func_params func_params = List.map symbol_from_func_param func_params
 
-let symbol_from_receiver receiver = match receiver with 
-     | (type_, id) -> VarSymbol(id, CustomType(type_))
+let symbol_from_receiver receiver = match receiver with
+     | (type_, id) -> VarSymbol(id, PointerType(CustomType(type_), 1))
 
 let type_from_receiver receiver = match receiver with 
      | (typ_, _) -> typ_
+
+let id_from_receiver receiver = match receiver with 
+     | (_, id) -> id
 
 let compare_func_params p1 p2 = 
         let p1_types = List.map type_from_func_param p1 in

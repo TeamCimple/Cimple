@@ -406,6 +406,17 @@ let cFuncParam_from_tFuncParam symbol_table tFuncParam = (cType_from_tType
 symbol_table (Semant.type_from_func_param tFuncParam),
 (CIdentifier(Semant.var_name_from_func_param tFuncParam)))
 
+let create_cfunc_param_for_receiver receiver = 
+        (CPointerType(CType(CPrimitiveType(Cvoid)), 1),
+        CIdentifier("_body"))
+
+ let create_initial_cast_decl receiver =
+        let cstruct_name = cStructName_from_tStruct (fst receiver) in  
+        CDeclaration(CDeclSpecTypeSpecAny(CPointerType(CType(CStruct(cstruct_name)),
+        1)), CInitDeclaratorAsn(CDirectDeclarator(CVar(CIdentifier(snd receiver)))
+        , Asn, CCastExpr(CPointerType(CType(CStruct(cstruct_name)), 1),
+        CId(CIdentifier("_body")))))
+
 let cFunc_from_tFunc symbol_table tFunc = 
         {
                 creturn_type = cType_from_tType symbol_table
@@ -430,23 +441,33 @@ let cStruct_from_tStruct symbol_table tStruct =
                 [cSymbol_from_Implements tStruct.implements] @
                 defaultStructMemberSymbols else defaultStructMemberSymbols in
 
-        
-        let (methods_to_cfunctions, cfuncs) = (List.fold_left (fun (sym, cfunc_list) method_ -> 
+               let (methods_to_cfunctions, cfuncs) = (List.fold_left (fun (sym, cfunc_list) method_ -> 
                                             (let tfunc_name =
                                                     Semant.var_name_from_direct_declarator
                                                method_.func_name in
-                                                       
+                                            
+                                           let initial_void_param = 
+                                                        create_cfunc_param_for_receiver
+                                                        method_.receiver in
+
+                                           let init_cast_decl =
+                                                   create_initial_cast_decl
+                                                   method_.receiver in
+
+ 
                                             let cfunc = {
                                                 creturn_type = (cType_from_tType
                                                 symbol_table
                                                 (Semant.type_from_declaration_specifiers
                                                 method_.return_type));
                                                 
-                                                cfunc_params = (List.map
+                                                cfunc_params =
+                                                        [initial_void_param] @ (List.map
                                                 (cFuncParam_from_tFuncParam
                                                 symbol_table) method_.params);
 
-                                                cfunc_body = CCompoundStatement([],
+                                                cfunc_body =
+                                                        CCompoundStatement([init_cast_decl],
                                                 []);
         
                                                 cfunc_name = String.concat "_"
@@ -565,6 +586,17 @@ let update_decl decl tSymbol_table cSymbol_table =
                                         | _ -> raise(Failure("Non struct type
                                         decl'd"))))
 
+(*                                
+let rec update_statement tstmt tSymbol_table cSymbol_table =  match tstmt with 
+        | CompoundStatement(decls, stmts) -> 
+        | EmptyElse -> (CEmptyElse, [])
+        | Return(e) -> 
+        | If(e, stmt, stmt) -> 
+        | For(e1, e2, e3, stmt) ->
+        | While(e1, stmt) ->
+        | Break ->  
+        
+*)      
 
 let cProgram_from_tProgram program =
         let updated_program = Semant.update_structs_in_program program in
