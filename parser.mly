@@ -152,6 +152,7 @@ primary_expr:
  | STRING_LITERAL           { StringLiteral($1) }
  | IDENTIFIER               { Id(Identifier($1))}
  | BITWISE_AND primary_expr { Pointify($2) }
+ | TIMES primary_expr       { Deref($2) }
 
 type_specifier:
    VOID { Void }

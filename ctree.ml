@@ -56,11 +56,14 @@ and cExpr =
    | CLiteral of int
    | CFloatLiteral of float
    | CStringLiteral of string
+   | CCastExpr of cType * cExpr
    | CPostfix of cExpr * tPostfixOperator * cExpr
-   | CCall of string * cExpr * cExpr list
+   | CCall of int * string * cExpr * cExpr list (* The int field is a flag to
+   indiciate it is a pointer dereference *)
    | CAlloc of cType * int
    | CPointify of cExpr
-   | CMemAccess of cIdentifier * cIdentifier
+   | CMemAccess of int * cIdentifier * cIdentifier (* The int field is a flag to
+   indicate it is a pointer dereference *)
    | CId of cIdentifier
    | CDeclExpr of cDeclaration
    | CNoExpr
@@ -459,16 +462,108 @@ let cStruct_from_tStruct symbol_table tStruct =
                 struct_members = cStructMemberSymbols;
                 method_to_functions = methods_to_cfunctions;
         }, cfuncs)
-                        
-(*let cFunc_from_tFunc uid tFunc symbol_table =
-        let tfunc_name = Semant.var_name_from_direct_declarator tFunc.func_name
-        in
-        let cfunc_name = if (tFunc.receiver = ("", "")) then func_name else
-                        String.concat (String.concat "_" (fst tFunc.receiver))
-                        func_name in
-        let cFunc = {
-                func_name = cfunc_name;
-        }*)
+           
+let c_init_decl_from_string str = 
+       CInitDeclarator(CDirectDeclarator(CVar(CIdentifier(str))))
+
+let update_decl decl tSymbol_table cSymbol_table = 
+                let id = Semant.var_name_from_declaration decl in 
+                   let tType = Semant.type_from_identifier tSymbol_table (Identifier(id))
+                   in 
+                   
+                   match (tType) with 
+                   | PrimitiveType(t) -> raise(Failure("not supported"))
+                   | CustomType(t) -> (let sym = Semant.lookup_symbol_by_id
+                   tSymbol_table (Identifier(id)) in ( match sym with
+                                        | StructSymbol(s, st) -> if (st.implements
+                                       <> "") then (
+                                                let interface_ =
+                                                        Semant.get_interface
+                                                        tSymbol_table
+                                                        st.implements in 
+
+                                                let cInterfaceDecl = 
+                                                      CDeclaration(CDeclSpecTypeSpecAny(CPointerType(CType(CStruct(cStructName_from_tInterface
+                                                interface_.name)), 1)),
+                                                c_init_decl_from_string (String.concat ""
+                                                ["_";id;(cStructName_from_tInterface
+                                                interface_.name)])) in
+
+                                                let cdecl = (match decl with
+                                                        | Declaration(_,
+                                                        InitDeclarator(DirectDeclarator(_)))
+                                                        ->  
+                                                        CDeclaration(CDeclSpecTypeSpecAny(CType(CStruct(cStructName_from_tStruct
+                                                        st.struct_name))),
+                                                        c_init_decl_from_string
+                                                        id)
+                                                        
+                                                        | _ ->
+                                                                        raise(Failure("Need
+                                                                        to
+                                                                        implement
+                                                                        InitDeclAsn")))
+                                                in
+                                                
+                                                let decls = [cInterfaceDecl] @
+                                                [cdecl] in 
+
+                                                let cStruct = StringMap.find
+                                                (cStructName_from_tStruct
+                                                st.struct_name) cSymbol_table in
+                                                
+                                                (* Assign the C function
+                                                        * associated with the
+                                                        * method to the
+                                                        * corresponding field of
+                                                        * the newly created
+                                                        * interface struct *) 
+                                                let method_asns = List.map (fun
+                                                        tmethod_name
+                                                -> CExpr(CAsnExpr(CMemAccess(1,
+                                                (CIdentifier(String.concat ""
+                                                ["_";id;(cStructName_from_tInterface
+                                                interface_.name)])),
+                                                (CIdentifier(tmethod_name))),
+                                                Asn,
+                                                (let cfunc = StringMap.find
+                                                tmethod_name
+                                                cStruct.method_to_functions in
+                                                (CId(CIdentifier(cfunc.cfunc_name)))))))
+                                                (List.map (fun fdecl ->
+                                                        Semant.var_name_from_direct_declarator
+                                                fdecl.func_name) interface_.funcs) in 
+
+                                                let reference_implementer_asn =
+                                                        CExpr(CAsnExpr(CMemAccess(1,
+                                                        (CIdentifier(String.concat ""
+                                                ["_";id;(cStructName_from_tInterface
+                                                interface_.name)])),
+                                                (CIdentifier("body"))), Asn,
+                                                CCastExpr(CPointerType(CType(CPrimitiveType(Cvoid)),
+                                                1),
+                                                CPointify(CId((CIdentifier(id)))))))
+                                                in
+
+                                                let
+                                                implementer_add_interface_assn = 
+                                                        CExpr(CAsnExpr(CMemAccess(0,
+                                                        CIdentifier(id),
+                                                        CIdentifier(cStructName_from_tInterface
+                                                interface_.name)), Asn, (CId(CIdentifier(String.concat ""
+                                                ["_";id;(cStructName_from_tInterface
+                                                interface_.name)]))))) in 
+
+                                                let assignments = method_asns @
+                                                [reference_implementer_asn] @
+                                                [implementer_add_interface_assn]
+                                                in 
+
+                                                (decls, assignments) 
+
+                                       ) else ([], [])
+                                        | _ -> raise(Failure("Non struct type
+                                        decl'd"))))
 
 
 let cProgram_from_tProgram program =

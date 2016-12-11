@@ -78,7 +78,6 @@ let is_assignment_declaration decl = match decl with
       | Declaration(decl_spec, InitDeclaratorAsn(PointerDirDecl(ptr, _), _ , _))
       -> true
       | _ -> false
- 
 
 let rec type_from_func_param = function
      FuncParamsDeclared(t, _) -> type_from_declaration_specifiers t
@@ -127,6 +126,13 @@ let lookup_symbol_by_id symbols id = try StringMap.find
         Not_found -> raise(Failure("undeclared identifier: " ^
         Astutil.string_of_identifier id))
 
+let get_interface symbol_table name = 
+        let sym = lookup_symbol_by_id symbol_table (Identifier(name)) in 
+        match sym with 
+        | InterfaceSymbol(_, interface) -> interface
+        | _ -> raise(Failure("cannot find interface"))
+
+
 let func_decl_from_anon_def anonDef = {
     return_type = DeclSpecTypeSpecAny(anonDef.anon_return_type);
     func_name = DirectDeclarator(Var(Identifier("")));
@@ -140,6 +146,7 @@ let type_from_identifier symbols id =
         | FuncSymbol(_, func) -> type_from_declaration_specifiers
         func.return_type
         | StructSymbol(_, struct_decl) -> CustomType(struct_decl.struct_name)
+        | InterfaceSymbol(name, _) -> CustomType(name)
         | AnonFuncSymbol(_, t) -> t 
 
 let get_parameter_list symbol = match symbol with
@@ -195,6 +202,11 @@ let type_from_mem_access id t symbols  =
 
        | _ -> raise(Failure("Member Access of non Struct"))
 
+let is_interface symbols id = 
+        let sym = lookup_symbol_by_id symbols id in match sym with 
+        | InterfaceSymbol(_, _) -> true
+        | _ -> false
+
 let rec type_from_expr symbols expr = match expr with
    Literal(_) -> PrimitiveType(Int)
   | FloatLiteral(_) -> PrimitiveType(Float)
@@ -209,6 +221,14 @@ let rec type_from_expr symbols expr = match expr with
   | MemAccess(s, Identifier(t)) -> type_from_mem_access s t symbols 
   | Id(id) -> type_from_identifier symbols id
   | AsnExpr(expr, _, _) -> type_from_expr symbols expr
+  | Deref(e) -> (let typ_ = type_from_expr symbols e in 
+                        match typ_ with 
+                        | PointerType(base_type, count) -> 
+                                        if (count = 1) then 
+                                                 base_type
+                                        else
+                                            PointerType(base_type, count-1)
+                       | _ -> raise(Failure("Dereferencing non pointer type")))
   | Pointify(e) -> (let typ_ = type_from_expr symbols e in 
                                 match typ_ with 
                                 | PointerType(base_type, count) ->
@@ -218,7 +238,13 @@ let rec type_from_expr symbols expr = match expr with
                                                  * existing type is a pointer
                                                  * and then add count to the
                                                  * existing pointer type *)
-                                | _ -> PointerType(typ_, 1))
+                                | CustomType(s) -> if (is_interface symbols
+                                (Identifier(s))) then raise(Failure("Cannot make
+                                pointer out of interface")) else
+                                        PointerType(typ_, 1)
+                                | _ -> (match e with
+                                              | Id(id) ->  PointerType(typ_, 1)
+                                              | _ -> raise(Failure("Cannot make pointer out of non-identifier"))))
   | AnonFuncDef(adef) -> type_from_anon_def adef
   | Noexpr -> PrimitiveType(Void)
 
@@ -713,31 +739,30 @@ let check_constructor_definition_in_struct struct_ =
                 check_statement func
         symbols constructor.constructor_body
 
-let build_symbol_table program = 
-      let fdecls = (List.filter (fun func -> if (type_from_receiver
-       func.receiver = "") then true else false) program.functions) @ [{
-               return_type = DeclSpecTypeSpec(Int); 
-               func_name = DirectDeclarator(Var(Identifier("printf")));
-               params = [FuncParamsDeclared(DeclSpecTypeSpec(String),
-               DirectDeclarator(Var(Identifier("x"))))];
-               receiver = ("", "");
-               body = CompoundStatement([], []);                                          
-       }] in 
-       
-        List.fold_left (fun m symbol -> if StringMap.mem
-                (get_id_from_symbol symbol) m then
-                        raise(Failure("redefining variable: " ^
-                        get_id_from_symbol symbol)) else StringMap.add
-                        (get_id_from_symbol symbol) symbol m) StringMap.empty
-                          (symbols_from_decls program.globals
-                         @ symbols_from_fdecls fdecls 
-                         @ (symbols_from_structs program.structs)
-                         @ (symbols_from_interfaces program.interfaces))
-
-
 
 let get_method_names struct_ = List.map (fun func -> var_name_from_direct_declarator func.func_name) struct_.methods
 
+
+let build_symbol_table program =
+       let fdecls = (List.filter (fun func -> if (type_from_receiver
+       func.receiver = "") then true else false) program.functions) @ [{
+                       return_type = DeclSpecTypeSpec(Int);
+                       func_name = DirectDeclarator(Var(Identifier("printf")));
+                       params = [FuncParamsDeclared(DeclSpecTypeSpec(String),
+                       DirectDeclarator(Var(Identifier("x"))))];
+                       receiver = ("", "");
+                       body = CompoundStatement([], []);
+               }] in
+        
+        List.fold_left (fun m symbol -> if StringMap.mem
+                (get_id_from_symbol symbol) m then
+                                raise(Failure("redefining variable: " ^
+                        get_id_from_symbol symbol)) else StringMap.add
+                        (get_id_from_symbol symbol) symbol m) StringMap.empty
+                          (symbols_from_decls program.globals
+                         @ symbols_from_fdecls fdecls
+                         @ (symbols_from_structs program.structs)
+                         @ (symbols_from_interfaces program.interfaces))
 
 let check_program program =
         let sdecls = List.map var_name_from_declaration program.globals in

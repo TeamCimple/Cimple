@@ -49,6 +49,7 @@ and tExpr =
   | Call of string * tExpr * tExpr list
   | Make of tType * tExpr list
   | Pointify of tExpr
+  | Deref of tExpr
   | MemAccess of tIdentifier * tIdentifier
   | Id of tIdentifier
   | AnonFuncDef of tAnonFuncDef

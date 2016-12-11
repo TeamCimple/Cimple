@@ -103,6 +103,7 @@ let rec string_of_expr = function
   | FloatLiteral(x) -> "Float(" ^ string_of_float x ^ ")"
   | StringLiteral(s) -> "String(" ^ s ^ ")" 
   | Id (x) -> "Identifier(" ^ string_of_identifier x ^ ")"
+  | Deref(e) -> "Deref(" ^ string_of_expr e ^ ")"
   | Pointify(e) -> "Pointify(" ^ string_of_expr e ^ ")"
   | Noexpr -> ""
   | AsnExpr(e1, asnOp, e) -> string_of_assignment_op asnOp ^ "(" ^
