@@ -101,6 +101,10 @@ and cSymbol =
     | CFuncSymbol of string * cFunc
     | CStructSymbol of string * cStruct
 
+type  uAnonFuncState = {
+    currentFuncName: string;
+    anonFuncCount: int
+}
 
 let cStructName_from_tInterface name = 
         String.concat "" ["_interface"; name]
@@ -121,7 +125,7 @@ let cType_from_tTypeSpec = function
   | String -> CPointerType(CType(CPrimitiveType(Cchar)), 1) 
   | _ -> raise(Failure("cType_from_tTypeSpec: Error, unsupported tTypeSpec"))
 
-let cType_from_tType symbol_table = function
+let rec cType_from_tType symbol_table = function
     PrimitiveType(typeSpec) -> cType_from_tTypeSpec typeSpec
   | CustomType(s) -> (let sym = StringMap.find s symbol_table in 
                                         match sym with 
@@ -131,6 +135,13 @@ let cType_from_tType symbol_table = function
                                         | InterfaceSymbol(name, _) ->
                                                         CType(CStruct(cStructName_from_tInterface
                                         name)))
+  | AnonFuncType(t, tlist) -> 
+          let anonRetType = (cType_from_tType symbol_table t) in 
+          let anonParamTypes = List.map (fun x -> (cType_from_tType symbol_table x)) tlist in
+          CFuncPointer({ 
+              func_return_type = anonRetType;
+              func_param_types = anonParamTypes
+          })
   | _ -> raise(Failure("Haven't filled out yet"))
 
 let cSymbol_from_sSymbol = function
@@ -436,7 +447,7 @@ let cFunc_from_tFunc symbol_table tFunc =
                 tFunc.func_name;
         }
 
-(*let cFunc_from_anon_def anonDef = *)
+
 let cStruct_from_tStruct symbol_table tStruct = 
         let defaultStructMemberSymbols = List.map cSymbol_from_sSymbol (List.map (Semant.symbol_from_declaration)
         tStruct.members) in 
@@ -696,6 +707,8 @@ let cProgram_from_tProgram program =
 
         let cStructs = (cstructs @ List.map (cStruct_from_tInterface
         tSymbol_table) program.interfaces) in
+
+        (*let  *)
 
         (* The function bodies have not been filled out yet. Just the parameters
          * and return types *)

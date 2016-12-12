@@ -16,7 +16,10 @@ let _ =
                 Ast -> Printf.printf "%s\n" (Astutil.string_of_program program)
               | Compile -> 
                        (Semant.check_program program;
-                       Printf.printf "%s\n" (Codegen.gen_program program))
+                       let cprogram = Ctree.cProgram_from_tProgram program in
+                       Printf.printf "%s\n" (Ccodegen.gen_cprogram cprogram))
+                       (*Printf.printf "%s\n" (Codegen.gen_program program))*)
+
               | AnonFuncTest -> 
                       Printf.printf "\n\nPrinting test results for anonymous function\n";
                       test_anon_defs program;
