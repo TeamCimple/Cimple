@@ -141,11 +141,17 @@ let gen_func fdecl = (gen_decl_specs fdecl.return_type) ^ " " ^ (gen_decl
 fdecl.func_name) ^ "(" ^ (gen_func_params fdecl.params) ^ ")" ^ (gen_statement
 fdecl.body)
 
-let gen_program program =
-    let anon_defs = Ctree.anon_defs_from_func_decl_list program.functions
-    in
-        add_header "stdio" ^ "\n" ^ (String.concat ";\n" (List.map gen_declaration
-        program.globals)) ^ (String.concat ";\n" (List.map gen_struct
-        program.structs)) ^ ";\n\n" ^ (String.concat "\n" (List.map gen_func
-        (List.rev program.functions)));
 
+let test_anon_defs program =
+        let anon_defs = Ctree.anon_defs_from_func_decl_list program.functions in
+        let print_list_size l = Printf.printf "Number of anonymous function definitions: %s\n" (string_of_int (List.length l)) in
+        print_list_size anon_defs;
+        Ctree.print_anon_defs anon_defs
+
+let gen_program program =
+    add_header "stdio" ^ "\n" ^ (String.concat ";\n" (List.map gen_declaration
+    program.globals)) ^ (String.concat ";\n" (List.map gen_struct
+    program.structs)) ^ ";\n\n" ^ (String.concat "\n" (List.map gen_func
+    (List.rev program.functions)));
+
+ 

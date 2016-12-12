@@ -32,6 +32,11 @@ test: cimple
 ast:
 	cat $(SRC) | ./cimple -a
 
+.PHONY: anon
+
+anon:
+	cat tests/anon/anonFunction.cpl | ./cimple -l
+
 .PHONY : clean
 clean :
 	rm -f calc parser.ml parser.mli scanner.ml *.cmo *.cmi
