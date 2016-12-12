@@ -325,12 +325,14 @@ func_decl_list:
 
 anon_func_def:
    FUNC LPAREN RPAREN LPAREN func_params_list RPAREN compound_statement { {
+    anon_name = "";
     anon_return_type = PrimitiveType(Void);
     anon_params = ($5);
     anon_body = $7}
    }
 
  | FUNC LPAREN type_ RPAREN LPAREN func_params_list RPAREN compound_statement { {
+    anon_name = "";
     anon_return_type = $3;
     anon_params = ($6);
     anon_body = $8}

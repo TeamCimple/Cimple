@@ -149,7 +149,7 @@ and string_of_expr_list = function
 
 and string_of_anon_func_decl d = "AnonFuncDecl(Name: " ^ (string_of_identifier d.anon_decl_name) ^ ", ReturnType: " ^ (string_of_type d.anon_decl_return_type) ^ ", Params: " ^ (string_of_func_param_list d.anon_decl_params) ^ ")"
 
-and string_of_anon_def d = "AnonDef(AnonReturnType: " ^ string_of_type d.anon_return_type ^ ", AnonParams: " ^ string_of_func_param_list d.anon_params ^ ", AnonBody: " ^ string_of_statement d.anon_body ^ ")"
+and string_of_anon_def d = "AnonDef(AnonName: " ^ d.anon_name ^ ", AnonReturnType: " ^ string_of_type d.anon_return_type ^ ", AnonParams: " ^ string_of_func_param_list d.anon_params ^ ", AnonBody: " ^ string_of_statement d.anon_body ^ ")"
 
 and string_of_declaration = function Declaration(x, y) -> "(" ^ string_of_declaration_specifiers x ^ " " ^
   string_of_init_declarator y ^ ")"

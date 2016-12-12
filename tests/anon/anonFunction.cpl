@@ -3,11 +3,30 @@ void apply_op(string s, func()(string) op)
 	op(s);
 }
 
+int plus(int x, func(int)(int) myFunc)
+{
+    string str = "hello_from_plus_function"; 
+    apply_op(str, func()(string s){
+                printf(s);
+            });
+
+    return 0;
+}
+
 int main( )
 {
 	string hello = "Hello World";
 	
 	apply_op(hello, func( )(string s) { printf(s); });
+
+    apply_op("A string literal", func()(string s) { 
+                string newS = "Ignoring argument from anonFunc2";
+                printf(newS);
+            });
+
+    test_func(1, func(int)(int x) {
+                return 1 + x;
+            });
 
 	return 0;
 }

@@ -102,6 +102,7 @@ and tExpr =
  | Break
 
  and tAnonFuncDef = {
+        anon_name: string;  (* For use in ctree! *)
         anon_return_type: tType;
         anon_params: tFuncParam list;
         anon_body: tStatement 
