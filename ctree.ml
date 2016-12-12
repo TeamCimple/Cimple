@@ -101,6 +101,7 @@ and cSymbol =
     | CFuncSymbol of string * cFunc
     | CStructSymbol of string * cStruct
 
+
 let cStructName_from_tInterface name = 
         String.concat "" ["_interface"; name]
 
@@ -435,6 +436,7 @@ let cFunc_from_tFunc symbol_table tFunc =
                 tFunc.func_name;
         }
 
+(*let cFunc_from_anon_def anonDef = *)
 let cStruct_from_tStruct symbol_table tStruct = 
         let defaultStructMemberSymbols = List.map cSymbol_from_sSymbol (List.map (Semant.symbol_from_declaration)
         tStruct.members) in 

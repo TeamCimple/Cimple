@@ -1,6 +1,6 @@
 TARFILES = Makefile scanner.mll parser.mly ast.mli cimple.ml
 
-OBJS = parser.cmo scanner.cmo astutil.cmo semant.cmo ctree.cmo codegen.cmo cimple.cmo  
+OBJS = parser.cmo scanner.cmo astutil.cmo semant.cmo ctree.cmo ccodegen.cmo codegen.cmo cimple.cmo  
 
 all: clean cimple
 
@@ -62,4 +62,6 @@ astutil.cmo: ast.cmi astutil.ml
 ctree.cmi: ast.cmi semant.cmi 
 ctree.cmo: ast.cmi semant.cmi ctree.ml
 ctree.cmx: ast.cmi semant.cmi ctree.cmi
-
+ccodegen.cmi: ast.cmi ctree.cmi
+ccodegen.cmo: ast.cmi ctree.ml
+ccodegen.cmx: ast.cmi ctree.cmi
