@@ -123,7 +123,7 @@ let rec string_of_expr = function
   "FunctionName: " ^ (string_of_identifier id) ^ " Params: " ^ (string_of_expr_list  exprList) ^ ")"
   | Make(typ_, exprList) -> "Make(" ^ string_of_type typ_ ^ string_of_expr_list
   exprList ^ ")" 
-  | MemAccess(Identifier(s), Identifier(t)) -> "Deref(" ^ "Var(" ^ s ^ ")" ^ ","
+  | MemAccess(Identifier(s), Identifier(t)) -> "Access(" ^ "Var(" ^ s ^ ")" ^ ","
   ^ t ^")"
   | AnonFuncDef(anonDef) -> "AnonFuncDef(ReturnType: " ^ (string_of_type anonDef.anon_return_type) ^ ", Params: " ^ (string_of_func_param_list anonDef.anon_params) ^ ", Body: " ^ (string_of_statement anonDef.anon_body) ^ ")" 
 

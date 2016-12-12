@@ -5,7 +5,10 @@ struct Employee {
 
 
 int main(int argc){
-	struct Employee prof;
-	int x = prof.age;
+	struct Employee *prof;
+
+	prof.age = 1;
+	prof.salary = 1000;
+
 	return 0;
 }

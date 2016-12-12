@@ -1,7 +1,35 @@
+struct Employee {
+	int t;
+	int v;
+
+	Employee(int c, int d) {
+		t = c;
+		v = d;	
+	}
+};
+
+struct MyEmployee {
+	int m;
+};
+
+int (Employee e) hello()
+{
+	return 0;
+}
+
+int (MyEmployee m) hello()
+{
+	return 0;
+}
+
+int hello()
+{
+	return 0;
+}
+
 int main()
 {
     	int a = 1 * 2;
-        int a = 3 / 4;
         int c = 5 + 6;
         int d = 7 - 8;
         

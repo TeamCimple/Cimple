@@ -4,7 +4,7 @@ struct Employee {
 };
 
 int main(){
-	int * e;
+	struct Employee * e;
 
 	e = make Employee(a, b, c);
 	return 0;

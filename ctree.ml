@@ -650,7 +650,14 @@ let rec update_expr texpr tSymbol_table cSymbol_table = match texpr with
                                         @ e2_stmts)
                         )
                    
-     | Call(id, expr, expr_list) -> raise(Failure("not handled")) 
+     | Call(id, Id(s), expr_list) -> raise(Failure("Not done"))(*( if (id <> "") 
+                                        then
+                                         
+                                         * The receiver is not empty check if it
+                                         * is an interface
+                                         *)
+
+
      | Literal(d) -> (CLiteral(d), [])
      | FloatLiteral(d) -> (CFloatLiteral(d), [])
      | StringLiteral(s) -> (CStringLiteral(s), [])
