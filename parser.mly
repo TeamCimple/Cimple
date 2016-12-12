@@ -58,7 +58,6 @@ expr_opt:
 
 expr:
   assignment_expression { $1 }
-  | member_access_expr { $1 }
   | make_expr { $1 }
   | func_call_expr { $1 }
   | anon_func_def { AnonFuncDef($1) }
@@ -99,6 +98,7 @@ postfix_expr:
     primary_expr { $1 }
   | postfix_expr PLUSPLUS { Postfix($1, PostPlusPlus) }
   | postfix_expr MINUSMINUS { Postfix($1, PostMinusMinus) }
+  | member_access_expr { $1 }
 
 make_expr:
         MAKE STRUCT_IDENTIFIER LPAREN expr_list RPAREN { Make(CustomType($2),
