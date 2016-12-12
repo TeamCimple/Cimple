@@ -14,9 +14,9 @@ type cPrimitive =
   | Cdouble
 
 type cProgram = {
-        structs: cStruct list;
-        globals: cDeclaration list;
-        functions: cFunc list;
+        cstructs: cStruct list;
+        cglobals: cDeclaration list;
+        cfunctions: cFunc list;
 }
 
 and cStruct = {
@@ -48,7 +48,7 @@ and cPointer =
 and cType = 
     CType of cNonPointerType
   | CPointerType of cType * int
-  | CFuncPointer of cFuncSignature
+  | CFuncPointer of cFuncSignature 
 
 and cExpr = 
     CBinop of cExpr * tOperator * cExpr
@@ -101,8 +101,8 @@ and cSymbol =
     | CFuncSymbol of string * cFunc
     | CStructSymbol of string * cStruct
 
-type  uAnonFuncState = {
-    currentFuncName: string;
+type uAnonFuncState = {(* 'u' for utility *)
+    prefix: string;
     anonFuncCount: int
 }
 
@@ -313,7 +313,6 @@ let capture_struct_from_anon_def symbols structName def =
       symbols param_symbols def.anon_body);
       method_to_functions = StringMap.empty;
     }
-(* Return (updatedAnonCounter, tFuncDecl) *)
 let c_function_from_anon_function anonCounter anonDef = {
         return_type = DeclSpecTypeSpecAny(anonDef.anon_return_type);
         func_name = DirectDeclarator(Var(Identifier("anonFunc_" ^ string_of_int (anonCounter + 1))));
@@ -322,57 +321,57 @@ let c_function_from_anon_function anonCounter anonDef = {
         body = anonDef.anon_body
 }
 
-let rec anon_defs_from_expr = function
+let rec anon_defs_from_expr (prefix, count) expr = match expr with
      AnonFuncDef(anonDef) -> [anonDef]
-   | Binop(e1, op, e2) -> (anon_defs_from_expr e1)@(anon_defs_from_expr e2)
-   | AsnExpr(_, _, e) -> anon_defs_from_expr e
-   | Postfix(e1, _) -> (anon_defs_from_expr e1)
-   | Call(_, e, elist) -> (anon_defs_from_expr e)@(anon_defs_from_expr_list elist)
+   | Binop(e1, op, e2) -> (anon_defs_from_expr (prefix, count) e1)@(anon_defs_from_expr (prefix, count) e2)
+   | AsnExpr(_, _, e) -> anon_defs_from_expr (prefix, count) e
+   | Postfix(e1, _) -> (anon_defs_from_expr (prefix, count) e1)
+   | Call(_, e, elist) -> (anon_defs_from_expr (prefix, count) e)@(anon_defs_from_expr_list (prefix, count) elist)
    | _ -> [] (* Other expression types cannot possibly contain anonymous function definitions *) 
 
-and anon_defs_from_expr_list = function 
+and anon_defs_from_expr_list (prefix, count) elist = match elist with  
      [] -> []
-   | [e] -> anon_defs_from_expr e
-   | h::t -> (anon_defs_from_expr h)@(anon_defs_from_expr_list t)
+   | [e] -> anon_defs_from_expr (prefix, count) e
+   | h::t -> (anon_defs_from_expr (prefix, count) h)@(anon_defs_from_expr_list (prefix, count) t)
 
-let rec anon_defs_from_declaration = function
-     Declaration(declSpecs, initDecl) -> anon_defs_from_init_declarator initDecl
+let rec anon_defs_from_declaration (prefix, count) decl = match decl with
+     Declaration(declSpecs, initDecl) -> anon_defs_from_init_declarator (prefix, count) initDecl
 
-and anon_defs_from_declaration_list = function
+and anon_defs_from_declaration_list (prefix, count) declList = match declList with
      [] -> []
-   | [d] -> anon_defs_from_declaration d
-   | h::t -> (anon_defs_from_declaration h)@(anon_defs_from_declaration_list t)
+   | [d] -> anon_defs_from_declaration (prefix, count) d
+   | h::t -> (anon_defs_from_declaration (prefix, count) h)@(anon_defs_from_declaration_list (prefix, count) t)
 
-and anon_defs_from_init_declarator = function
-           InitDeclaratorAsn(_, _, e) -> anon_defs_from_expr e
-         | InitDeclList(initDeclList) -> anon_defs_from_init_declarator_list initDeclList
+and anon_defs_from_init_declarator (prefix, count) idecl = match idecl with
+           InitDeclaratorAsn(_, _, e) -> anon_defs_from_expr (prefix, count) e
+         | InitDeclList(initDeclList) -> anon_defs_from_init_declarator_list (prefix, count) initDeclList
          | _ -> []
 
-and anon_defs_from_init_declarator_list = function
+and anon_defs_from_init_declarator_list (prefix, count) ideclList = match ideclList with
      [] -> []
-   | [decl] -> anon_defs_from_init_declarator decl
-   | h::t -> (anon_defs_from_init_declarator h)@(anon_defs_from_init_declarator_list t)
+   | [decl] -> anon_defs_from_init_declarator (prefix, count) decl
+   | h::t -> (anon_defs_from_init_declarator (prefix, count) h)@(anon_defs_from_init_declarator_list (prefix, count) t)
 
-let rec anon_defs_from_statement stmt = match stmt with
-     Expr(e) -> anon_defs_from_expr e
-   | Return(e) -> anon_defs_from_expr e
-   | If(e, s1, s2) -> (anon_defs_from_expr e)@(anon_defs_from_statement s1)@(anon_defs_from_statement s2)
-   | For(e1, e2, e3, s) -> (anon_defs_from_expr e1)@(anon_defs_from_expr e2)@(anon_defs_from_expr e3)@(anon_defs_from_statement s)
-   | While(e, s) -> (anon_defs_from_expr e)@(anon_defs_from_statement s)
-   | CompoundStatement(declList, stmtList) -> (anon_defs_from_declaration_list declList)@(anon_defs_from_statement_list stmtList)
+let rec anon_defs_from_statement (prefix, count) stmt = match stmt with
+     Expr(e) -> anon_defs_from_expr (prefix, count) e
+   | Return(e) -> anon_defs_from_expr (prefix, count) e
+   | If(e, s1, s2) -> (anon_defs_from_expr (prefix, count) e)@(anon_defs_from_statement (prefix, count) s1)@(anon_defs_from_statement (prefix, count) s2)
+   | For(e1, e2, e3, s) -> (anon_defs_from_expr (prefix, count) e1)@(anon_defs_from_expr (prefix, count) e2)@(anon_defs_from_expr (prefix, count) e3)@(anon_defs_from_statement (prefix, count) s)
+   | While(e, s) -> (anon_defs_from_expr (prefix, count) e)@(anon_defs_from_statement (prefix, count) s)
+   | CompoundStatement(declList, stmtList) -> (anon_defs_from_declaration_list (prefix, count) declList)@(anon_defs_from_statement_list (prefix, count) stmtList)
 
-and anon_defs_from_statement_list = function
+and anon_defs_from_statement_list (prefix, count) stmtList = match stmtList with
      [] -> []
-   | [s] -> anon_defs_from_statement s
-   | h::t -> (anon_defs_from_statement h)@(anon_defs_from_statement_list t)
+   | [s] -> anon_defs_from_statement (prefix, count) s
+   | h::t -> (anon_defs_from_statement (prefix, count) h)@(anon_defs_from_statement_list (prefix, count) t)
 
 
-let rec anon_defs_from_func_decl fdecl = anon_defs_from_statement fdecl.body
+let rec anon_defs_from_func_decl (prefix, count) fdecl = anon_defs_from_statement (prefix, count) fdecl.body
 
-and anon_defs_from_func_decl_list = function
+and anon_defs_from_func_decl_list (prefix, count) fdlist = match fdlist with
       [] -> []
-    | [x] -> anon_defs_from_func_decl x
-    | h::t -> (anon_defs_from_func_decl h)@(anon_defs_from_func_decl_list t)
+    | [x] -> anon_defs_from_func_decl (prefix, count) x
+    | h::t -> (anon_defs_from_func_decl (prefix, count) h)@(anon_defs_from_func_decl_list (prefix, count) t)
 
 let rec print_anon_def anonDef = 
     Printf.printf "%s" (Astutil.string_of_anon_def anonDef)
@@ -488,8 +487,7 @@ let cStruct_from_tStruct symbol_table tStruct =
                                                 []);
         
                                                 cfunc_name = String.concat "_"
-                                                [(cStructName_from_tStruct
-                                                tStruct.struct_name);
+                                                [(cStructName_from_tStruct tStruct.struct_name);
                                                 tfunc_name];
                                          } in (StringMap.add tfunc_name cfunc
                                          sym, cfunc_list @ [cfunc])))
@@ -717,7 +715,7 @@ let cProgram_from_tProgram program =
         in
  
         {
-                structs = cStructs;
-                globals = [];
-                functions = cFuncs;
+                cstructs = cStructs;
+                cglobals = [];
+                cfunctions = cFuncs;
         }

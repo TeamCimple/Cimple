@@ -1,4 +1,4 @@
-open Codegen
+open Ccodegen 
 
 type tAction = Ast | Compile | AnonFuncTest 
 
@@ -18,9 +18,8 @@ let _ =
                        (Semant.check_program program;
                        let cprogram = Ctree.cProgram_from_tProgram program in
                        Printf.printf "%s\n" (Ccodegen.gen_cprogram cprogram))
-                       (*Printf.printf "%s\n" (Codegen.gen_program program))*)
 
               | AnonFuncTest -> 
                       Printf.printf "\n\nPrinting test results for anonymous function\n";
-                      test_anon_defs program;
+                      Ccodegen.test_anon_defs program;
                       Printf.printf "\n\n"

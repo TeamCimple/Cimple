@@ -188,17 +188,21 @@ and gen_cfunc  f =
 (*fdecl.body)*)
 
 
-(*let test_anon_defs program =*)
-        (*let anon_defs = Ctree.anon_defs_from_func_decl_list program.functions in*)
-        (*let print_list_size l = Printf.printf "Number of anonymous function definitions: %s\n" (string_of_int (List.length l)) in*)
-        (*print_list_size anon_defs;*)
-        (*Ctree.print_anon_defs anon_defs*)
+let test_anon_defs program  =
+        (*let funcDeclList_from_cFunc =*)
+            (*let funcDecl_from_cFunc = *)
+            (*List.fold_left (fun cf -> *)
+                            
+        let anon_defs = Ctree.anon_defs_from_func_decl_list ("", 0) program.functions in
+        let print_list_size l = Printf.printf "Number of anonymous function definitions: %s\n" (string_of_int (List.length l)) in
+        print_list_size anon_defs;
+        Ctree.print_anon_defs anon_defs
 
 let gen_cprogram cprogram =
     add_header "stdio" ^ "\n" ^ (String.concat ";\n" (List.map gen_cdeclaration
-    cprogram.globals)) ^ (String.concat ";\n" (List.map gen_cstruct
-    cprogram.structs)) ^ ";\n\n" ^ (String.concat "\n" (List.map gen_cfunc
-    (List.rev cprogram.functions)));
+    cprogram.cglobals)) ^ (String.concat ";\n" (List.map gen_cstruct
+    cprogram.cstructs)) ^ ";\n\n" ^ (String.concat "\n" (List.map gen_cfunc
+    (List.rev cprogram.cfunctions)));
 
  
 (*let gen_program program =*)
