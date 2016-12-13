@@ -66,7 +66,7 @@ and cExpr =
    indicate it is a pointer dereference *)
    | CId of cIdentifier
    | CDeclExpr of cDeclaration
-   | CNoExpr
+   | CNoexpr
 
 and cStatement = 
     CExpr of cExpr
@@ -733,18 +733,10 @@ let rec update_expr texpr tSymbol_table cSymbol_table = match texpr with
                                         @ e2_stmts)
                         )
                    
-     | Call(expr, Id(Identifier(s)), expr_list) -> raise(Failure("sdfsdf"))(*(
-            let CustomType(typ_) = Semant.type_from_expr tSymbol_table expr in 
-                if (Semant.is_interface tSymbol_table (Identifier(typ_))) then 
-                        (CCall(1, (fst (update_expr expr tSymbol_table
-                        cSymbol_table)), (CId(CIdentifier((cFunction_from_tMethod
-                        (CustomType(typ_)) s tSymbol_table
-                                        cSymbol_table)))), 
-                             List.map (cExpr_from_tExpr_in_tCall tSymbol_table
-                             cSymbol_table)), [])
-                else
-                        raise(Failure("Not implemented"))) *)
-
+     | Call(expr, Id(Identifier(s)), expr_list) -> 
+                     let sym = Semant.type_from_expr tSymbol_table expr in 
+                                        cCallExpr_from_tCallExpr expr
+                                        tSymbol_table cSymbol_table s expr_list                  
      | MemAccess(expr, Identifier(s)) -> (let typ_ = Semant.type_from_expr
      tSymbol_table expr in match (typ_) with 
                 | CustomType(name) -> (CMemAccess(0, fst (update_expr expr
@@ -762,7 +754,7 @@ let rec update_expr texpr tSymbol_table cSymbol_table = match texpr with
                         (CPostfix(updated_e1, op), e1_stmts))
      | _ -> raise(Failure("not finished"))
  
-and cExpr_from_tExpr_in_tCall tSymbol_table cSymbol_table tFuncParam tExpr = 
+and cExpr_from_tExpr_in_tCall tSymbol_table cSymbol_table tExpr tFuncParam = 
       let expr_type = Semant.type_from_expr
         tSymbol_table tExpr in let param_type = Semant.type_from_func_param
         tFuncParam in  match (expr_type, param_type) with
@@ -781,7 +773,45 @@ and cExpr_from_tExpr_in_tCall tSymbol_table cSymbol_table tFuncParam tExpr =
                         CIdentifier(cStructName_from_tInterface b))
                         | _ -> fst (update_expr tExpr tSymbol_table
                         cSymbol_table)
-  
+
+and cCallExpr_from_tCallExpr expr tSym cSym func_name expr_list = match expr with
+        | Noexpr -> let FuncSymbol(_, fdecl) = StringMap.find func_name tSym in (CCall(0,
+        CNoexpr, CId(CIdentifier(func_name)), (List.map2
+        (cExpr_from_tExpr_in_tCall tSym cSym) expr_list fdecl.params)), [])
+
+        | _ -> let expr_type = Semant.type_from_expr tSym expr in (match expr_type with 
+                | CustomType(a) -> let fdecl = Semant.get_fdecl_for_receiver a
+                func_name tSym in 
+
+                        if (Semant.is_interface tSym (Identifier(a))) then
+                                (CCall(1, (fst (update_expr expr tSym cSym)),
+                                CId(CIdentifier(a)), (List.map2
+                                (cExpr_from_tExpr_in_tCall tSym cSym) expr_list
+                                fdecl.params)), [])
+                        else
+                                let first_arg =
+                                        CCastExpr(CPointerType(CType(CPrimitiveType(Cvoid)),
+                                        1), CPointify(fst (update_expr expr tSym
+                                        cSym))) in 
+                                (CCall(0, CNoexpr,
+                                CId(CIdentifier(cFunc_from_tMethod a
+                                func_name)), [first_arg] @ (List.map2
+                                (cExpr_from_tExpr_in_tCall tSym cSym) expr_list
+                                fdecl.params)), [])
+               | PointerType(CustomType(a), 1) -> let fdecl =
+                       Semant.get_fdecl_for_receiver a func_name tSym in 
+                                let first_arg =
+                                        CCastExpr(CPointerType(CType(CPrimitiveType(Cvoid)),
+                                        1), fst (update_expr expr tSym
+                                        cSym)) in 
+                                (CCall(0, CNoexpr,
+                                CId(CIdentifier(cFunc_from_tMethod a
+                                func_name)), [first_arg] @ (List.map2
+                                (cExpr_from_tExpr_in_tCall tSym cSym) expr_list
+                                fdecl.params)), [])
+               | _ -> raise(Failure("No other functions can call methods")))
+                
+               
 
 (*                                
 let rec update_statement tstmt tSymbol_table cSymbol_table =  match tstmt with 
