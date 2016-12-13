@@ -58,11 +58,11 @@ and cExpr =
    | CStringLiteral of string
    | CCastExpr of cType * cExpr
    | CPostfix of cExpr * tPostfixOperator
-   | CCall of int * string * cExpr * cExpr list (* The int field is a flag to
+   | CCall of int * cExpr * cExpr * cExpr list (* The int field is a flag to
    indiciate it is a pointer dereference *)
    | CAlloc of cType * int
    | CPointify of cExpr
-   | CMemAccess of int * cIdentifier * cIdentifier (* The int field is a flag to
+   | CMemAccess of int * cExpr * cIdentifier (* The int field is a flag to
    indicate it is a pointer dereference *)
    | CId of cIdentifier
    | CDeclExpr of cDeclaration
@@ -231,8 +231,9 @@ let struct_members_from_anon_body symbols members body =
                            eMembers@elistMembers
    | Make(_, elist) -> members_from_expr_list symbols members elist
    | Pointify(e) -> members_from_expr symbols members e
-   | MemAccess(id1, id2) -> let id1Members = members_from_expr symbols members (Id(id1)) in 
-                            let id2Members = members_from_expr symbols (members@id1Members) (Id(id2)) in
+   | MemAccess(e, id2) -> let id1Members = members_from_expr symbols members e in 
+                            let id2Members = members_from_expr symbols
+                            (members@id1Members) e in
                             id1Members@id2Members
    | AnonFuncDef(def) -> raise(Failure("members_from_expr: Error - nested anonymous functions not supported yet"))
    | DeclExpr(decl) -> members_from_declaration symbols members decl
@@ -493,6 +494,8 @@ let cFunc_from_tFunc symbol_table tFunc =
                 tFunc.func_name;
         }
 
+let cFunc_from_tMethod cStruct_Name tFuncName = String.concat "_"
+[cStruct_Name;tFuncName]
 
 let cStruct_from_tStruct symbol_table tStruct = 
         let defaultStructMemberSymbols = List.map cSymbol_from_sSymbol (List.map (Semant.symbol_from_declaration)
@@ -500,7 +503,8 @@ let cStruct_from_tStruct symbol_table tStruct =
 
         (* If there is an interface then add a struct member corresponding to
          * the interface to our struct *)
-        let cStructMemberSymbols = if (tStruct.implements <> "") then
+        let cStructMemberSymbols = if (Semant.get_interface_for_struct
+        tStruct.struct_name symbol_table <> "") then
                 [cSymbol_from_Implements tStruct.implements] @
                 defaultStructMemberSymbols else defaultStructMemberSymbols in
 
@@ -533,9 +537,10 @@ let cStruct_from_tStruct symbol_table tStruct =
                                                         CCompoundStatement([init_cast_decl],
                                                 []);
         
-                                                cfunc_name = String.concat "_"
-                                                [(cStructName_from_tStruct tStruct.struct_name);
-                                                tfunc_name];
+                                                cfunc_name = cFunc_from_tMethod
+                                                (cStructName_from_tStruct
+                                                tStruct.struct_name) tfunc_name;
+
                                          } in (StringMap.add tfunc_name cfunc
                                          sym, cfunc_list @ [cfunc])))
                                             (StringMap.empty, []) tStruct.methods) in
@@ -549,6 +554,9 @@ let cStruct_from_tStruct symbol_table tStruct =
 let c_init_decl_from_string str = 
        CInitDeclarator(CDirectDeclarator(CVar(CIdentifier(str))))
 
+       
+        
+
 let update_decl decl tSymbol_table cSymbol_table = 
                 let id = Semant.var_name_from_declaration decl in 
                    let tType = Semant.type_from_identifier tSymbol_table (Identifier(id))
@@ -558,12 +566,15 @@ let update_decl decl tSymbol_table cSymbol_table =
                    | PrimitiveType(t) -> raise(Failure("not supported"))
                    | CustomType(t) -> (let sym = Semant.lookup_symbol_by_id
                    tSymbol_table (Identifier(id)) in ( match sym with
-                                        | StructSymbol(s, st) -> if (st.implements
+                                        | StructSymbol(s, st) -> if
+                                                (Semant.get_interface_for_struct t
+                                                tSymbol_table
                                        <> "") then (
                                                 let interface_ =
                                                         Semant.get_interface
                                                         tSymbol_table
-                                                        st.implements in 
+                                                        (Semant.get_interface_for_struct
+                                                        t tSymbol_table) in 
 
                                                 let cInterfaceDecl = 
                                                       CDeclaration(CDeclSpecTypeSpecAny(CPointerType(CType(CStruct(cStructName_from_tInterface
@@ -604,9 +615,9 @@ let update_decl decl tSymbol_table cSymbol_table =
                                                 let method_asns = List.map (fun
                                                         tmethod_name
                                                 -> CExpr(CAsnExpr(CMemAccess(1,
-                                                (CIdentifier(String.concat ""
+                                                (CId(CIdentifier(String.concat ""
                                                 ["_";id;(cStructName_from_tInterface
-                                                interface_.name)])),
+                                                interface_.name)]))),
                                                 (CIdentifier(tmethod_name))),
                                                 Asn,
                                                 (let cfunc = StringMap.find
@@ -619,9 +630,9 @@ let update_decl decl tSymbol_table cSymbol_table =
 
                                                 let reference_implementer_asn =
                                                         CExpr(CAsnExpr(CMemAccess(1,
-                                                        (CIdentifier(String.concat ""
+                                                        (CId(CIdentifier(String.concat ""
                                                 ["_";id;(cStructName_from_tInterface
-                                                interface_.name)])),
+                                                interface_.name)]))),
                                                 (CIdentifier("body"))), Asn,
                                                 CCastExpr(CPointerType(CType(CPrimitiveType(Cvoid)),
                                                 1),
@@ -631,7 +642,7 @@ let update_decl decl tSymbol_table cSymbol_table =
                                                 let
                                                 implementer_add_interface_assn = 
                                                         CExpr(CAsnExpr(CMemAccess(0,
-                                                        CIdentifier(id),
+                                                        CId(CIdentifier(id)),
                                                         CIdentifier(cStructName_from_tInterface
                                                 interface_.name)), Asn, (CId(CIdentifier(String.concat ""
                                                 ["_";id;(cStructName_from_tInterface
@@ -647,6 +658,22 @@ let update_decl decl tSymbol_table cSymbol_table =
                                        ) else ([], [])
                                         | _ -> raise(Failure("Non struct type
                                         decl'd"))))
+
+let cFunction_from_tMethod object_type method_ cSymbol_table tSymbol_table = 
+        match object_type  with 
+        | CustomType(name) -> ( let typ_symbol  =
+                Semant.lookup_symbol_by_id tSymbol_table (Identifier(name)) in match
+                typ_symbol with 
+                | StructSymbol(_, _) -> cFunc_from_tMethod
+                (cStructName_from_tStruct name) method_
+                | InterfaceSymbol(_, _) -> method_)
+        | PointerType(CustomType(name), 1) -> ( let typ_symbol  =
+                Semant.lookup_symbol_by_id tSymbol_table (Identifier(name)) in match
+                typ_symbol with 
+                | StructSymbol(_, _) -> cFunc_from_tMethod
+                (cStructName_from_tStruct name) method_ 
+                | InterfaceSymbol(_, _) -> method_)
+        | _ -> raise(Failure("not done"))
 (*
  * This function takes a cimple expression and returns the pair (C expression,
  * statement[]). The idea is that some cimple expression may generate multiple
@@ -706,14 +733,27 @@ let rec update_expr texpr tSymbol_table cSymbol_table = match texpr with
                                         @ e2_stmts)
                         )
                    
-     | Call(id, Id(s), expr_list) -> raise(Failure("Not done"))(*( if (id <> "") 
-                                        then
-                                         
-                                         * The receiver is not empty check if it
-                                         * is an interface
-                                         *)
+     | Call(expr, Id(Identifier(s)), expr_list) -> raise(Failure("sdfsdf"))(*(
+            let CustomType(typ_) = Semant.type_from_expr tSymbol_table expr in 
+                if (Semant.is_interface tSymbol_table (Identifier(typ_))) then 
+                        (CCall(1, (fst (update_expr expr tSymbol_table
+                        cSymbol_table)), (CId(CIdentifier((cFunction_from_tMethod
+                        (CustomType(typ_)) s tSymbol_table
+                                        cSymbol_table)))), 
+                             List.map (cExpr_from_tExpr_in_tCall tSymbol_table
+                             cSymbol_table)), [])
+                else
+                        raise(Failure("Not implemented"))) *)
 
-
+     | MemAccess(expr, Identifier(s)) -> (let typ_ = Semant.type_from_expr
+     tSymbol_table expr in match (typ_) with 
+                | CustomType(name) -> (CMemAccess(0, fst (update_expr expr
+                tSymbol_table cSymbol_table), CIdentifier(s)), [])
+                | PointerType(CustomType(name), 1) -> (CMemAccess(1, fst
+                (update_expr expr tSymbol_table cSymbol_table), CIdentifier(s)),
+                [])
+                | _ -> raise(Failure("Bad Mem Access")))
+     | Id(Identifier(s)) -> (CId(CIdentifier(s)), [])
      | Literal(d) -> (CLiteral(d), [])
      | FloatLiteral(d) -> (CFloatLiteral(d), [])
      | StringLiteral(s) -> (CStringLiteral(s), [])
@@ -722,7 +762,26 @@ let rec update_expr texpr tSymbol_table cSymbol_table = match texpr with
                         (CPostfix(updated_e1, op), e1_stmts))
      | _ -> raise(Failure("not finished"))
  
-
+and cExpr_from_tExpr_in_tCall tSymbol_table cSymbol_table tFuncParam tExpr = 
+      let expr_type = Semant.type_from_expr
+        tSymbol_table tExpr in let param_type = Semant.type_from_func_param
+        tFuncParam in  match (expr_type, param_type) with
+                        |  (CustomType(a), CustomType(b)) -> if (Semant.is_interface
+                        tSymbol_table (Identifier(b))) then CMemAccess(0, fst (update_expr tExpr
+                        tSymbol_table cSymbol_table),
+                        CIdentifier(cStructName_from_tInterface b)) else ( if
+                                (Semant.t1_inherits_t2 a b tSymbol_table) then
+                                        CCastExpr(CType(CStruct(cStructName_from_tStruct
+                                        b)), fst (update_expr tExpr
+                                        tSymbol_table cSymbol_table)) else fst (update_expr tExpr
+                                        tSymbol_table cSymbol_table))
+                        | (PointerType(CustomType(a), 1),
+                        CustomType(b)) ->  CMemAccess(1, fst (update_expr tExpr
+                        tSymbol_table cSymbol_table),
+                        CIdentifier(cStructName_from_tInterface b))
+                        | _ -> fst (update_expr tExpr tSymbol_table
+                        cSymbol_table)
+  
 
 (*                                
 let rec update_statement tstmt tSymbol_table cSymbol_table =  match tstmt with 

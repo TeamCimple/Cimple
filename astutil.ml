@@ -119,11 +119,11 @@ let rec string_of_expr = function
   string_of_expr e1 ^  ", " ^ string_of_expr e ^ ")"
   | Binop(e1, op, e2) -> string_of_op op ^ "(" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ ")"
   | Unop(e, unOp) -> string_of_unary_op unOp ^ "(" ^ string_of_expr e ^ ")"
-  | Call(obj, Id(id), exprList) -> "Call(" ^ "Receiver(" ^ obj ^")"  ^
+  | Call(e, Id(id), exprList) -> "Call(" ^ "Receiver(" ^ string_of_expr e ^")"  ^
   "FunctionName: " ^ (string_of_identifier id) ^ " Params: " ^ (string_of_expr_list  exprList) ^ ")"
   | Make(typ_, exprList) -> "Make(" ^ string_of_type typ_ ^ string_of_expr_list
   exprList ^ ")" 
-  | MemAccess(Identifier(s), Identifier(t)) -> "Access(" ^ "Var(" ^ s ^ ")" ^ ","
+  | MemAccess(e, Identifier(t)) -> "Access(" ^ "Var(" ^ string_of_expr e ^ ")" ^ ","
   ^ t ^")"
   | AnonFuncDef(anonDef) -> "AnonFuncDef(ReturnType: " ^ (string_of_type anonDef.anon_return_type) ^ ", Params: " ^ (string_of_func_param_list anonDef.anon_params) ^ ", Body: " ^ (string_of_statement anonDef.anon_body) ^ ")" 
 

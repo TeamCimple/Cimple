@@ -49,11 +49,11 @@ and tExpr =
   | FloatLiteral of float
   | StringLiteral of string
   | Postfix of tExpr * tPostfixOperator
-  | Call of string * tExpr * tExpr list
+  | Call of tExpr * tExpr * tExpr list
   | Make of tType * tExpr list
   | Pointify of tExpr
   | Deref of tExpr
-  | MemAccess of tIdentifier * tIdentifier
+  | MemAccess of tExpr * tIdentifier
   | Id of tIdentifier
   | AnonFuncDef of tAnonFuncDef
   | DeclExpr of tDeclaration
