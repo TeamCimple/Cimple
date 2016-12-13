@@ -25,8 +25,10 @@ COLON ELLIPSIS ASTERISK PERIOD
 %token EOF
 
 %nonassoc NOELSE
+%nonassoc NOCALL
 %nonassoc ELSE
 %nonassoc DELENIATOR
+%nonassoc LPAREN
 %start program
 %type <Ast.tProgram> program
 
@@ -59,12 +61,10 @@ expr_opt:
 expr:
   assignment_expression { $1 }
   | make_expr { $1 }
-  | func_call_expr { $1 }
   | anon_func_def { AnonFuncDef($1) }
 
 assignment_expression:
-    IDENTIFIER assignment_operator expr { AsnExpr(Id(Identifier($1)), $2, $3) }
-  | member_access_expr assignment_operator expr { AsnExpr($1, $2, $3)}
+    postfix_expr assignment_operator expr { AsnExpr($1, $2, $3) }
   | logical_or_expression { $1 }
 
 
@@ -98,7 +98,10 @@ postfix_expr:
     primary_expr { $1 }
   | postfix_expr PLUSPLUS { Postfix($1, PostPlusPlus) }
   | postfix_expr MINUSMINUS { Postfix($1, PostMinusMinus) }
-  | member_access_expr { $1 }
+  | postfix_expr LPAREN expr_list RPAREN { Call(Noexpr, $1, $3) }
+  | postfix_expr PERIOD  IDENTIFIER LPAREN expr_list RPAREN  { Call($1,
+  Id(Identifier($3)), $5) }
+  | postfix_expr PERIOD IDENTIFIER %prec NOCALL{ MemAccess($1, Identifier($3)) }
 
 make_expr:
         MAKE STRUCT_IDENTIFIER LPAREN expr_list RPAREN { Make(CustomType($2),
@@ -107,15 +110,6 @@ make_expr:
            Make(ArrayType(PrimitiveType($2), $5), []) }
    | MAKE STRUCT_IDENTIFIER LBRACKET_SQUARE RBRACKET_SQUARE INT_LITERAL {
            Make(ArrayType(CustomType($2), $5), []) }
-
-
-func_call_expr:
-   IDENTIFIER LPAREN expr_list RPAREN  { Call("", Id(Identifier($1)), $3) }
-   | IDENTIFIER PERIOD IDENTIFIER LPAREN expr_list RPAREN { Call($1,
-   Id(Identifier($3)), $5) }
-
-member_access_expr:
-        IDENTIFIER PERIOD IDENTIFIER { MemAccess(Identifier($1), Identifier($3)) }
 
 expr_list:
   /* Nothing */ { [] }
@@ -199,6 +193,7 @@ declaration_specifiers:
 type_:
    type_specifier { PrimitiveType($1) }
  | STRUCT STRUCT_IDENTIFIER { CustomType($2) }
+ | INTERFACE STRUCT_IDENTIFIER { CustomType($2) }
 
 init_declarator_list:
    init_declarator { InitDeclList([$1]) }  
@@ -251,7 +246,7 @@ struct_interface_opt:
    |  { "" }
 
 interface:
-   INTERFACE STRUCT_IDENTIFIER LBRACKET func_decl_list RBRACKET {{
+   INTERFACE STRUCT_IDENTIFIER LBRACKET func_decl_list RBRACKET SEMICOLON{{
                              name = $2;
                              funcs = $4;
                         }} 
