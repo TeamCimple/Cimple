@@ -113,6 +113,13 @@ let cStructName_from_tInterface name =
 let cStructName_from_tStruct name = 
         String.concat "" ["_struct"; name]
 
+let cNullFunction = {
+    cfunc_name = "$NULL_FUNCTION";
+    cfunc_body = CCompoundStatement([], []);
+    cfunc_params = [];
+    creturn_type = CType(CPrimitiveType(Cvoid))
+}
+
 let cType_from_tTypeSpec = function
     Void -> CType(CPrimitiveType(Cvoid))  
   | Char -> CType(CPrimitiveType(Cchar))
@@ -725,7 +732,7 @@ let rec update_statement tstmt tSymbol_table cSymbol_table =  match tstmt with
         
 *)      
 
-let cFunc_from_anonDef symbol_table anonDef =
+let rec cFunc_from_anonDef symbol_table anonDef =
     let rec convert_anon_params symbol_table params =
         (match params with
             [] -> [(CPointerType(CType(CPrimitiveType(Cvoid)), 1), CIdentifier("capture_struct"))]
@@ -740,6 +747,12 @@ let cFunc_from_anonDef symbol_table anonDef =
     creturn_type = cType_from_tType symbol_table anonDef.anon_return_type
 }
 
+and cFunc_list_from_anonDef_list symbol_table adlist = match adlist with
+    [] -> [cNullFunction]
+  | [x] -> [cFunc_from_anonDef symbol_table x]
+  | h::t -> let hfuncs = [(cFunc_from_anonDef symbol_table h)] in
+            let tfuncs = (cFunc_list_from_anonDef_list symbol_table t) in
+            hfuncs@tfuncs
 
 let cProgram_from_tProgram program =
         let updated_program = Semant.update_structs_in_program program in
@@ -756,12 +769,13 @@ let cProgram_from_tProgram program =
         let cStructs = (cstructs @ List.map (cStruct_from_tInterface
         tSymbol_table) program.interfaces) in
 
-        (*let  *)
-
+        let tAnonDefs = Astutil.anon_defs_from_tprogram program in 
+        let cFuncsTranslatedFromAnonDefs = cFunc_list_from_anonDef_list tSymbol_table tAnonDefs in
+    
         (* The function bodies have not been filled out yet. Just the parameters
          * and return types *)
         let cFuncs = cfuncs_methods @ (List.map (cFunc_from_tFunc tSymbol_table)
-        program.functions)
+        program.functions) @ cFuncsTranslatedFromAnonDefs
         in
  
         {

@@ -335,7 +335,7 @@ and anon_defs_from_func_decl_list (prefix, count) fdlist = match fdlist with
 
 let anon_defs_from_tprogram tprog =
     let (defs, _) = (anon_defs_from_func_decl_list ("_", 0) (List.rev tprog.functions)) in
-    defs
+    List.rev defs
 
 let rec print_anon_def anonDef = 
     Printf.printf "\n%s\n" (string_of_anon_def anonDef)
