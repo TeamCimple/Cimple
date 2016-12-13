@@ -37,6 +37,12 @@ and cFunc = {
   creturn_type: cType;
 }
 
+and cFuncDecl = {
+  cfdecl_name: string;
+  cfdecl_params: cType list;
+  cfdecl_return_type: cType;
+}
+
 and cNonPointerType =
     CPrimitiveType of cPrimitive
   | CStruct of string
@@ -101,11 +107,6 @@ and cSymbol =
     | CFuncSymbol of string * cFunc
     | CStructSymbol of string * cStruct
 
-type uAnonFuncState = {(* 'u' for utility *)
-    prefix: string;
-    anonFuncCount: int
-}
-
 let cStructName_from_tInterface name = 
         String.concat "" ["_interface"; name]
 
@@ -146,9 +147,7 @@ let rec cType_from_tType symbol_table = function
 
 let cSymbol_from_sSymbol = function
   | _ -> raise(Failure("Not completed"))
-
-(*let string_of_cStruct s = "CStruct(Name: " ^ s.struct_name ^ ", Symbols: " ^
- * Astutil.string_of_symbol_list s.struct_members ^ ")"*)
+  
 
 let merge_symtables s1 s2 = 
     StringMap.merge (fun key v1 v2 ->
@@ -468,6 +467,21 @@ let cFuncParam_from_tFuncParam symbol_table tFuncParam = (cType_from_tType
 symbol_table (Semant.type_from_func_param tFuncParam),
 (CIdentifier(Semant.var_name_from_func_param tFuncParam)))
 
+(*let cFunc_from_anonDef symbol_table anonDef =*)
+    (*let rec convert_anon_params symbol_table params =*)
+        (*(match params with*)
+            (*[] -> [(CPointerType(CType(CPrimitiveType(Cvoid)), 1), CIdentifier("capture_struct"))]*)
+          (*| [p] -> [cFuncParam_from_tFuncParam symbol_table p]*)
+          (*| h::t -> let htype = (cFuncParam_from_tFuncParam symbol_table h) in*)
+                    (*let ttype = (convert_anon_params symbol_table t) in*)
+                    (*[htype]@ttype)*)
+    (*in {*)
+    (*cfunc_name = anonDef.anon_name;*)
+    
+    (*cfunc_params = (convert_anon_params symbol_table anonDef.anon_params);*)
+    (*cfunc_return_type = cType_from_tType symbol_table anonDef.anon_return_type*)
+(*}*)
+
 let create_cfunc_param_for_receiver receiver = 
         (CPointerType(CType(CPrimitiveType(Cvoid)), 1),
         CIdentifier("_body"))
@@ -736,6 +750,20 @@ let rec update_statement tstmt tSymbol_table cSymbol_table =  match tstmt with
         
 *)      
 
+let cFunc_from_anonDef symbol_table anonDef =
+    let rec convert_anon_params symbol_table params =
+        (match params with
+            [] -> [(CPointerType(CType(CPrimitiveType(Cvoid)), 1), CIdentifier("capture_struct"))]
+          | [p] -> [cFuncParam_from_tFuncParam symbol_table p]
+          | h::t -> let htype = (cFuncParam_from_tFuncParam symbol_table h) in
+                    let ttype = (convert_anon_params symbol_table t) in
+                    [htype]@ttype)
+    in {
+    cfunc_name = anonDef.anon_name;
+    cfunc_body = CCompoundStatement([], []);    
+    cfunc_params = (convert_anon_params symbol_table anonDef.anon_params);
+    creturn_type = cType_from_tType symbol_table anonDef.anon_return_type
+}
 
 
 let cProgram_from_tProgram program =
