@@ -42,6 +42,11 @@ anon:
 anonbuild:
 	cat tests/anon/anonFunction.cpl | ./cimple -c
 
+.PHONY: anonparse
+
+anonparse:
+	cat tests/anon/anonFunction.cpl | ./cimple -a
+
 .PHONY : clean
 clean :
 	rm -f calc parser.ml parser.mli scanner.ml *.cmo *.cmi

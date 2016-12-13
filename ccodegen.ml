@@ -183,10 +183,10 @@ and gen_cfunc  f =
     rtype ^ " " ^ fname ^ " ( " ^ fparams ^ ")" ^ fbody ^ "\n\n"  
 
 let test_anon_defs program  =
-        let anon_defs = Ctree.anon_defs_from_tprogram program in
+        let anon_defs = Astutil.anon_defs_from_tprogram program in
         let print_list_size l = Printf.printf "Number of anonymous function definitions: %s\n" (string_of_int (List.length l)) in
         print_list_size anon_defs;
-        Ctree.print_anon_defs anon_defs
+        Astutil.print_anon_defs anon_defs
 
 let gen_cprogram cprogram =
     add_header "stdio" ^ "\n" ^ (String.concat ";\n" (List.map gen_cdeclaration
