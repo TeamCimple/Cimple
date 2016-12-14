@@ -37,6 +37,12 @@ and cFunc = {
   creturn_type: cType;
 }
 
+and cFuncDecl = {
+  cfdecl_name: string;
+  cfdecl_params: cType list;
+  cfdecl_return_type: cType;
+}
+
 and cNonPointerType =
     CPrimitiveType of cPrimitive
   | CStruct of string
@@ -61,6 +67,7 @@ and cExpr =
    | CCall of int * cExpr * cExpr * cExpr list (* The int field is a flag to
    indiciate it is a pointer dereference *)
    | CAlloc of cType * int
+   | CCompareExpr of cExpr * tLogicalOperator * cExpr
    | CPointify of cExpr
    | CMemAccess of int * cExpr * cIdentifier (* The int field is a flag to
    indicate it is a pointer dereference *)
@@ -101,11 +108,6 @@ and cSymbol =
     | CFuncSymbol of string * cFunc
     | CStructSymbol of string * cStruct
 
-type uAnonFuncState = {(* 'u' for utility *)
-    prefix: string;
-    anonFuncCount: int
-}
-
 let cStructName_from_tInterface name = 
         String.concat "" ["_interface"; name]
 
@@ -114,6 +116,13 @@ let interface_field_name_in_struct interface_name struct_name =
 
 let cStructName_from_tStruct name = 
         String.concat "" ["_struct"; name]
+
+let cNullFunction = {
+    cfunc_name = "$NULL_FUNCTION";
+    cfunc_body = CCompoundStatement([], []);
+    cfunc_params = [];
+    creturn_type = CType(CPrimitiveType(Cvoid))
+}
 
 let cType_from_tTypeSpec = function
     Void -> CType(CPrimitiveType(Cvoid))  
@@ -152,9 +161,7 @@ let rec cType_from_tType symbol_table = function
 let cSymbol_from_sSymbol tSymbol_table = function
   | VarSymbol(id, type_) -> CVarSymbol(id, cType_from_tType tSymbol_table type_) 
   | _ -> raise(Failure("Not completed"))
-
-(*let string_of_cStruct s = "CStruct(Name: " ^ s.struct_name ^ ", Symbols: " ^
- * Astutil.string_of_symbol_list s.struct_members ^ ")"*)
+  
 
 let merge_symtables s1 s2 = 
     StringMap.merge (fun key v1 v2 ->
@@ -321,120 +328,6 @@ let capture_struct_from_anon_def symbols structName def =
       method_to_functions = StringMap.empty;
     }
 
-let apply_name_to_anon_def (prefix, count) adef = {
-    anon_name =  prefix ^ "_" ^ (string_of_int count);
-    anon_return_type = adef.anon_return_type;
-    anon_params = adef.anon_params;
-    anon_body = adef.anon_body;
-}
-
-let rec anon_defs_from_expr (prefix, count) expr = match expr with
-     AnonFuncDef(anonDef) ->([(apply_name_to_anon_def (prefix, count) anonDef)], (count + 1))
-   | Binop(e1, op, e2) -> 
-           let (defs1, count1) = (anon_defs_from_expr (prefix, count) e1) in
-           let (defs2, count2) = (anon_defs_from_expr (prefix, count1) e2) in
-           (defs1@defs2, count2)
-   | AsnExpr(_, _, e) -> anon_defs_from_expr (prefix, count) e
-   | Postfix(e1, _) -> (anon_defs_from_expr (prefix, count) e1)
-   | Call(_, e, elist) -> 
-           let (defs1, count1) = (anon_defs_from_expr (prefix, count) e) in
-           let (defs2, count2) = (anon_defs_from_expr_list (prefix, count1) elist) in
-           (defs1@defs2, count2);
-   | _ -> ([], count) (* Other expression types cannot possibly contain anonymous function definitions *) 
-
-and anon_defs_from_expr_list (prefix, count) elist = match elist with  
-     [] -> ([], count)
-   | [e] -> anon_defs_from_expr (prefix, count) e
-   | h::t ->
-           let (defs1, count1) = (anon_defs_from_expr (prefix, count) h) in
-           let (defs2, count2) = (anon_defs_from_expr_list (prefix, count1) t) in
-           (defs1@defs2, (count2))
-
-
-let rec anon_defs_from_declaration (prefix, count) decl = match decl with
-     Declaration(declSpecs, initDecl) -> anon_defs_from_init_declarator (prefix, count) initDecl
-
-and anon_defs_from_declaration_list (prefix, count) declList = match declList with
-     [] -> ([], count)
-   | [d] -> anon_defs_from_declaration (prefix, count) d
-   | h::t ->
-           let (defs1, count1) = (anon_defs_from_declaration (prefix, count) h) in
-           let (defs2, count2) = (anon_defs_from_declaration_list (prefix, count1) t) in
-           (defs1@defs2, count2)
-
-and anon_defs_from_init_declarator (prefix, count) idecl = match idecl with
-           InitDeclaratorAsn(_, _, e) -> anon_defs_from_expr (prefix, count) e
-         | InitDeclList(initDeclList) -> anon_defs_from_init_declarator_list (prefix, count) initDeclList
-         | _ -> ([], count)
-
-and anon_defs_from_init_declarator_list (prefix, count) ideclList = match ideclList with
-     [] -> ([], count)
-   | [decl] -> anon_defs_from_init_declarator (prefix, count) decl
-   | h::t -> 
-           let (defs1, count1) = (anon_defs_from_init_declarator (prefix, count) h) in
-           let (defs2, count2) = (anon_defs_from_init_declarator_list (prefix, count1) t) in
-           (defs1@defs2, (count2))
-
-let rec anon_defs_from_statement (prefix, count) stmt = match stmt with
-     Expr(e) -> anon_defs_from_expr (prefix, count) e
-   | Return(e) -> anon_defs_from_expr (prefix, count) e
-   | If(e, s1, s2) -> 
-           let (defs1, count1) = (anon_defs_from_expr (prefix, count) e) in
-           let (defs2, count2) = (anon_defs_from_statement (prefix, count1) s1) in
-           let (defs3, count3) = (anon_defs_from_statement (prefix, count2) s2) in
-           (defs1@defs2@defs3, count3)
-   | For(e1, e2, e3, s) -> 
-           let (defs1, count1) = (anon_defs_from_expr (prefix, count) e1) in
-           let (defs2, count2) = (anon_defs_from_expr (prefix, count1) e2) in
-           let (defs3, count3) = (anon_defs_from_expr (prefix, count2) e3) in
-           let (defs4, count4) = (anon_defs_from_statement (prefix, count3) s) in
-           (defs1@defs2@defs3@defs4, count4)        
-   | While(e, s) -> 
-           let (defs1, count1) = (anon_defs_from_expr (prefix, count) e) in
-           let (defs2, count2) = (anon_defs_from_statement (prefix, count1) s) in
-           (defs1@defs2, count2)
-   | CompoundStatement(declList, stmtList) -> 
-           let (defs1, count1) = (anon_defs_from_declaration_list (prefix, count) declList) in
-           let (defs2, count2) = (anon_defs_from_statement_list (prefix, count1) stmtList) in
-           (defs1@defs2, count2) 
-
-and anon_defs_from_statement_list (prefix, count) stmtList = match stmtList with
-     [] -> ([], count)
-   | [s] -> anon_defs_from_statement (prefix, count) s
-   | h::t ->
-           let (defs1, count1) = (anon_defs_from_statement (prefix, count) h) in
-           let (defs2, count2) = (anon_defs_from_statement_list (prefix, count1) t) in
-           (defs1@defs2, count2) 
-
-
-let rec anon_defs_from_func_decl (prefix, count) fdecl = 
-    let newPrefix = 
-        (match fdecl.func_name with
-              DirectDeclarator(Var(Identifier(s))) -> "a_" ^ s
-            | PointerDirDecl(_, Var(Identifier(s))) -> "a_" ^ s)
-    in
-    anon_defs_from_statement (newPrefix, 0) fdecl.body
-
-and anon_defs_from_func_decl_list (prefix, count) fdlist = match fdlist with
-      [] -> ([], count)
-    | [x] -> anon_defs_from_func_decl (prefix, count) x
-    | h::t ->
-           let (defs1, count1) = (anon_defs_from_func_decl (prefix, count) h) in
-           let (defs2, count2) = (anon_defs_from_func_decl_list (prefix, count1) t) in
-           (defs1@defs2, count2)
-
-let anon_defs_from_tprogram tprog =
-    let (defs, _) = (anon_defs_from_func_decl_list ("_", 0) (List.rev tprog.functions)) in
-    defs
-
-let rec print_anon_def anonDef = 
-    Printf.printf "\n%s\n" (Astutil.string_of_anon_def anonDef)
-
-and print_anon_defs = function
-      [] -> ()
-    | [x] -> print_anon_def x
-    | h::t -> print_anon_def h; print_anon_defs t
-
 let cDeclarationSpecifiers_from_tDeclarationSpecifiers symbol_table tDeclSpecs = function
         | DeclSpecTypeSpecAny(tType) ->
                         CDeclSpecTypeSpecAny(cType_from_tType symbol_table tType)
@@ -476,6 +369,21 @@ let bol_from_Implements implements struct_name =
 let cFuncParam_from_tFuncParam symbol_table tFuncParam = (cType_from_tType
 symbol_table (Semant.type_from_func_param tFuncParam),
 (CIdentifier(Semant.var_name_from_func_param tFuncParam)))
+
+(*let cFunc_from_anonDef symbol_table anonDef =*)
+    (*let rec convert_anon_params symbol_table params =*)
+        (*(match params with*)
+            (*[] -> [(CPointerType(CType(CPrimitiveType(Cvoid)), 1), CIdentifier("capture_struct"))]*)
+          (*| [p] -> [cFuncParam_from_tFuncParam symbol_table p]*)
+          (*| h::t -> let htype = (cFuncParam_from_tFuncParam symbol_table h) in*)
+                    (*let ttype = (convert_anon_params symbol_table t) in*)
+                    (*[htype]@ttype)*)
+    (*in {*)
+    (*cfunc_name = anonDef.anon_name;*)
+    
+    (*cfunc_params = (convert_anon_params symbol_table anonDef.anon_params);*)
+    (*cfunc_return_type = cType_from_tType symbol_table anonDef.anon_return_type*)
+(*}*)
 
 let create_cfunc_param_for_receiver receiver = 
         (CPointerType(CType(CPrimitiveType(Cvoid)), 1),
@@ -589,6 +497,11 @@ let rec update_expr texpr tSymbol_table  = match texpr with
 
                         (CBinop(updated_e1, op, updated_e1), e1_stmts @
                         e2_stmts))
+        | CompareExpr(e1, op, e2) -> ( let (updated_e1, e1_stmts) = update_expr
+        e1 tSymbol_table in let (updated_e2, e2_stmts) = update_expr e2
+        tSymbol_table in 
+
+        (CCompareExpr(updated_e1, op, updated_e2), e1_stmts @ e2_stmts))
 
         | AsnExpr(e1, op, e2)  -> (let (updated_e1, e1_stmts) = update_expr e1
                                 tSymbol_table in 
@@ -926,6 +839,27 @@ let update_cFunc tSymbol_table cFunc tFunc  =
                 cfunc_params = cFunc.cfunc_params; 
         }
 
+let rec cFunc_from_anonDef symbol_table anonDef =
+    let rec convert_anon_params symbol_table params =
+        (match params with
+            [] -> [(CPointerType(CType(CPrimitiveType(Cvoid)), 1), CIdentifier("capture_struct"))]
+          | [p] -> [cFuncParam_from_tFuncParam symbol_table p]
+          | h::t -> let htype = (cFuncParam_from_tFuncParam symbol_table h) in
+                    let ttype = (convert_anon_params symbol_table t) in
+                    [htype]@ttype)
+    in {
+    cfunc_name = anonDef.anon_name;
+    cfunc_body = CCompoundStatement([], []);    
+    cfunc_params = (convert_anon_params symbol_table anonDef.anon_params);
+    creturn_type = cType_from_tType symbol_table anonDef.anon_return_type
+}
+
+and cFunc_list_from_anonDef_list symbol_table adlist = match adlist with
+    [] -> [cNullFunction]
+  | [x] -> [cFunc_from_anonDef symbol_table x]
+  | h::t -> let hfuncs = [(cFunc_from_anonDef symbol_table h)] in
+            let tfuncs = (cFunc_list_from_anonDef_list symbol_table t) in
+            hfuncs@tfuncs
 
 let cProgram_from_tProgram program =
         let updated_program = Semant.update_structs_in_program program in
@@ -942,24 +876,27 @@ let cProgram_from_tProgram program =
         let cStructs = (List.map (cStruct_from_tInterface
         tSymbol_table) program.interfaces) @ cstructs in
 
-        (*let  *)
-
+        let tAnonDefs = Astutil.anon_defs_from_tprogram program in 
+        let cFuncsTranslatedFromAnonDefs = cFunc_list_from_anonDef_list tSymbol_table tAnonDefs in
+    
         (* The function bodies have not been filled out yet. Just the parameters
          * and return types *)
-        let cFuncs = cfuncs_methods @ (List.rev (List.map (cFunc_from_tFunc tSymbol_table)
+        let cDeclaredMethodsAndFuncs = cfuncs_methods @ (List.rev (List.map (cFunc_from_tFunc tSymbol_table)
         (List.filter (fun fdecl -> if (fdecl.receiver = ("", "")) then true else
-                false) program.functions)))
-        in
-
-         
-        let cFuncsUpdated = List.fold_left (fun acc cFunc -> let sym_ = StringMap.find
+                false) program.functions))) in 
+                
+        let cUpdatedDeclaredMethodsAndFuncs = List.fold_left (fun acc cFunc -> let sym_ = StringMap.find
         cFunc.cfunc_name tSymbol_table in (match sym_ with 
                        | FuncSymbol(_, fdecl) -> acc @ [update_cFunc tSymbol_table
                        cFunc fdecl] 
-                       | _ -> raise(Failure("error")))) [] cFuncs in 
-        
+                       | _ -> raise(Failure("error")))) [] cDeclaredMethodsAndFuncs in 
+       
+        let cFuncs = cUpdatedDeclaredMethodsAndFuncs @ cFuncsTranslatedFromAnonDefs
+        in
+
+
         {
                 cstructs = cStructs;
                 cglobals = [];
-                cfunctions = cFuncsUpdated;
+                cfunctions = cFuncs;
         }

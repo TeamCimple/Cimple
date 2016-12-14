@@ -453,6 +453,10 @@ let validate_call_expr expr expr_list symbols fdecl =
         let exprList = List.map (type_from_expr symbols) expr_list in 
         List.iter2 (check_compatible_types symbols) exprList func_param_types
 
+(* TODO: validate this *)
+let validate_anon_call_expr expr expr_list symbols anonSym = match anonSym with
+    _ -> ()
+
 let rec check_expr symbols e = match e with
      Id(Identifier(name)) -> if (StringMap.mem name symbols) == false then
                                 raise(Failure("Undeclared identifier"))
@@ -469,10 +473,12 @@ let rec check_expr symbols e = match e with
    | Call(expr, Id(Identifier(id)), expr_list) -> (match expr with 
                 | Noexpr -> (
                                 if (StringMap.mem id symbols) then 
-                                        let FuncSymbol(_, fdecl) =
-                                                StringMap.find id symbols in 
-                                        validate_call_expr expr
-                                        expr_list symbols fdecl
+                                        let s =  StringMap.find id symbols in
+                                        match s with 
+                                             FuncSymbol(_, fdecl) ->
+                                                   validate_call_expr expr expr_list symbols fdecl
+                                           | AnonFuncSymbol(_, t) ->
+                                                   validate_anon_call_expr expr expr_list symbols s
                                  else
                                         raise(Failure("Calling function: " ^ id
                                         ^ "which is undefined"))
