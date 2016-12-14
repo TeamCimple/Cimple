@@ -15,9 +15,10 @@ let _ =
        match action with
                 Ast -> Printf.printf "%s\n" (Astutil.string_of_program program)
               | Compile -> 
-                       (Semant.check_program program;
+                        Semant.check_program program; (Printf.printf
+                       "%s\n", "finished checking");
                        let cprogram = Ctree.cProgram_from_tProgram program in
-                       Printf.printf "%s\n" (Ccodegen.gen_cprogram cprogram))
+                       Printf.printf "%s\n" (Ccodegen.gen_cprogram cprogram)
 
               | AnonFuncTest -> 
                       Printf.printf "\n\nPrinting test results for anonymous function\n";

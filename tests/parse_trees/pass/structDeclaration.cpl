@@ -3,9 +3,16 @@ struct Employee {
 	int salary;
 };
 
+int (Employee *e) getAge() {
+	return e.age;
+}
+	
 int main(){
 	struct Employee * e;
+	int t;
 
-	e = make Employee(a, b, c);
+	e.age = 1;
+	t = e.age;
+	t = e.getAge();
 	return 0;
 }

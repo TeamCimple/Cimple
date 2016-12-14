@@ -92,15 +92,24 @@ let rec gen_cexpr  expr = match expr with
    | CLiteral(x) -> string_of_int x
    | CFloatLiteral(x) -> string_of_float x
    | CStringLiteral(s) -> s
-   | CCastExpr(ct, e) -> "(" ^ (gen_ctype  ct) ^ "(" ^ (gen_cexpr  e) ^ ")"
+   | CCastExpr(ct, e) -> "(" ^ (gen_ctype  ct) ^ ")" ^ "(" ^ (gen_cexpr  e) ^ ")"
    | CPostfix(e, pfop) -> (gen_cexpr  e) ^ (gen_postfix_op pfop)
-   | CCall(n, s, e, elist) -> raise(Failure("gen_cexpr: TODO: CCall needs gen_cfunc"))
+   | CCall(n, s, e, elist) -> if (n > 0) then (gen_cexpr s) ^ "->" ^ (gen_cexpr
+   e) ^ "(" ^ gen_expr_list elist ^ ")" else (gen_cexpr e) ^ "(" ^ gen_expr_list
+   elist ^ ")"
    | CAlloc(ct, n) -> "malloc(" ^ (string_of_int n) ^ ")" 
-   | CPointify(e) -> "*(" ^ (gen_cexpr  e) ^ ")"
-   | CMemAccess(_) -> raise(Failure("gen_cexpr: CMemAccess not yet implemented")) (* Not sure what this translates to *)
+   | CPointify(e) -> "&(" ^ (gen_cexpr  e) ^ ")"
+   | CMemAccess(d, e, CIdentifier(a)) -> if (d >= 1) then (gen_cexpr e ^ "->"
+   ^a) else (gen_cexpr e
+   ^ "." ^ a)
    | CId(CIdentifier(s)) -> s
    | CDeclExpr(d) -> gen_cdeclaration  d
-   | _ -> "" 
+   | _ -> ""
+
+and gen_expr_list expr_list = match expr_list with 
+   | [] -> ""
+   | [h] -> gen_cexpr h
+   | h::t -> gen_cexpr h ^ "," ^ gen_expr_list t
   
 and gen_cdirect_declarator  dd = match dd with
      CVar(CIdentifier(s)) -> s
@@ -136,7 +145,7 @@ and gen_cdeclaration  dcltn = match dcltn with
   
 and gen_cdeclaration_list  dlist = match dlist with
      [] -> ""
-   | [d] -> gen_cdeclaration  d
+   | [d] -> gen_cdeclaration  d ^ ";\n"
    | h::t -> (gen_cdeclaration  h) ^ ";\n" ^ (gen_cdeclaration_list  t)
 
 and gen_cstatement  stmt = match stmt with
@@ -172,10 +181,10 @@ and gen_csymbol_list  slist = match slist with
 and gen_cstruct  s = 
     let sname = s.struct_name in
     let smembers = (gen_csymbol_list  s.struct_members) in
-    sname ^ "{\n" ^ smembers ^ "}\n"
+    "struct " ^ sname ^ "{\n" ^ smembers ^ "}\n"
 
 
-and gen_cfunc  f =
+and gen_cfunc f =
     let rtype = (gen_ctype  f.creturn_type) in 
     let fname = f.cfunc_name in
     let fparams = (gen_cfunc_param_list  f.cfunc_params) in
@@ -192,5 +201,5 @@ let gen_cprogram cprogram =
     add_header "stdio" ^ "\n" ^ (String.concat ";\n" (List.map gen_cdeclaration
     cprogram.cglobals)) ^ (String.concat ";\n" (List.map gen_cstruct
     cprogram.cstructs)) ^ ";\n\n" ^ (String.concat "\n" (List.map gen_cfunc
-    (List.rev cprogram.cfunctions)));
+    (cprogram.cfunctions)));
 
