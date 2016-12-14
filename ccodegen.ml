@@ -206,16 +206,16 @@ and print_anon_capture_struct_list cslist = match cslist with
             (print_anon_capture_struct_list t)
 
 
-let test_anon_defs program  =
+let test_anon_defs program  = 
         let updated_program = Semant.update_structs_in_program program in
-        let anon_defs = Astutil.anon_defs_from_tprogram updated_program in
+        let anon_defs = Semant.anon_defs_from_tprogram updated_program in
         let tSymbol_table = Semant.build_symbol_table updated_program in
-        (*Astutil.print_symbol_table tSymbol_table;*)
+        Astutil.print_symbol_table tSymbol_table;
         let cCaptures = Ctree.capture_struct_list_from_anon_def_list tSymbol_table anon_defs in 
-        (*print_anon_capture_struct_list cCaptures;*)
+        print_anon_capture_struct_list cCaptures;
         let print_list_size l = Printf.printf "Number of anonymous function definitions: %s\n" (string_of_int (List.length l)) in
         print_list_size anon_defs;
-        Astutil.print_anon_defs anon_defs
+        Semant.print_anon_defs anon_defs
 
 let gen_cprogram cprogram =
     add_header "stdio" ^ "\n" ^ (String.concat ";\n" (List.map gen_cdeclaration

@@ -375,8 +375,8 @@ and struct_members_from_anon_body symbols members body =
     
    and members_from_declaration symbols members decl = match decl with
      Declaration(_, initDecl) -> 
-         let updatedSymbols = Semant.add_to_symbol_table symbols [decl] in
-         members_from_init_declarator updatedSymbols members initDecl 
+         (*let updatedSymbols = Semant.add_to_symbol_table symbols [decl] in*)
+         members_from_init_declarator symbols members initDecl 
    | _ -> [] (* Other types of declarations wouldn't reference variables from outside scope *)
 
    and members_from_declaration_list symbols members declList = match declList with
@@ -437,12 +437,15 @@ and capture_struct_from_anon_def symbols def =
   (*in*)
   let param_symbols = Semant.symbols_from_func_params def.anon_params in
   let body_symbols = (Semant.symbols_from_decls (Semant.get_decls_from_compound_stmt def.anon_body)) in
-  let param_symtable = (Semant.symtable_from_symlist param_symbols) in
-  let body_symtable = (Semant.symtable_from_symlist body_symbols) in
-  let updated_symtable = (Semant.merge_symtables (Semant.merge_symtables param_symtable body_symtable) symbols) in
+  (*let param_symtable = (Semant.symtable_from_symlist param_symbols) in*)
+  (*let body_symtable = (Semant.symtable_from_symlist body_symbols) in*)
+  (*let updated_symtable = (Semant.merge_symtables (Semant.merge_symtables param_symtable body_symtable) symbols) in*)
+  let updated_symtable = (Semant.add_symbol_list_to_symtable (param_symbols@body_symbols) symbols) in
   Printf.printf "Printing body symbol table for: %s\n" (def.anon_name);
-  Printf.printf "%s\n" (Astutil.string_of_statement def.anon_body);
-  Astutil.print_symbol_table (Semant.symtable_from_symlist body_symbols);
+  (*Printf.printf "%s\n" (Astutil.string_of_statement def.anon_body);*)
+  (*Astutil.print_symbol_table (Semant.symtable_from_symlist body_symbols);*)
+  (*Astutil.print_symbol_table (Semant.symtable_from_symlist param_symbols);*)
+  Astutil.print_symbol_table updated_symtable;
   Printf.printf "-----------End printing of symbol table\n";
     {
       struct_name = def.anon_name;
@@ -1049,7 +1052,7 @@ let cProgram_from_tProgram program =
         let cStructs = (List.map (cStruct_from_tInterface
         tSymbol_table) program.interfaces) @ cstructs in
 
-        let tAnonDefs = Astutil.anon_defs_from_tprogram program in 
+        let tAnonDefs = Semant.anon_defs_from_tprogram program in 
         let cFuncsTranslatedFromAnonDefs = cFunc_list_from_anonDef_list tSymbol_table tAnonDefs in
         (*let capture_structs = capture_struct_list_from_anon_def_list tSymbol_table tAnonDefs in *)
     
