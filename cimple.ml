@@ -15,10 +15,13 @@ let _ =
        match action with
                 Ast -> Printf.printf "%s\n" (Astutil.string_of_program program)
               | Compile -> 
-                       (Printf.printf "%s" (Astutil.string_of_func_decl_list program.functions);
+                        Semant.check_program program;
+                       (*(Printf.printf "%s" (Astutil.string_of_func_decl_list*)
+                       (*program.functions));*)
                        Semant.check_program program;
+                       
                        let cprogram = Ctree.cProgram_from_tProgram program in
-                       Printf.printf "%s\n" (Ccodegen.gen_cprogram cprogram))
+                       Printf.printf "%s\n" (Ccodegen.gen_cprogram cprogram)
 
               | AnonFuncTest -> 
                       Ccodegen.test_anon_defs program;

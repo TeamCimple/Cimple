@@ -119,8 +119,9 @@ let symbol_from_declaration decl = match decl with
     type_from_declaration decl)
    | _ -> raise(Failure("symbol_from_declaration: Unrecognized declaration"))    
 
-let symbol_table_key_for_method struct_name func_name = String.concat ""
-["_";struct_name;func_name] 
+let symbol_table_key_for_method struct_name func_name = let cstruct_name =
+        String.concat "" ["_struct";struct_name] in String.concat "_"
+[cstruct_name;func_name] 
 
 let symbol_from_fdecl fdecl = 
         let func_name = var_name_from_direct_declarator fdecl.func_name
@@ -241,8 +242,8 @@ let rec t1_inherits_t2 t1 t2 symbols =
 let rec get_interface_for_struct t1 symbols = 
         let sym1 = (lookup_symbol_by_id symbols (Identifier(t1))) in 
                 match sym1 with 
-                | StructSymbol(typ_, struct_) -> (if (struct_.implements =
-                                typ_) then struct_.implements else (if (struct_.extends <> "")
+                | StructSymbol(typ_, struct_) -> (if (struct_.implements <> "") then 
+                                struct_.implements else (if (struct_.extends <> "")
                                 then get_interface_for_struct struct_.extends symbols else
                                         ""))
                | _ -> raise(Failure("Not supported"))
