@@ -295,12 +295,13 @@ let rec cSymbol_from_sSymbol symbol_table sym = match sym with
  * an anonymous function in cimple is instantiated.
  *
  * Parameters:
-         * symbols: A hash table of symbols from outside the scope of the anonymous function def
+         * symbols: A StringMap of symbols from outside the scope of the anonymous function def
+         * psymbols: A symbol table of parameters to this anonymous function
          * members: A list of function parameters declared in the anon function definition
          * body: An Ast.tStatement (specifically a CompoundStatement) that is the body of the anonymous function
  *-------------------------------------------------------------------------------- *)
 
-and struct_members_from_anon_body symbols members body = 
+and struct_members_from_anon_body symbols psymbols members body = 
 
   let rec print_member m = Printf.printf "%s\n" (Astutil.string_of_symbol m)
 
@@ -315,95 +316,96 @@ and struct_members_from_anon_body symbols members body =
       | _ -> false
   in
 
-  let rec members_from_expr symbols members e = match e with 
+  let rec members_from_expr symbols psymbols members e = match e with 
       Id(id) -> if (id_exists_in_symtable symbols id) = true then
                   let sym = Semant.lookup_symbol_by_id symbols id in
                   if (symbol_is_capturable sym) then [sym] else []
+                else if (id_exists_in_symtable psymbols id) then []
                 else if (id_exists_in_symlist members id) = true then
                   []
                 else (match id with 
                   Identifier(s) -> 
                       print_member_list members; 
                       raise(Failure("members_from_expr: Error - undeclared symbol '" ^ s ^ "'")))
-   |  Binop(e1, _, e2) -> let e1Members = members_from_expr symbols members e1 in
-                           let e2Members = members_from_expr symbols (members@e1Members) e2 in
+   |  Binop(e1, _, e2) -> let e1Members = members_from_expr symbols psymbols members e1 in
+                           let e2Members = members_from_expr symbols psymbols (members@e1Members) e2 in
                            e1Members@e2Members
-   |  AsnExpr(e1, _, e2) -> let e1Members = members_from_expr symbols members e1 in
-                            let e2Members = members_from_expr symbols (members@e1Members) e2 in
+   |  AsnExpr(e1, _, e2) -> let e1Members = members_from_expr symbols psymbols members e1 in
+                            let e2Members = members_from_expr symbols psymbols (members@e1Members) e2 in
                             e1Members@e2Members
-   |  Postfix(e1, _) -> let e1Members = members_from_expr symbols members e1 in
+   |  Postfix(e1, _) -> let e1Members = members_from_expr symbols psymbols members e1 in
                             e1Members
-   |  Call(_, e, elist) -> let eMembers = members_from_expr symbols members e in 
-                           let elistMembers = members_from_expr_list symbols (members@eMembers) elist in
+   |  Call(_, e, elist) -> let eMembers = members_from_expr symbols psymbols members e in 
+                           let elistMembers = members_from_expr_list symbols psymbols (members@eMembers) elist in
                            eMembers@elistMembers
-   | Make(_, elist) -> members_from_expr_list symbols members elist
-   | Pointify(e) -> members_from_expr symbols members e
-   | MemAccess(e, id2) -> let id1Members = members_from_expr symbols members e in 
-                            let id2Members = members_from_expr symbols
+   | Make(_, elist) -> members_from_expr_list symbols psymbols members elist
+   | Pointify(e) -> members_from_expr symbols psymbols members e
+   | MemAccess(e, id2) -> let id1Members = members_from_expr symbols psymbols members e in 
+                            let id2Members = members_from_expr symbols psymbols 
                             (members@id1Members) e in
                             id1Members@id2Members
    | AnonFuncDef(def) -> raise(Failure("members_from_expr: Error - nested anonymous functions not supported yet"))
-   | DeclExpr(decl) -> members_from_declaration symbols members decl
+   | DeclExpr(decl) -> members_from_declaration symbols psymbols members decl
    | _  -> []
 
-   and members_from_expr_list symbols members elist = match elist with
+   and members_from_expr_list symbols psymbols members elist = match elist with
      [] -> []
-   | [x] -> members_from_expr symbols members x
-   | h::t -> let hMembers = members_from_expr symbols members h in
-             let tMembers = members_from_expr_list symbols members t in
+   | [x] -> members_from_expr symbols psymbols members x
+   | h::t -> let hMembers = members_from_expr symbols psymbols members h in
+             let tMembers = members_from_expr_list symbols psymbols members t in
              hMembers@tMembers
-   and members_from_init_declarator symbols members initDecl =
+   and members_from_init_declarator symbols psymbols members initDecl =
     match initDecl with 
-       InitDeclaratorAsn(_, _, e) -> members_from_expr symbols members e
-     | InitDeclList(l) -> members_from_init_declarator_list symbols members l
+       InitDeclaratorAsn(_, _, e) -> members_from_expr symbols psymbols members e
+     | InitDeclList(l) -> members_from_init_declarator_list symbols psymbols members l
       
-   and members_from_init_declarator_list symbols members declList =
+   and members_from_init_declarator_list symbols psymbols members declList =
     match declList with 
-      [] -> members_from_expr symbols members Noexpr
-    | [x] -> members_from_init_declarator symbols members x
-    | h::t -> let hmembers = members_from_init_declarator symbols members h in
-              hmembers@(members_from_init_declarator_list symbols (members@hmembers) t)
+      [] -> members_from_expr symbols psymbols members Noexpr
+    | [x] -> members_from_init_declarator symbols psymbols members x
+    | h::t -> let hmembers = members_from_init_declarator symbols psymbols members h in
+              hmembers@(members_from_init_declarator_list symbols psymbols (members@hmembers) t)
     
-   and members_from_declaration symbols members decl = match decl with
+   and members_from_declaration symbols psymbols members decl = match decl with
      Declaration(_, initDecl) -> 
          (*let updatedSymbols = Semant.add_to_symbol_table symbols [decl] in*)
-         members_from_init_declarator symbols members initDecl 
+         members_from_init_declarator symbols psymbols members initDecl 
    | _ -> [] (* Other types of declarations wouldn't reference variables from outside scope *)
 
-   and members_from_declaration_list symbols members declList = match declList with
+   and members_from_declaration_list symbols psymbols members declList = match declList with
       [] -> []
-   | [x] -> members@(members_from_declaration symbols members x)
-   | h::t -> let hmembers = members_from_declaration symbols members h in
-             hmembers@(members_from_declaration_list symbols (members@hmembers) t)
+   | [x] -> members@(members_from_declaration symbols psymbols members x)
+   | h::t -> let hmembers = members_from_declaration symbols psymbols members h in
+             hmembers@(members_from_declaration_list symbols psymbols (members@hmembers) t)
     
-   and members_from_statement_list symbols members stmtList = match stmtList with
+   and members_from_statement_list symbols psymbols members stmtList = match stmtList with
      [] -> members
-   | [x] -> members@(members_from_statement symbols members x)
-   | h::t -> let hmembers = members_from_statement symbols members h in
-             (hmembers)@(members_from_statement_list symbols (members@hmembers) t)
+   | [x] -> members@(members_from_statement symbols psymbols members x)
+   | h::t -> let hmembers = members_from_statement symbols psymbols members h in
+             (hmembers)@(members_from_statement_list symbols psymbols (members@hmembers) t)
 
-   and members_from_statement symbols members stmt = match stmt with 
+   and members_from_statement symbols psymbols members stmt = match stmt with 
      CompoundStatement(decls, stmtList) -> 
-       let dmembers = members@(members_from_declaration_list symbols members decls) in
-       members_from_statement_list symbols dmembers stmtList
-   | Expr(e) -> members_from_expr symbols members e
-   | Return(e) -> members_from_expr symbols members e
-   | If(e, s1, s2) -> let eMembers = members_from_expr symbols members e in 
-                      let s1Members = members_from_statement symbols (members@eMembers) s1 in 
-                      let s2Members = members_from_statement symbols (members@eMembers@s1Members) s2 in
+       let dmembers = members@(members_from_declaration_list symbols psymbols members decls) in
+       members_from_statement_list symbols psymbols dmembers stmtList
+   | Expr(e) -> members_from_expr symbols psymbols members e
+   | Return(e) -> members_from_expr symbols psymbols members e
+   | If(e, s1, s2) -> let eMembers = members_from_expr symbols psymbols members e in 
+                      let s1Members = members_from_statement symbols psymbols (members@eMembers) s1 in 
+                      let s2Members = members_from_statement symbols psymbols (members@eMembers@s1Members) s2 in
                       eMembers@s1Members@s2Members
-   | For(e1, e2, e3, s) -> let e1Members = members_from_expr symbols members e1 in
-                           let e2Members = members_from_expr symbols (members@e1Members) e2 in
-                           let e3Members = members_from_expr symbols (members@e1Members@e2Members) e3 in
-                           let sMembers = members_from_statement symbols (members@e1Members@e2Members@e3Members) s in
+   | For(e1, e2, e3, s) -> let e1Members = members_from_expr symbols psymbols members e1 in
+                           let e2Members = members_from_expr symbols psymbols (members@e1Members) e2 in
+                           let e3Members = members_from_expr symbols psymbols (members@e1Members@e2Members) e3 in
+                           let sMembers = members_from_statement symbols psymbols (members@e1Members@e2Members@e3Members) s in
                            e1Members@e2Members@e3Members
-   | While(e, s) -> let eMembers = members_from_expr symbols members e in
-                    let sMembers = members_from_statement symbols (members@eMembers) s in
+   | While(e, s) -> let eMembers = members_from_expr symbols psymbols members e in
+                    let sMembers = members_from_statement symbols psymbols (members@eMembers) s in
                     eMembers@sMembers 
    | _ -> []
   in
 
-  members_from_statement symbols members body
+  members_from_statement symbols psymbols members body
 
 (* --------------------------Function capture_struct_from_anon_def ------------------------
  * Returns a C struct to be used as a copy of the variables used within the body of an 
@@ -419,14 +421,16 @@ and struct_members_from_anon_body symbols members body =
 and capture_struct_from_anon_def symbols def = 
   let rec symconvert m = cSymbol_from_sSymbol symbols m in
   let param_symbols = Semant.symbols_from_func_params def.anon_params in
+  let param_symtable = (Semant.symtable_from_symlist param_symbols) in
   let body_symbols = (Semant.symbols_from_decls (Semant.get_decls_from_compound_stmt def.anon_body)) in
+  let updated_param_symtable = (Semant.add_symbol_list_to_symtable body_symbols param_symtable) in
   let updated_symtable = (Semant.add_symbol_list_to_symtable (param_symbols@body_symbols) symbols) in
   Printf.printf "Printing body symbol table for: %s\n" (def.anon_name);
   Astutil.print_symbol_table updated_symtable;
   Printf.printf "-----------End printing of symbol table\n";
     {
       struct_name = def.anon_name;
-      struct_members = (List.map symconvert (struct_members_from_anon_body updated_symtable [] def.anon_body));
+      struct_members = (List.map symconvert (struct_members_from_anon_body symbols updated_param_symtable [] def.anon_body));
       method_to_functions = StringMap.empty;
     }
 

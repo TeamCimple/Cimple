@@ -1108,6 +1108,39 @@ let anon_defs_from_tprogram tprog =
     let (defs, _) = (anon_defs_from_func_decl_list ("_", 0) (List.rev tprog.functions)) in
     List.rev defs
 
+let  symbols_from_outside_scope_for_anon_def tprogram anonDef = 
+    let rec expr_contains_anon_def expr = match expr with 
+        AnonFuncDef(_) -> true
+      | Binop(e1, _, e2) -> (expr_contains_anon_def e1) || (expr_contains_anon_def e2)
+      | AsnExpr(e1, _, e2) -> (expr_contains_anon_def e1) || (expr_contains_anon_def e2) 
+      | Literal(x) -> false
+      | CompareExpr(e1, _, e2) -> (expr_contains_anon_def e1) || (expr_contains_anon_def e2) 
+      | FloatLiteral(_) -> false
+      | StringLiteral(_) -> false
+      | Postfix(e, _) -> expr_contains_anon_def e
+      | Call(e1, e2, elist) -> (expr_contains_anon_def e1) || (expr_contains_anon_def e2) || (expr_list_contains_anon_def elist)
+      | Make(_, elist) -> expr_list_contains_anon_def elist
+      | Pointify(e) -> expr_contains_anon_def e
+      | Deref(e) -> expr_contains_anon_def e
+      | MemAccess(e, _) -> expr_contains_anon_def e
+      | Id(_) -> false
+      | DeclExpr(decl) -> declaration_contains_anon_def decl
+      | _ -> false
+
+   and expr_list_contains_anon_def = function
+        [] -> false
+      | [e] -> expr_contains_anon_def e
+      | h::t -> (expr_contains_anon_def h) || (expr_list_contains_anon_def t)
+
+   and init_declarator_contains_anon_def initDecl = match initDecl with
+        InitDeclaratorAsn(_, _, e) -> expr_contains_anon_def e
+
+   and declaration_contains_anon_def decl = match decl with
+        Declaration(_, initDecl) -> init_declarator_contains_anon_def initDecl 
+
+    in
+   [] 
+
 let rec print_anon_def anonDef = 
     Printf.printf "\n%s\n" (Astutil.string_of_anon_def anonDef)
 
