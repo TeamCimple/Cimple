@@ -97,7 +97,9 @@ let rec gen_cexpr  expr = match expr with
    | CCall(n, s, e, elist) -> if (n > 0) then (gen_cexpr s) ^ "->" ^ (gen_cexpr
    e) ^ "(" ^ gen_expr_list elist ^ ")" else (gen_cexpr e) ^ "(" ^ gen_expr_list
    elist ^ ")"
-   | CAlloc(ct, n) -> "malloc(" ^ (string_of_int n) ^ ")" 
+   | CAlloc(ct, n) -> "malloc(" ^ (string_of_int n) ^ ")"
+   | CCompareExpr(e1, op, e2) -> gen_cexpr e1 ^ gen_logical_op op ^
+   gen_cexpr e2
    | CPointify(e) -> "&(" ^ (gen_cexpr  e) ^ ")"
    | CMemAccess(d, e, CIdentifier(a)) -> if (d >= 1) then (gen_cexpr e ^ "->"
    ^a) else (gen_cexpr e
@@ -151,13 +153,14 @@ and gen_cdeclaration_list  dlist = match dlist with
 and gen_cstatement  stmt = match stmt with
      CExpr(e) -> gen_cexpr  e ^ ";\n"
    | CReturn(e) -> "return " ^ (gen_cexpr  e) ^ "; "
-   | CCompoundStatement(declList, stmtList) -> "{\n" ^ (gen_cdeclaration_list  declList) ^ "\n" ^ (gen_cstatement_list  stmtList) ^ "\n}"
+   | CCompoundStatement(declList, stmtList) -> "{\n" ^ (gen_cdeclaration_list
+   declList) ^ "\n" ^ (gen_cstatement_list  stmtList) ^ "\n}\n"
    | CIf(e, s1, s2) -> "if(" ^ (gen_cexpr  e) ^ "){\n" ^ (gen_cstatement  s1) ^ (gen_cstatement  s2) ^ "\n}"
    | CFor(e1, e2, e3, s) -> let se1 = (gen_cexpr  e1) in 
                             let se2 = (gen_cexpr  e2) in
                             let se3 = (gen_cexpr  e3) in
                             let ss = (gen_cstatement  s) in
-                            "for(" ^ se1 ^ "; " ^ se2 ^ "; " ^ se3 ^ "){\n" ^ ss ^ "\n}"
+                            "for(" ^ se1 ^ "; " ^ se2 ^ "; " ^ se3 ^ ")" ^ ss
    | CWhile(e, s) -> let se = (gen_cexpr  e) in
                      let ss = (gen_cstatement  s) in
                      "while(" ^ se ^ "){\n" ^ ss ^ "}"
