@@ -113,12 +113,18 @@ let cStructName_from_tInterface name =
 let cStructName_from_tStruct name = 
         String.concat "" ["_struct"; name]
 
-let cNullFunction = {
-    cfunc_name = "$NULL_FUNCTION";
-    cfunc_body = CCompoundStatement([], []);
-    cfunc_params = [];
-    creturn_type = CType(CPrimitiveType(Cvoid))
-}
+(*let cNullFunction = {*)
+    (*cfunc_name = "$NULL_FUNCTION";*)
+    (*cfunc_body = CCompoundStatement([], []);*)
+    (*cfunc_params = [];*)
+    (*creturn_type = CType(CPrimitiveType(Cvoid))*)
+(*}*)
+
+(*let cNullStruct = {*)
+    (*struct_name = "$NULL_STRUCT";*)
+    (*struct_members = [];*)
+    (*method_to_functions = StringMap.empty*)
+(*}*)
 
 let cType_from_tTypeSpec = function
     Void -> CType(CPrimitiveType(Cvoid))  
@@ -152,8 +158,11 @@ let rec cType_from_tType symbol_table = function
           })
   | _ -> raise(Failure("Haven't filled out yet"))
 
-let cSymbol_from_sSymbol = function
-  | _ -> raise(Failure("Not completed"))
+(*let cSymbol_from_sSymbol symbol_table sym = match sym with*)
+    (*VarSymbol(s, t) -> CVarSymbol(s, (cType_from_tType symbol_table t))*)
+  (*| FuncSymbol(s, fdecl) -> CFuncSymbol(s, (cFunc_from_tFunc symbol_table fdecl))*)
+  (*| StructSymbol(s, strct) -> CStructSymbol(s, (cStruct_from_tStruct symbol_table strct))*)
+  (*| _ -> raise(Failure("Not completed"))*)
   
 
 let merge_symtables s1 s2 = 
@@ -174,9 +183,9 @@ let id_exists_in_symtable symbols id =
 let id_exists_in_symlist symlist id = 
   let check_sym_id_equal sym id = 
     match sym with
-      VarSymbol(name, _) -> name == (Astutil.string_of_identifier id)
-    | FuncSymbol(name, _) -> name == (Astutil.string_of_identifier id)
-    | AnonFuncSymbol(name, _) -> name == (Astutil.string_of_identifier id) 
+      VarSymbol(name, _) -> if (name = (Astutil.string_of_identifier id)) then true else false
+    | FuncSymbol(name, _) -> if (name = (Astutil.string_of_identifier id)) then true else false
+    | AnonFuncSymbol(name, _) -> if ( name = (Astutil.string_of_identifier id)) then true else false
   in
   let compare_symbol_with_id (id, (hasBeenFound, foundSymbol)) sym = 
     match hasBeenFound with 
@@ -204,122 +213,6 @@ let lookup_symbol_from_symlist_by_id symlist id =
     (_, (true, foundSym)) -> foundSym
   | _ -> raise(Failure("lookup_symbol_from_symlist_by_id: Error, symbol not in table."))
 
- (*------------------- Function struct_members_from_anon_body-------------------------
- * This function returns a list of Ast.sSymbols representing the variables referenced within the body of
- * an anonymous function that are declared outside of it's scope. This list will form the data
- * members of a special c struct that will be passed to a normal c function whenevever 
- * an anonymous function in cimple is instantiated.
- *
- * Parameters:
-         * symbols: A hash table of symbols from outside the scope of the anonymous function def
-         * members: A list of function parameters declared in the anon function definition
-         * body: An Ast.tStatement (specifically a CompoundStatement) that is the body of the anonymous function
- *-------------------------------------------------------------------------------- *)
-
-let struct_members_from_anon_body symbols members body = 
- 
-  let rec members_from_expr symbols members e = match e with 
-      Id(id) -> if (id_exists_in_symtable symbols id) == true then
-                  [Semant.lookup_symbol_by_id symbols id]
-                else if (id_exists_in_symlist members id) == true then
-                  []
-                else raise(Failure("members_from_expr: Error - undeclared symbol"))
-   |  Binop(e1, _, e2) -> let e1Members = members_from_expr symbols members e1 in
-                           let e2Members = members_from_expr symbols (members@e1Members) e2 in
-                           e1Members@e2Members
-   |  AsnExpr(e1, _, e2) -> let e1Members = members_from_expr symbols members e1 in
-                            let e2Members = members_from_expr symbols (members@e1Members) e2 in
-                            e1Members@e2Members
-   |  Postfix(e1, _) -> let e1Members = members_from_expr symbols members e1 in
-                            e1Members
-   |  Call(_, e, elist) -> let eMembers = members_from_expr symbols members e in 
-                           let elistMembers = members_from_expr_list symbols (members@eMembers) elist in
-                           eMembers@elistMembers
-   | Make(_, elist) -> members_from_expr_list symbols members elist
-   | Pointify(e) -> members_from_expr symbols members e
-   | MemAccess(e, id2) -> let id1Members = members_from_expr symbols members e in 
-                            let id2Members = members_from_expr symbols
-                            (members@id1Members) e in
-                            id1Members@id2Members
-   | AnonFuncDef(def) -> raise(Failure("members_from_expr: Error - nested anonymous functions not supported yet"))
-   | DeclExpr(decl) -> members_from_declaration symbols members decl
-   | _  -> []
-
-   and members_from_expr_list symbols members elist = match elist with
-     [] -> []
-   | [x] -> members_from_expr symbols members x
-   | h::t -> let hMembers = members_from_expr symbols members h in
-             let tMembers = members_from_expr_list symbols members t in
-             hMembers@tMembers
-   and members_from_init_declarator symbols members initDecl =
-    match initDecl with 
-       InitDeclaratorAsn(_, _, e) -> members_from_expr symbols members e
-     | InitDeclList(l) -> members_from_init_declarator_list symbols members l
-      
-   and members_from_init_declarator_list symbols members declList =
-    match declList with 
-      [] -> members_from_expr symbols members Noexpr
-    | [x] -> members_from_init_declarator symbols members x
-    | h::t -> let hmembers = members_from_init_declarator symbols members h in
-              hmembers@(members_from_init_declarator_list symbols (members@hmembers) t)
-    
-   and members_from_declaration symbols members decl = match decl with
-     Declaration(_, initDecl) -> members_from_init_declarator symbols members initDecl 
-   | _ -> [] (* Other types of declarations wouldn't reference variables from outside scope *)
-
-   and members_from_declaration_list symbols members declList = match declList with
-      [] -> []
-   | [x] -> members@(members_from_declaration symbols members x)
-   | h::t -> let hmembers = members_from_declaration symbols members h in
-             hmembers@(members_from_declaration_list symbols (members@hmembers) t)
-    
-   and members_from_statement_list symbols members stmtList = match stmtList with
-     [] -> members
-   | [x] -> members@(members_from_statement symbols members x)
-   | h::t -> let hmembers = members_from_statement symbols members h in
-             (hmembers)@(members_from_statement_list symbols (members@hmembers) t)
-
-   and members_from_statement symbols members stmt = match stmt with 
-     CompoundStatement(decls, stmtList) -> 
-       let dmembers = members@(members_from_declaration_list symbols members decls) in
-       members_from_statement_list symbols dmembers stmtList
-   | Expr(e) -> members_from_expr symbols members e
-   | Return(e) -> members_from_expr symbols members e
-   | If(e, s1, s2) -> let eMembers = members_from_expr symbols members e in 
-                      let s1Members = members_from_statement symbols (members@eMembers) s1 in 
-                      let s2Members = members_from_statement symbols (members@eMembers@s1Members) s2 in
-                      eMembers@s1Members@s2Members
-   | For(e1, e2, e3, s) -> let e1Members = members_from_expr symbols members e1 in
-                           let e2Members = members_from_expr symbols (members@e1Members) e2 in
-                           let e3Members = members_from_expr symbols (members@e1Members@e2Members) e3 in
-                           let sMembers = members_from_statement symbols (members@e1Members@e2Members@e3Members) s in
-                           e1Members@e2Members@e3Members
-   | While(e, s) -> let eMembers = members_from_expr symbols members e in
-                    let sMembers = members_from_statement symbols (members@eMembers) s in
-                    eMembers@sMembers 
-   | _ -> []
-  in
-
-  members_from_statement symbols members body
-
-(* --------------------------Function capture_struct_from_anon_def ------------------------
- * Returns a C struct to be used as a copy of the variables used within the body of an 
- * anonymous function that were declared outside of its scope.
- *
- * Parameters:
-         * symbols: A hash table of the symbols declared in the outside scope.
-         * structName: a string that will become the name of the struct in the resulting 
-         *              C Program.
-         * def: The Ast.tAnonFuncDef whose body we are looking through to find captured variables
- * ------------------------------------------------------------------------*)
-let capture_struct_from_anon_def symbols structName def = 
-  let param_symbols = Semant.symbols_from_func_params def.anon_params in 
-    {
-      struct_name = structName;
-      struct_members = List.map cSymbol_from_sSymbol (struct_members_from_anon_body
-      symbols param_symbols def.anon_body);
-      method_to_functions = StringMap.empty;
-    }
 
 let cDeclarationSpecifiers_from_tDeclarationSpecifiers symbol_table tDeclSpecs = function
         | DeclSpecTypeSpecAny(tType) ->
@@ -401,11 +294,172 @@ let cFunc_from_tFunc symbol_table tFunc =
                 tFunc.func_name;
         }
 
-let cFunc_from_tMethod cStruct_Name tFuncName = String.concat "_"
-[cStruct_Name;tFuncName]
+let rec cSymbol_from_sSymbol symbol_table sym = match sym with
+    VarSymbol(s, t) -> CVarSymbol(s, (cType_from_tType symbol_table t))
+  | FuncSymbol(s, fdecl) -> CFuncSymbol(s, (cFunc_from_tFunc symbol_table fdecl))
+  | StructSymbol(s, strct) ->
+          let (newStrct, _) = cStruct_from_tStruct symbol_table strct in
+          CStructSymbol(s, newStrct)
+  | _ -> raise(Failure("Not completed"))
 
-let cStruct_from_tStruct symbol_table tStruct = 
-        let defaultStructMemberSymbols = List.map cSymbol_from_sSymbol (List.map (Semant.symbol_from_declaration)
+
+ (*------------------- Function struct_members_from_anon_body-------------------------
+ * This function returns a list of Ast.sSymbols representing the variables referenced within the body of
+ * an anonymous function that are declared outside of it's scope. This list will form the data
+ * members of a special c struct that will be passed to a normal c function whenevever 
+ * an anonymous function in cimple is instantiated.
+ *
+ * Parameters:
+         * symbols: A hash table of symbols from outside the scope of the anonymous function def
+         * members: A list of function parameters declared in the anon function definition
+         * body: An Ast.tStatement (specifically a CompoundStatement) that is the body of the anonymous function
+ *-------------------------------------------------------------------------------- *)
+
+and struct_members_from_anon_body symbols members body = 
+
+  let rec print_member m = Printf.printf "%s\n" (Astutil.string_of_symbol m)
+
+  and print_member_list mlist = match mlist with
+        [] -> ()
+      | [x] -> print_member x
+      | h::t -> print_member h; print_member_list t
+  in
+  
+  let rec members_from_expr symbols members e = match e with 
+      Id(id) -> if (id_exists_in_symtable symbols id) = true then
+                  [Semant.lookup_symbol_by_id symbols id]
+                else if (id_exists_in_symlist members id) = true then
+                  []
+                else (match id with 
+                  Identifier(s) -> 
+                      print_member_list members; 
+                      raise(Failure("members_from_expr: Error - undeclared symbol '" ^ s ^ "'")))
+   |  Binop(e1, _, e2) -> let e1Members = members_from_expr symbols members e1 in
+                           let e2Members = members_from_expr symbols (members@e1Members) e2 in
+                           e1Members@e2Members
+   |  AsnExpr(e1, _, e2) -> let e1Members = members_from_expr symbols members e1 in
+                            let e2Members = members_from_expr symbols (members@e1Members) e2 in
+                            e1Members@e2Members
+   |  Postfix(e1, _) -> let e1Members = members_from_expr symbols members e1 in
+                            e1Members
+   |  Call(_, e, elist) -> let eMembers = members_from_expr symbols members e in 
+                           let elistMembers = members_from_expr_list symbols (members@eMembers) elist in
+                           eMembers@elistMembers
+   | Make(_, elist) -> members_from_expr_list symbols members elist
+   | Pointify(e) -> members_from_expr symbols members e
+   | MemAccess(e, id2) -> let id1Members = members_from_expr symbols members e in 
+                            let id2Members = members_from_expr symbols
+                            (members@id1Members) e in
+                            id1Members@id2Members
+   | AnonFuncDef(def) -> raise(Failure("members_from_expr: Error - nested anonymous functions not supported yet"))
+   | DeclExpr(decl) -> members_from_declaration symbols members decl
+   | _  -> []
+
+   and members_from_expr_list symbols members elist = match elist with
+     [] -> []
+   | [x] -> members_from_expr symbols members x
+   | h::t -> let hMembers = members_from_expr symbols members h in
+             let tMembers = members_from_expr_list symbols members t in
+             hMembers@tMembers
+   and members_from_init_declarator symbols members initDecl =
+    match initDecl with 
+       InitDeclaratorAsn(_, _, e) -> members_from_expr symbols members e
+     | InitDeclList(l) -> members_from_init_declarator_list symbols members l
+      
+   and members_from_init_declarator_list symbols members declList =
+    match declList with 
+      [] -> members_from_expr symbols members Noexpr
+    | [x] -> members_from_init_declarator symbols members x
+    | h::t -> let hmembers = members_from_init_declarator symbols members h in
+              hmembers@(members_from_init_declarator_list symbols (members@hmembers) t)
+    
+   and members_from_declaration symbols members decl = match decl with
+     Declaration(_, initDecl) -> 
+         let updatedSymbols = Semant.add_to_symbol_table symbols [decl] in
+         members_from_init_declarator updatedSymbols members initDecl 
+   | _ -> [] (* Other types of declarations wouldn't reference variables from outside scope *)
+
+   and members_from_declaration_list symbols members declList = match declList with
+      [] -> []
+   | [x] -> members@(members_from_declaration symbols members x)
+   | h::t -> let hmembers = members_from_declaration symbols members h in
+             hmembers@(members_from_declaration_list symbols (members@hmembers) t)
+    
+   and members_from_statement_list symbols members stmtList = match stmtList with
+     [] -> members
+   | [x] -> members@(members_from_statement symbols members x)
+   | h::t -> let hmembers = members_from_statement symbols members h in
+             (hmembers)@(members_from_statement_list symbols (members@hmembers) t)
+
+   and members_from_statement symbols members stmt = match stmt with 
+     CompoundStatement(decls, stmtList) -> 
+       let dmembers = members@(members_from_declaration_list symbols members decls) in
+       members_from_statement_list symbols dmembers stmtList
+   | Expr(e) -> members_from_expr symbols members e
+   | Return(e) -> members_from_expr symbols members e
+   | If(e, s1, s2) -> let eMembers = members_from_expr symbols members e in 
+                      let s1Members = members_from_statement symbols (members@eMembers) s1 in 
+                      let s2Members = members_from_statement symbols (members@eMembers@s1Members) s2 in
+                      eMembers@s1Members@s2Members
+   | For(e1, e2, e3, s) -> let e1Members = members_from_expr symbols members e1 in
+                           let e2Members = members_from_expr symbols (members@e1Members) e2 in
+                           let e3Members = members_from_expr symbols (members@e1Members@e2Members) e3 in
+                           let sMembers = members_from_statement symbols (members@e1Members@e2Members@e3Members) s in
+                           e1Members@e2Members@e3Members
+   | While(e, s) -> let eMembers = members_from_expr symbols members e in
+                    let sMembers = members_from_statement symbols (members@eMembers) s in
+                    eMembers@sMembers 
+   | _ -> []
+  in
+
+  members_from_statement symbols members body
+
+(* --------------------------Function capture_struct_from_anon_def ------------------------
+ * Returns a C struct to be used as a copy of the variables used within the body of an 
+ * anonymous function that were declared outside of its scope.
+ *
+ * Parameters:
+         * symbols: A hash table of the symbols declared in the outside scope.
+         * structName: a string that will become the name of the struct in the resulting 
+         *              C Program.
+         * def: The Ast.tAnonFuncDef whose body we are looking through to find captured variables
+ * ------------------------------------------------------------------------*)
+
+and capture_struct_from_anon_def symbols def = 
+  let rec symconvert m = cSymbol_from_sSymbol symbols m
+  in
+  (*let symtable_from_symlist symlist =*)
+      (*List.fold_left (fun m symbol -> *)
+          (*if (StringMap.mem (Semant.get_id_from_symbol symbol) m) then*)
+              (*raise(Failure("symlist_to_symtable: Error - redefining variable"))*)
+          (*else *)
+              (*StringMap.add (Semant.get_id_from_symbol symbol) symbol  m) StringMap.empty symlist*)
+  (*in*)
+  let param_symbols = Semant.symbols_from_func_params def.anon_params in
+  let body_symbols = (Semant.symbols_from_decls (Semant.get_decls_from_compound_stmt def.anon_body)) in
+  let param_symtable = (Semant.symtable_from_symlist param_symbols) in
+  let body_symtable = (Semant.symtable_from_symlist body_symbols) in
+  let updated_symtable = (Semant.merge_symtables (Semant.merge_symtables param_symtable body_symtable) symbols) in
+  Printf.printf "Printing body symbol table for: %s\n" (def.anon_name);
+  Printf.printf "%s\n" (Astutil.string_of_statement def.anon_body);
+  Astutil.print_symbol_table (Semant.symtable_from_symlist body_symbols);
+  Printf.printf "-----------End printing of symbol table\n";
+    {
+      struct_name = def.anon_name;
+      struct_members = (List.map symconvert (struct_members_from_anon_body updated_symtable [] def.anon_body));
+      method_to_functions = StringMap.empty;
+    }
+
+and capture_struct_list_from_anon_def_list symbols defList = match defList with
+      [] -> []
+    | [x] -> [capture_struct_from_anon_def symbols x]
+    | h::t -> [capture_struct_from_anon_def symbols h]@capture_struct_list_from_anon_def_list symbols t
+
+and cFunc_from_tMethod cStruct_Name tFuncName = String.concat "_" [cStruct_Name;tFuncName]
+
+and cStruct_from_tStruct symbol_table tStruct = 
+        let symconvert m = cSymbol_from_sSymbol symbol_table m in
+        let defaultStructMemberSymbols = List.map symconvert (List.map (Semant.symbol_from_declaration)
         tStruct.members) in 
 
         (* If there is an interface then add a struct member corresponding to
@@ -748,19 +802,24 @@ let rec cFunc_from_anonDef symbol_table anonDef =
 }
 
 and cFunc_list_from_anonDef_list symbol_table adlist = match adlist with
-    [] -> [cNullFunction]
+    [] -> []
   | [x] -> [cFunc_from_anonDef symbol_table x]
   | h::t -> let hfuncs = [(cFunc_from_anonDef symbol_table h)] in
             let tfuncs = (cFunc_list_from_anonDef_list symbol_table t) in
             hfuncs@tfuncs
 
+        
+(*let rec print_capture_structs symbol_table cs = match cs with*)
+    (*[] -> ()*)
+  (*| [x] -> ()*)
+  (*| h::t -> ()*)
+
 let cProgram_from_tProgram program =
         let updated_program = Semant.update_structs_in_program program in
 
         let tSymbol_table = Semant.build_symbol_table updated_program in
-
-        let cstructs_and_functions = List.map (cStruct_from_tStruct
-        tSymbol_table) updated_program.structs in 
+        Astutil.print_symbol_table tSymbol_table;
+        let cstructs_and_functions = List.map (cStruct_from_tStruct tSymbol_table) updated_program.structs in 
 
         let cstructs = List.map fst cstructs_and_functions in 
 
@@ -771,6 +830,7 @@ let cProgram_from_tProgram program =
 
         let tAnonDefs = Astutil.anon_defs_from_tprogram program in 
         let cFuncsTranslatedFromAnonDefs = cFunc_list_from_anonDef_list tSymbol_table tAnonDefs in
+        (*let capture_structs = capture_struct_list_from_anon_def_list tSymbol_table tAnonDefs in *)
     
         (* The function bodies have not been filled out yet. Just the parameters
          * and return types *)

@@ -6,6 +6,7 @@ void apply_op(string s, func()(string) op)
 int plus(int x, func(int)(int) myFunc)
 {
     string str = "hello_from_plus_function"; 
+    
     apply_op(str, func()(string s){
                 printf(s);
             });

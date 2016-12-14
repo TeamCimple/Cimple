@@ -21,6 +21,5 @@ let _ =
                        Printf.printf "%s\n" (Ccodegen.gen_cprogram cprogram))
 
               | AnonFuncTest -> 
-                      Printf.printf "\n\nPrinting test results for anonymous function\n";
                       Ccodegen.test_anon_defs program;
                       Printf.printf "\n\n"

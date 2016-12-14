@@ -2,6 +2,15 @@ open Ast
 
 module StringMap = Map.Make(String)
 
+let merge_symtables s1 s2 = 
+    StringMap.merge (fun key v1 v2 ->
+        (match v2, v2 with
+           x, y -> if x != y then 
+                    raise(Failure("concat_symtables: Error - duplicate symbol"))
+                   else x
+        | None, y -> y
+        | x, None -> x)) s1 s2
+
 let rec string_of_type tp =
     let string_of_primitive_type = function
        | Void -> "Void"
@@ -578,6 +587,28 @@ let get_id_from_symbol = function
    | InterfaceSymbol(id, _) -> id
    | AnonFuncSymbol(id, t) -> id
 
+let symtable_from_symlist symlist =
+      List.fold_left (fun m symbol -> 
+          if (StringMap.mem (get_id_from_symbol symbol) m) then
+              raise(Failure("symlist_to_symtable: Error - redefining variable"))
+          else 
+              StringMap.add (get_id_from_symbol symbol) symbol  m) StringMap.empty symlist
+
+      
+(*let symbols_from_anon_def anonDef = *)
+    (*let paramSymbols = symbols_from_func_params anonDef.anon_params in*)
+    (*let bodySymbols = symbols_from_s anonDef.anon_body in*)
+    (*symtable_from_symlist (paramSymbols@bodySymbols)*)
+
+let merge_symtables s1 s2 = 
+    StringMap.merge (fun key v1 v2 ->
+        (match v2, v2 with
+           x, y -> if x != y then 
+                    raise(Failure("merge_symtables: Error - duplicate symbol"))
+                   else x
+        | None, y -> y
+        | x, None -> x)) s1 s2
+
 let get_decls_from_compound_stmt stmt = match stmt with 
         CompoundStatement(x, y) -> x
    | _ -> []
@@ -605,13 +636,24 @@ type_from_declaration_specifiers func.return_type in let
 let check_bool_expr symbols expr = check_compatible_types symbols (type_from_expr symbols
 expr) (PrimitiveType(Int))
 
-let add_to_symbol_table tbl decls = List.fold_left (fun m symbol -> if StringMap.mem
-       (get_id_from_symbol symbol) m then
-       raise(Failure("redefining variable: " ^
-               get_id_from_symbol symbol)) else StringMap.add
-       (get_id_from_symbol symbol) symbol m) tbl
-       (symbols_from_decls decls)
+let add_to_symbol_table tbl decls = 
+    List.fold_left (fun m symbol -> 
+        if StringMap.mem (get_id_from_symbol symbol) m then
+            raise(Failure("redefining variable: " ^ get_id_from_symbol symbol))
+        else StringMap.add (get_id_from_symbol symbol) symbol m)
+    tbl (symbols_from_decls decls)
 
+let rec add_symbol_to_symbol_table tbl sym =
+    if (StringMap.mem (Astutil.string_of_symbol_simple sym) tbl) then 
+       raise(Failure("redefining variable: " ^ get_id_from_symbol sym)) 
+    else 
+       StringMap.add (Astutil.string_of_symbol_simple sym) sym tbl
+
+and add_symbol_list_to_symbol_table tbl symlist = match symlist with
+      [] -> tbl 
+    | [x] -> add_symbol_to_symbol_table tbl x 
+    | h::t -> let htbl = add_symbol_to_symbol_table tbl h in
+              add_symbol_list_to_symbol_table htbl t 
 
 let rec check_statement func symbol_table stmt = match stmt with
      Expr(e) -> (match e with 

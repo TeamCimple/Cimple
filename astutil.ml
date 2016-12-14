@@ -1,5 +1,7 @@
 open Ast
 
+module StringMap = Map.Make(String)
+
 let string_of_op = function
         Add -> "PLUS"
       | Sub -> "MINUS"
@@ -218,6 +220,13 @@ let string_of_symbol = function
  | InterfaceSymbol(s, ti) -> "Interface_Symbol" (* Finish me! *)
  | AnonFuncSymbol(s, t) -> "AnonymousFunction_Symbol(Name: " ^ s ^ ", Type: " ^ string_of_type t ^ ")"
 
+let string_of_symbol_simple = function
+   VarSymbol(s, t) -> s
+ | FuncSymbol(s, fdecl) -> s
+ | StructSymbol(s, strct) -> s
+ | InterfaceSymbol(s, ti) -> s
+ | AnonFuncSymbol(s, t) -> s
+
 let rec string_of_symbol_list l = match l with
     [] -> ""
   | [x] -> string_of_symbol x
@@ -344,3 +353,9 @@ and print_anon_defs = function
       [] -> ()
     | [x] -> print_anon_def x
     | h::t -> print_anon_def h; print_anon_defs t
+
+let print_symbol_table symtable =
+   (Printf.printf "SYMBOL_TABLE:-------------\n\n");
+    let l  = StringMap.bindings symtable in
+         List.iter (fun (name, sym) -> Printf.printf "%s\n" name) l
+

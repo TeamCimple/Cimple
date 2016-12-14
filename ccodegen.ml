@@ -182,8 +182,25 @@ and gen_cfunc  f =
     let fbody = (gen_cstatement  f.cfunc_body) in
     rtype ^ " " ^ fname ^ " ( " ^ fparams ^ ")" ^ fbody ^ "\n\n"  
 
+
+let rec print_anon_capture_struct cs = 
+    let str = gen_cstruct cs in
+    Printf.printf "%s\n\n" str
+
+and print_anon_capture_struct_list cslist = match cslist with
+    [] -> ()
+  | [x] -> print_anon_capture_struct x
+  | h::t -> (print_anon_capture_struct h);
+            (print_anon_capture_struct_list t)
+
+
 let test_anon_defs program  =
-        let anon_defs = Astutil.anon_defs_from_tprogram program in
+        let updated_program = Semant.update_structs_in_program program in
+        let anon_defs = Astutil.anon_defs_from_tprogram updated_program in
+        let tSymbol_table = Semant.build_symbol_table updated_program in
+        (*Astutil.print_symbol_table tSymbol_table;*)
+        let cCaptures = Ctree.capture_struct_list_from_anon_def_list tSymbol_table anon_defs in 
+        (*print_anon_capture_struct_list cCaptures;*)
         let print_list_size l = Printf.printf "Number of anonymous function definitions: %s\n" (string_of_int (List.length l)) in
         print_list_size anon_defs;
         Astutil.print_anon_defs anon_defs
