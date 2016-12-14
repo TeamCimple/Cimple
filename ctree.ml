@@ -254,21 +254,6 @@ let cFuncParam_from_tFuncParam symbol_table tFuncParam = (cType_from_tType
 symbol_table (Semant.type_from_func_param tFuncParam),
 (CIdentifier(Semant.var_name_from_func_param tFuncParam)))
 
-(*let cFunc_from_anonDef symbol_table anonDef =*)
-    (*let rec convert_anon_params symbol_table params =*)
-        (*(match params with*)
-            (*[] -> [(CPointerType(CType(CPrimitiveType(Cvoid)), 1), CIdentifier("capture_struct"))]*)
-          (*| [p] -> [cFuncParam_from_tFuncParam symbol_table p]*)
-          (*| h::t -> let htype = (cFuncParam_from_tFuncParam symbol_table h) in*)
-                    (*let ttype = (convert_anon_params symbol_table t) in*)
-                    (*[htype]@ttype)*)
-    (*in {*)
-    (*cfunc_name = anonDef.anon_name;*)
-    
-    (*cfunc_params = (convert_anon_params symbol_table anonDef.anon_params);*)
-    (*cfunc_return_type = cType_from_tType symbol_table anonDef.anon_return_type*)
-(*}*)
-
 let create_cfunc_param_for_receiver receiver = 
         (CPointerType(CType(CPrimitiveType(Cvoid)), 1),
         CIdentifier("_body"))
@@ -426,25 +411,11 @@ and struct_members_from_anon_body symbols members body =
  * ------------------------------------------------------------------------*)
 
 and capture_struct_from_anon_def symbols def = 
-  let rec symconvert m = cSymbol_from_sSymbol symbols m
-  in
-  (*let symtable_from_symlist symlist =*)
-      (*List.fold_left (fun m symbol -> *)
-          (*if (StringMap.mem (Semant.get_id_from_symbol symbol) m) then*)
-              (*raise(Failure("symlist_to_symtable: Error - redefining variable"))*)
-          (*else *)
-              (*StringMap.add (Semant.get_id_from_symbol symbol) symbol  m) StringMap.empty symlist*)
-  (*in*)
+  let rec symconvert m = cSymbol_from_sSymbol symbols m in
   let param_symbols = Semant.symbols_from_func_params def.anon_params in
   let body_symbols = (Semant.symbols_from_decls (Semant.get_decls_from_compound_stmt def.anon_body)) in
-  (*let param_symtable = (Semant.symtable_from_symlist param_symbols) in*)
-  (*let body_symtable = (Semant.symtable_from_symlist body_symbols) in*)
-  (*let updated_symtable = (Semant.merge_symtables (Semant.merge_symtables param_symtable body_symtable) symbols) in*)
   let updated_symtable = (Semant.add_symbol_list_to_symtable (param_symbols@body_symbols) symbols) in
   Printf.printf "Printing body symbol table for: %s\n" (def.anon_name);
-  (*Printf.printf "%s\n" (Astutil.string_of_statement def.anon_body);*)
-  (*Astutil.print_symbol_table (Semant.symtable_from_symlist body_symbols);*)
-  (*Astutil.print_symbol_table (Semant.symtable_from_symlist param_symbols);*)
   Astutil.print_symbol_table updated_symtable;
   Printf.printf "-----------End printing of symbol table\n";
     {
