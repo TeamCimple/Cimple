@@ -309,10 +309,16 @@ and struct_members_from_anon_body symbols members body =
       | [x] -> print_member x
       | h::t -> print_member h; print_member_list t
   in
-  
+ 
+  let symbol_is_capturable = function
+        VarSymbol(_, _) -> true
+      | _ -> false
+  in
+
   let rec members_from_expr symbols members e = match e with 
       Id(id) -> if (id_exists_in_symtable symbols id) = true then
-                  [Semant.lookup_symbol_by_id symbols id]
+                  let sym = Semant.lookup_symbol_by_id symbols id in
+                  if (symbol_is_capturable sym) then [sym] else []
                 else if (id_exists_in_symlist members id) = true then
                   []
                 else (match id with 
