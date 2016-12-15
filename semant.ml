@@ -322,7 +322,7 @@ and check_compatible_types symbols t1 t2 = match (t1, t2) with
   | _ -> raise(Failure("check_compatible_types: CompoundType not yet
   supported"))
 
-let rec get_fdecl_for_receiver typ_ func_name tSymbol_table = 
+let rec get_fdecl_for_receiver typ_ tSymbol_table func_name = 
         let object_symbol = (lookup_symbol_by_id tSymbol_table (Identifier(typ_))) in 
         let rec find_func symbol func_name = match symbol with 
                 | StructSymbol(type_, struct_) -> (let key = symbol_table_key_for_method struct_.struct_name func_name in 
@@ -332,8 +332,8 @@ let rec get_fdecl_for_receiver typ_ func_name tSymbol_table =
                                  else (
                                          if (struct_.extends <> "") then
                                                  get_fdecl_for_receiver
-                                                 struct_.extends func_name
-                                                 tSymbol_table
+                                                 struct_.extends
+                                                 tSymbol_table func_name
                                          else
                                                 raise(Failure("Receiver doesn't
                                                 have function"))))
@@ -375,10 +375,10 @@ let rec type_from_expr symbols expr = match expr with
                            let typ_ = type_from_expr symbols e in
                            (match(typ_) with 
                            | CustomType(name) -> (let fdecl =
-                                   get_fdecl_for_receiver name id symbols in
+                                   get_fdecl_for_receiver name symbols id in
                            type_from_declaration_specifiers fdecl.return_type)
                            | PointerType(CustomType(name), 1) -> (let fdecl =
-                                   get_fdecl_for_receiver name id symbols in 
+                                   get_fdecl_for_receiver name symbols id in 
                            type_from_declaration_specifiers fdecl.return_type)
                            | _ -> raise(Failure("Invalid type making method
                            call")))))
@@ -503,10 +503,10 @@ let rec check_expr symbols e = match e with
                            let typ_ = type_from_expr symbols expr in
                            (match(typ_) with 
                            | CustomType(name) -> (let fdecl =
-                                   get_fdecl_for_receiver name id symbols in
+                                   get_fdecl_for_receiver name symbols id in
                            validate_call_expr expr expr_list symbols fdecl)
                            | PointerType(CustomType(name), 1) -> (let fdecl =
-                                   get_fdecl_for_receiver name id symbols in 
+                                   get_fdecl_for_receiver name symbols id in 
                                            validate_call_expr expr expr_list symbols
                                            fdecl)
                            | _ -> raise(Failure("Invalid type making method
@@ -808,8 +808,26 @@ void"))
                         else
                                 ()
         | _ -> raise(Failure("Unhandled Declaration"))
-        
-        
+
+let remove_duplicate_strings string_list = 
+        let str_map = List.fold_left (fun acc str_ -> StringMap.add str_ 1 acc)
+        StringMap.empty string_list in 
+
+        StringMap.fold (fun str _ acc -> acc @ [str]) str_map []
+
+let rec get_method_names_for_struct tSymbol_table struct_ =
+       if (struct_.extends = "") then List.map (fun fdecl ->
+               var_name_from_direct_declarator fdecl.func_name) struct_.methods 
+       else (
+              let StructSymbol(_, parent_struct) = lookup_symbol_by_id
+              tSymbol_table (Identifier(struct_.extends)) in List.rev ( 
+              (List.map (fun fdecl -> var_name_from_direct_declarator
+              fdecl.func_name) struct_.methods) @ (get_method_names_for_struct
+              tSymbol_table
+              parent_struct)))
+
+let rec get_unique_method_names_for_struct tSymbol_table struct_ = 
+        remove_duplicate_strings (get_method_names_for_struct tSymbol_table struct_)
 
 let update_fields functions symbols structs  = 
         
@@ -846,9 +864,9 @@ let update_fields functions symbols structs  =
                                                         struct_name =
                                                                 struct_.struct_name;
                                                         members =
-                                                                struct_.members
+                                                                parent_struct.members
                                                                 @
-                                                                parent_struct.members;
+                                                                struct_.members;
                                                         children =
                                                                 struct_.children;
                                                         methods = strct_methods;
@@ -929,8 +947,7 @@ let struct_implements_method struct_ symbol_table interface_method =
         let interface_method_name = var_name_from_direct_declarator
         interface_method.func_name in
         let fdecl = get_fdecl_for_receiver struct_.struct_name
-        interface_method_name
-        symbol_table in 
+        symbol_table interface_method_name in 
         
         compare_functions symbol_table fdecl interface_method
 

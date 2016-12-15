@@ -705,7 +705,7 @@ and cCallExpr_from_tCallExpr expr tSym  func_name expr_list = match expr with
 
         | _ -> let expr_type = Semant.type_from_expr tSym expr in (match expr_type with 
                 | CustomType(a) -> let fdecl = Semant.get_fdecl_for_receiver a
-                func_name tSym in 
+                tSym func_name in 
 
                         if (Semant.is_interface tSym (Identifier(a))) then
                                 let updated_expr = (fst (update_expr expr tSym))
@@ -722,24 +722,40 @@ and cCallExpr_from_tCallExpr expr tSym  func_name expr_list = match expr with
                                         CCastExpr(CPointerType(CType(CPrimitiveType(Cvoid)),
                                         1), CPointify(fst (update_expr expr tSym
                                         ))) in 
-                                (CCall(0, CNoexpr,
-                                CId(CIdentifier(cFunc_from_tMethod a
+                                (CCall(0, fst( (update_expr expr tSym)),
+                                CId(CIdentifier(
                                 func_name)), [first_arg] @ (List.map2
                                 (cExpr_from_tExpr_in_tCall tSym ) expr_list
                                 fdecl.params)), [])
                | PointerType(CustomType(a), 1) -> let fdecl =
-                       Semant.get_fdecl_for_receiver a func_name tSym in 
+                       Semant.get_fdecl_for_receiver a tSym func_name in 
                                 let first_arg =
                                         CCastExpr(CPointerType(CType(CPrimitiveType(Cvoid)),
                                         1), fst (update_expr expr tSym
                                         )) in 
-                                (CCall(0, CNoexpr,
+                                (CCall(1, fst(update_expr expr tSym),
                                 CId(CIdentifier(cFunc_from_tMethod a
                                 func_name)), [first_arg] @ (List.map2
                                 (cExpr_from_tExpr_in_tCall tSym ) expr_list
                                 fdecl.params)), [])
                | _ -> raise(Failure("No other functions can call methods")))
- 
+
+let generate_virtual_table_assignments isPointer tStruct tSymbol_table id= 
+        let fdecls = Semant.get_unique_method_names_for_struct tSymbol_table tStruct in
+        
+         List.map (fun tmethod_name -> 
+                                       
+                let inter_fdecl = Semant.get_fdecl_for_receiver 
+                                           tStruct.struct_name tSymbol_table
+                                           tmethod_name in
+
+                let cFunc_name = cFunc_from_tMethod (fst(inter_fdecl.receiver)) tmethod_name in
+
+                CExpr(CAsnExpr(CMemAccess(isPointer,CId(CIdentifier(id)), CIdentifier(tmethod_name)),
+                      Asn,
+                     (CId(CIdentifier(cFunc_name)))))
+                ) fdecls
+                                 
 
 let c_init_decl_from_string str = 
        CInitDeclarator(CDirectDeclarator(CVar(CIdentifier(str))))
@@ -807,7 +823,11 @@ let update_decl_for_custom_type id decl custom_type tSymbol_table =
                         let cstruct_type = CustomType(custom_type) in 
 
                         let (cstruct_decl, stmts) = generate_decls_and_stmts_from_id
-                        tSymbol_table id decl cstruct_type in 
+                        tSymbol_table id decl cstruct_type in
+
+                        let virt_table_assignments =
+                                generate_virtual_table_assignments 0 struct_
+                                tSymbol_table id in 
 
                         let implements = Semant.get_interface_for_struct
                         custom_type tSymbol_table in
@@ -832,7 +852,8 @@ let update_decl_for_custom_type id decl custom_type tSymbol_table =
                                 let interface_assignments  = List.map (fun tmethod_name -> 
                                         let inter_fdecl =
                                                 Semant.get_fdecl_for_receiver 
-                                                custom_type tmethod_name tSymbol_table in
+                                                custom_type tSymbol_table
+                                                tmethod_name in
 
                                         let cFunc_name = cFunc_from_tMethod (fst
                                         (inter_fdecl.receiver)) tmethod_name in
@@ -874,10 +895,11 @@ let update_decl_for_custom_type id decl custom_type tSymbol_table =
                                                 [implementer_add_interface_assn]
                                                 in
 
-                                 (cstruct_decl@[interface_decl], stmts@assignments) 
+                                 (cstruct_decl@[interface_decl],
+                                 stmts@assignments@virt_table_assignments) 
  
                         )
-                        else (cstruct_decl, stmts)
+                        else (cstruct_decl, stmts@virt_table_assignments)
                         
 
 let update_decl decl tSymbol_table  = 
@@ -971,9 +993,21 @@ let cFunc_from_tConstructor symbol_table constructor tStruct =
 
 
 let cStruct_from_tStruct symbol_table tStruct = 
-        let defaultStructMemberSymbols = List.map (cSymbol_from_sSymbol
+        let fieldSymbols = List.map (cSymbol_from_sSymbol
         symbol_table) (List.map (Semant.symbol_from_declaration)
-        tStruct.members) in 
+        tStruct.members) in
+
+        let all_methods_for_struct = (List.map (Semant.get_fdecl_for_receiver
+                tStruct.struct_name symbol_table)
+                (Semant.get_unique_method_names_for_struct symbol_table
+                tStruct))
+        in
+
+        let methodMemberSymbols = List.map (cDeclaration_from_tFdecl
+                        symbol_table)
+                        all_methods_for_struct in
+        
+        let defaultStructMemberSymbols = fieldSymbols @ methodMemberSymbols in
 
         (* If there is an interface then add a struct member corresponding to
          * the interface to our struct *)
