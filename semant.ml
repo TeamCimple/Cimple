@@ -434,8 +434,9 @@ let receiver_has_func typ_ symbols func =
         has_func object_symbol func
 
 let check_constructor symbols struct_name params = 
-        let struct_symbol = lookup_symbol_by_id symbols
-        (Identifier(struct_name)) in 
+        let struct_symbol = if (StringMap.mem struct_name symbols) then (lookup_symbol_by_id symbols
+        (Identifier(struct_name))) else raise(Failure("Calling constructor for
+        undeclared struct: " ^ struct_name)) in 
 
         match struct_symbol with 
 
