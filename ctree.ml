@@ -789,33 +789,46 @@ let c_init_decl_from_string_asn str op cExpr =
        CInitDeclaratorAsn(CDirectDeclarator(CVar(CIdentifier(str))), op, cExpr) 
         
 
+let generate_decls_and_stmts_from_id tSymbol_table id decl typ_ = 
+       match decl with 
+       | Declaration(_, InitDeclList([InitDeclarator(DirectDeclarator(_))])) ->
+                       let ctype = cType_from_tType tSymbol_table typ_ in 
+                       let cinit_decl = c_init_decl_from_string id in 
+                       ([CDeclaration(CDeclSpecTypeSpecAny(ctype),
+                       cinit_decl)], [])
+
+       | Declaration(_, InitDeclList([InitDeclaratorAsn(_, op, expr)])) -> 
+                       let (updated_expr, extra_stmts) = update_expr expr
+                       tSymbol_table in
+
+                       let ctype = cType_from_tType tSymbol_table typ_ in
+                       let cinit_decl = c_init_decl_from_string_asn id op
+                       updated_expr in 
+
+                       ([CDeclaration(CDeclSpecTypeSpecAny(ctype),
+                       cinit_decl)], extra_stmts)
+
+
+let update_decl_for_primitive_type id decl tSymbol_table = 
+        let sym = Semant.lookup_symbol_by_id tSymbol_table (Identifier(id)) in (match
+        sym with 
+        | VarSymbol(id, type_) -> (match decl with 
+                        | Declaration(_,
+                        InitDeclList([InitDeclarator(DirectDeclarator(_))])) ->
+
+                                generate_decls_and_stmts_from_id tSymbol_table
+                                id decl type_
+        | _ -> raise(Failure("cannot update decl for other symbol right now: " ^
+        id)))) 
+
 let update_decl decl tSymbol_table  = 
                 let id = Semant.var_name_from_declaration decl in 
                    let tType = Semant.type_from_identifier tSymbol_table (Identifier(id))
                    in 
                    
                    match (tType) with 
-                   | PrimitiveType(t) -> (let sym = Semant.lookup_symbol_by_id
-                   tSymbol_table (Identifier(id)) in (match sym with 
-                        | VarSymbol(id, type_) -> (match decl with 
-                                        | Declaration(_,
-                                        InitDeclList([InitDeclarator(DirectDeclarator(_))]))
-                                        -> 
-                                        ([CDeclaration(CDeclSpecTypeSpecAny(cType_from_tType
-                                        tSymbol_table type_), c_init_decl_from_string id)],
-                                        [])
-                                        
-                                        | Declaration(_,
-                                        InitDeclList([InitDeclaratorAsn(_, op,
-                                        expr)])) -> let (updated_expr,
-                                        extra_stmts) = update_expr expr tSymbol_table
-                                         in 
-                                                ([CDeclaration(CDeclSpecTypeSpecAny(cType_from_tType
-                                                tSymbol_table type_),
-                                                c_init_decl_from_string_asn id
-                                                op updated_expr)], extra_stmts)
-                                                )
-                                        )) 
+                   | PrimitiveType(t) -> update_decl_for_primitive_type id decl
+                   tSymbol_table
                    | CustomType(t) -> (let sym = Semant.lookup_symbol_by_id
                    tSymbol_table (Identifier(t)) in ( match sym with
                                         | StructSymbol(s, st) -> if
