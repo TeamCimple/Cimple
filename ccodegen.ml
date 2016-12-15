@@ -182,8 +182,8 @@ and gen_csymbol_list  slist = match slist with
    | h::t -> (gen_csymbol  h) ^ ";\n" ^ (gen_csymbol_list  t)
 
 and gen_cstruct  s = 
-    let sname = s.struct_name in
-    let smembers = (gen_csymbol_list  s.struct_members) in
+    let sname = s.cstruct_name in
+    let smembers = (gen_csymbol_list  s.cstruct_members) in
     "struct " ^ sname ^ "{\n" ^ smembers ^ "}\n"
 
 
