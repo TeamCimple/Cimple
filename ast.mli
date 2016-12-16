@@ -32,6 +32,11 @@ and tType =
 and tIdentifier =
    Identifier of string
 
+and tInitializer = 
+   Initializer of tInitializer
+   | InitializerList of tInitializer list
+   | InitializerExpr of tExpr
+
 and tPointer = 
    PtrType of tPointer * tPointer
  | Pointer

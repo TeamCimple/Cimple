@@ -211,6 +211,16 @@ declarator:
    direct_declarator { DirectDeclarator($1) }
  | pointer direct_declarator { PointerDirDecl($1, $2) }
 
+record_initializer_list:
+   | record_initializer { Initializer($1) } 
+   | record_initializer_list COMMA record_initializer {InitializerList($1 ::
+           [$3])}
+
+record_initializer:
+   assignment_expression { InitializerExpr($1) }
+   | LBRACKET record_initializer_list RBRACKET { $2 }
+   | LBRACKET record_initializer_list COMMA RBRACKET { $2 }
+
 direct_declarator:
     IDENTIFIER { Var(Identifier($1)) }
     | direct_declarator LBRACKET_SQUARE INT_LITERAL RBRACKET_SQUARE
