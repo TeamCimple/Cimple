@@ -94,10 +94,11 @@ let rec gen_cexpr  expr = match expr with
    | CStringLiteral(s) -> s
    | CCastExpr(ct, e) -> "(" ^ (gen_ctype  ct) ^ ")" ^ "(" ^ (gen_cexpr  e) ^ ")"
    | CPostfix(e, pfop) -> (gen_cexpr  e) ^ (gen_postfix_op pfop)
-   | CCall(n, s, e, elist) -> if (n > 0) then (gen_cexpr s) ^ "->" ^ (gen_cexpr
-   e) ^ "(" ^ gen_expr_list elist ^ ")" else (if (s <> CNoexpr) then (gen_cexpr
-   s) ^ "." ^ (gen_cexpr e) ^ "(" ^ gen_expr_list
-   elist ^ ")" else (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")")
+   | CCall(n, s, e, elist) ->
+           if (n > 0) then 
+               (gen_cexpr s)(* ^ "->"*) ^ (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")"
+           else (if (s <> CNoexpr) then
+               (gen_cexpr s) ^ "." ^ (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")" else (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")")
    | CAlloc(ct, s) -> "malloc(" ^ "sizeof(" ^ s ^")" ^ ")"
    | CCompareExpr(e1, op, e2) -> gen_cexpr e1 ^ gen_logical_op op ^
    gen_cexpr e2

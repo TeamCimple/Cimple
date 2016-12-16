@@ -1202,7 +1202,7 @@ let rec cFunc_from_anonDef symbol_table anonDef =
     let rec convert_anon_params symbol_table params =
         (match params with
             [] -> [(CPointerType(CType(CPrimitiveType(Cvoid)), 1), CIdentifier("capture_struct"))]
-          | [p] -> [cFuncParam_from_tFuncParam symbol_table p]
+          | [p] -> [cFuncParam_from_tFuncParam symbol_table p]@[(CPointerType(CType(CPrimitiveType(Cvoid)), 1), CIdentifier("capture_struct"))]
           | h::t -> let htype = (cFuncParam_from_tFuncParam symbol_table h) in
                     let ttype = (convert_anon_params symbol_table t) in
                     [htype]@ttype)
