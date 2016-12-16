@@ -1126,7 +1126,7 @@ let anon_defs_from_tprogram tprog =
     let (defs, _) = (anon_defs_from_func_decl_list ("_", 0) (List.rev tprog.functions)) in
     List.rev defs
 
-let symbols_from_outside_scope_for_anon_def tprogram anonDef = 
+let rec symbols_from_outside_scope_for_anon_def tprogram anonDef = 
    let compare_anon_defs_ignore_name a1 a2 =
        let b1 = {
            anon_name = "";
@@ -1142,13 +1142,16 @@ let symbols_from_outside_scope_for_anon_def tprogram anonDef =
            anon_body = a2.anon_body
        }
        in
+       Printf.printf "b1Def:\n%s\n" (Astutil.string_of_anon_def b1);
+       Printf.printf "b2Def:\n%s\n" (Astutil.string_of_anon_def b2);
        (b1 = b2)
    in
-    let rec expr_contains_anon_def symbols anonDef expr = match expr with 
-        AnonFuncDef(a) -> 
+   let rec expr_contains_anon_def symbols anonDef expr = match expr with 
+      |  AnonFuncDef(a) ->
             if (compare_anon_defs_ignore_name a anonDef) then 
-                (true, symbols) 
-            else (false, symbols)
+                (true, symbols)
+            else
+                (false, symbols)
       | Binop(e1, _, e2) -> 
               let (found, newSyms) = (expr_contains_anon_def symbols anonDef e1) in
               if found then 
@@ -1183,19 +1186,26 @@ let symbols_from_outside_scope_for_anon_def tprogram anonDef =
       | Call(e1, e2, elist) -> 
               let (found, newSyms) = (expr_contains_anon_def symbols anonDef e1) in
               if found then 
-                  (found, newSyms)
+                  (true, newSyms)
               else 
                   let (found, newSyms) = (expr_contains_anon_def newSyms anonDef e2) in
                   if found then 
                       (true, newSyms)
-                  else (false, symbols)
+                  else 
+                      let (found, newSyms) = (expr_list_contains_anon_def newSyms anonDef elist) in
+                      if (found = true) then
+                          (true, newSyms)
+                      else 
+                          (false, symbols)
       | Make(_, elist) -> expr_list_contains_anon_def symbols anonDef elist
       | Pointify(e) -> expr_contains_anon_def symbols anonDef e
       | Deref(e) -> expr_contains_anon_def symbols anonDef e
       | MemAccess(e, _) -> expr_contains_anon_def symbols anonDef e
       | Id(_) -> (false, symbols)
       | DeclExpr(decl) -> declaration_contains_anon_def symbols anonDef decl
-      | _ -> (false, symbols)
+      | Noexpr -> (false, symbols)
+      | Unop(_, _) -> raise(Failure("expr_contains_anon_def: Error - unop not supported"))
+      | _ ->  raise(Failure("expr_contains_anon_def: Error - unexpected expression type"))
 
    and expr_list_contains_anon_def symbols anonDef elist = match elist with
         [] -> (false, symbols)
@@ -1210,6 +1220,22 @@ let symbols_from_outside_scope_for_anon_def tprogram anonDef =
 
    and init_declarator_contains_anon_def symbols anonDef initDecl = match initDecl with
         InitDeclaratorAsn(_, _, e) -> expr_contains_anon_def symbols anonDef e
+      | InitDeclList(idlist) -> init_declarator_list_contains_anon_def symbols anonDef idlist 
+      | _ -> raise(Failure("init_declarator_contains_anon_def: Error - unexpected init_declarator type"))
+      (*| _ -> (false, symbols)*)
+
+   and init_declarator_list_contains_anon_def symbols anonDef initDeclList = match initDeclList with
+        [] -> (false, symbols)
+      | [x] -> init_declarator_contains_anon_def symbols anonDef x
+      | h::t -> let (found, newSyms) = init_declarator_contains_anon_def symbols anonDef h in
+                if found then
+                    (true, newSyms)
+                else 
+                    let (found, newSyms) = init_declarator_list_contains_anon_def newSyms anonDef t in
+                    if found then
+                        (true, newSyms)
+                    else
+                        (false, symbols)
 
    and declaration_contains_anon_def symbols anonDef decl = match decl with
         Declaration(_, initDecl) -> init_declarator_contains_anon_def symbols anonDef initDecl 
@@ -1239,6 +1265,16 @@ let symbols_from_outside_scope_for_anon_def tprogram anonDef =
                             if found then
                                 (true, newSyms)
                             else (false, symbols)
+      | CompoundStatement(declList, stmtList) -> 
+                        let (found, newSyms) = declaration_list_contains_anon_def symbols anonDef declList in
+                                                if found then
+                                                    (true, newSyms)
+                                                else 
+                                                    let (found, newSyms) = statement_list_contains_anon_def newSyms anonDef stmtList in
+                                                    if found then
+                                                        (true, newSyms)
+                                                    else (false, symbols)
+
    and statement_list_contains_anon_def symbols anonDef stmtList = match stmtList with
         [] -> (false, symbols)
       | [s] -> statement_contains_anon_def symbols anonDef s
@@ -1258,11 +1294,11 @@ let symbols_from_outside_scope_for_anon_def tprogram anonDef =
                let psymbols = symbols_from_func_params fdecl.params in
                let bsymbols = symbols_from_decls declList in
                let (found, newSyms) = declaration_list_contains_anon_def (symbols@psymbols@bsymbols) anonDef declList in
-               if found then
+               if (found = true) then
                   (true, newSyms)
                else
                    let (found, newSyms) = statement_list_contains_anon_def (symbols@psymbols@bsymbols) anonDef stmtList in
-                   if found then
+                   if (found = true) then
                        (true, newSyms)
                    else (false, symbols)
 
@@ -1286,16 +1322,16 @@ let symbols_from_outside_scope_for_anon_def tprogram anonDef =
 
    in
 
-   let (_, symlist) = program_contains_anon_def anonDef tprogram in
-   symlist
+   let (found, symlist) = program_contains_anon_def anonDef tprogram in
+   (Printf.printf "%s" (Astutil.string_of_program tprogram));
+   (print_anon_def anonDef);
+   if (found = false) then 
+       raise(Failure("Error: program does not contain anonDef"))
+   else
+       symlist
 
-   (*let statement_contains*)
-   (*let fdecl_contains_anonDef fdecl anonDef = match fdecl with*)
-                            
 
-    
-
-let rec print_anon_def anonDef = 
+and print_anon_def anonDef = 
     Printf.printf "\n%s\n" (Astutil.string_of_anon_def anonDef)
 
 and print_anon_defs = function

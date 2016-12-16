@@ -431,32 +431,41 @@ and struct_members_from_anon_body symbols psymbols members body =
  * anonymous function that were declared outside of its scope.
  *
  * Parameters:
-         * symbols: A hash table of the symbols declared in the outside scope.
-         * structName: a string that will become the name of the struct in the resulting 
-         *              C Program.
+         * program: an Ast.tProgram.
          * def: The Ast.tAnonFuncDef whose body we are looking through to find captured variables
  * ------------------------------------------------------------------------*)
 
-and capture_struct_from_anon_def symbols def = 
+and capture_struct_from_anon_def program def =
+  let symlist = (Semant.symbols_from_outside_scope_for_anon_def program def) in
+  let symbols = Semant.symtable_from_symlist symlist in
+  let builtinDecls = [{
+                       return_type = DeclSpecTypeSpec(Int);
+                       func_name = DirectDeclarator(Var(Identifier("printf")));
+                       params = [FuncParamsDeclared(DeclSpecTypeSpec(String),
+                       DirectDeclarator(Var(Identifier("x"))))];
+                       receiver = ("", "");
+                       body = CompoundStatement([], [])}] in
+  let builtinSyms = Semant.symbols_from_fdecls builtinDecls in
   let rec symconvert m = cSymbol_from_sSymbol symbols m in
   let param_symbols = Semant.symbols_from_func_params def.anon_params in
   let param_symtable = (Semant.symtable_from_symlist param_symbols) in
-  let body_symbols = (Semant.symbols_from_decls (Semant.get_decls_from_compound_stmt def.anon_body)) in
-  let updated_param_symtable = (Semant.add_symbol_list_to_symtable body_symbols param_symtable) in
-  let updated_symtable = (Semant.add_symbol_list_to_symtable (param_symbols@body_symbols) symbols) in
+  (*let body_symbols = (Semant.symbols_from_decls (Semant.get_decls_from_compound_stmt def.anon_body)) in*)
+  (*let updated_param_symtable = (Semant.add_symbol_list_to_symtable body_symbols param_symtable) in*)
+  let updated_symbols = Semant.symtable_from_symlist (builtinSyms@symlist) in
   Printf.printf "Printing body symbol table for: %s\n" (def.anon_name);
-  Astutil.print_symbol_table updated_symtable;
+  Astutil.print_symbol_table symbols;
   Printf.printf "-----------End printing of symbol table\n";
     {
       cstruct_name = def.anon_name;
-      cstruct_members = (List.map symconvert (struct_members_from_anon_body symbols updated_param_symtable [] def.anon_body));
-      cmethod_to_functions = StringMap.empty;
+      cstruct_members = (List.map symconvert (struct_members_from_anon_body updated_symbols param_symtable [] def.anon_body));
+      cmethod_to_functions = StringMap.empty
     }
 
-and capture_struct_list_from_anon_def_list symbols defList = match defList with
+
+and capture_struct_list_from_anon_def_list program defList = match defList with
       [] -> []
-    | [x] -> [capture_struct_from_anon_def symbols x]
-    | h::t -> [capture_struct_from_anon_def symbols h]@capture_struct_list_from_anon_def_list symbols t
+    | [x] -> [capture_struct_from_anon_def program x]
+    | h::t -> [capture_struct_from_anon_def program h]@capture_struct_list_from_anon_def_list program t
 
 and cFunc_from_tMethod cStruct_Name tFuncName = String.concat "_" [cStruct_Name;tFuncName]
 
