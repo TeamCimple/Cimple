@@ -447,16 +447,14 @@ and capture_struct_from_anon_def program def =
                        body = CompoundStatement([], [])}] in
   let builtinSyms = Semant.symbols_from_fdecls builtinDecls in
   let rec symconvert m = cSymbol_from_sSymbol symbols m in
-  let param_symbols = Semant.symbols_from_func_params def.anon_params in
+  let internal_anon_symbols = (fun stmt -> match stmt with 
+                CompoundStatement(declList, _) -> 
+                    Semant.symbols_from_decls declList) def.anon_body in
+  let param_symbols = (Semant.symbols_from_func_params def.anon_params)@internal_anon_symbols in
   let param_symtable = (Semant.symtable_from_symlist param_symbols) in
-  (*let body_symbols = (Semant.symbols_from_decls (Semant.get_decls_from_compound_stmt def.anon_body)) in*)
-  (*let updated_param_symtable = (Semant.add_symbol_list_to_symtable body_symbols param_symtable) in*)
   let updated_symbols = Semant.symtable_from_symlist (builtinSyms@symlist) in
-  Printf.printf "Printing body symbol table for: %s\n" (def.anon_name);
-  Astutil.print_symbol_table symbols;
-  Printf.printf "-----------End printing of symbol table\n";
     {
-      cstruct_name = def.anon_name;
+      cstruct_name = "s" ^ def.anon_name; (* 's' for 'struct' *)
       cstruct_members = (List.map symconvert (struct_members_from_anon_body updated_symbols param_symtable [] def.anon_body));
       cmethod_to_functions = StringMap.empty
     }
@@ -1234,8 +1232,8 @@ let cProgram_from_tProgram program =
 
         let tAnonDefs = Semant.anon_defs_from_tprogram program in 
         let cFuncsTranslatedFromAnonDefs = cFunc_list_from_anonDef_list tSymbol_table tAnonDefs in
-        (*let capture_structs = capture_struct_list_from_anon_def_list tSymbol_table tAnonDefs in *)
-    
+        let capture_structs = capture_struct_list_from_anon_def_list program tAnonDefs in 
+        let updated_cstructs = cstructs@capture_structs in 
         (* The function bodies have not been filled out yet. Just the parameters
          * and return types *)
         let cDeclaredMethodsAndFuncs = cfuncs_methods @ (List.rev (List.map (cFunc_from_tFunc tSymbol_table)

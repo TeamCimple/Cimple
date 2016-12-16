@@ -226,12 +226,8 @@ let test_anon_defs program  =
         let updated_program = Semant.update_structs_in_program program in
         let anon_defs = Semant.anon_defs_from_tprogram updated_program in
         let tSymbol_table = Semant.build_symbol_table updated_program in
-        Astutil.print_symbol_table tSymbol_table;
-        let cCaptures = Ctree.capture_struct_list_from_anon_def_list program anon_defs in 
-        print_anon_capture_struct_list cCaptures;
-        let print_list_size l = Printf.printf "Number of anonymous function definitions: %s\n" (string_of_int (List.length l)) in
-        print_list_size anon_defs;
-        Semant.print_anon_defs anon_defs
+        let cCaptures = List.rev (Ctree.capture_struct_list_from_anon_def_list program anon_defs) in 
+        print_anon_capture_struct_list cCaptures
 
 let gen_cprogram cprogram =
     add_header "stdio" ^ "\n" ^ add_header "stdlib" ^ "\n" ^ (String.concat ";\n" (List.map gen_cdeclaration

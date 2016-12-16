@@ -1142,8 +1142,6 @@ let rec symbols_from_outside_scope_for_anon_def tprogram anonDef =
            anon_body = a2.anon_body
        }
        in
-       Printf.printf "b1Def:\n%s\n" (Astutil.string_of_anon_def b1);
-       Printf.printf "b2Def:\n%s\n" (Astutil.string_of_anon_def b2);
        (b1 = b2)
    in
    let rec expr_contains_anon_def symbols anonDef expr = match expr with 
@@ -1222,7 +1220,6 @@ let rec symbols_from_outside_scope_for_anon_def tprogram anonDef =
         InitDeclaratorAsn(_, _, e) -> expr_contains_anon_def symbols anonDef e
       | InitDeclList(idlist) -> init_declarator_list_contains_anon_def symbols anonDef idlist 
       | _ -> raise(Failure("init_declarator_contains_anon_def: Error - unexpected init_declarator type"))
-      (*| _ -> (false, symbols)*)
 
    and init_declarator_list_contains_anon_def symbols anonDef initDeclList = match initDeclList with
         [] -> (false, symbols)
@@ -1323,8 +1320,6 @@ let rec symbols_from_outside_scope_for_anon_def tprogram anonDef =
    in
 
    let (found, symlist) = program_contains_anon_def anonDef tprogram in
-   (Printf.printf "%s" (Astutil.string_of_program tprogram));
-   (print_anon_def anonDef);
    if (found = false) then 
        raise(Failure("Error: program does not contain anonDef"))
    else
