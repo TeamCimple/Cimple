@@ -699,7 +699,7 @@ let rec update_expr texpr tSymbol_table  = match texpr with
      | StringLiteral(s) -> ((CStringLiteral(s), []), [])
      | Postfix(e1, op) -> (let ((updated_e1, e1_stmts), _) = update_expr e1
                                 tSymbol_table  in ((CPostfix(updated_e1, op), e1_stmts), []))
-     (*| AnonFuncDef(anonDef) -> *)
+     | AnonFuncDef(anonDef) -> ((CNoexpr, []), [])
      | _ ->
              let expr_type = Astutil.string_of_expr texpr in 
              raise(Failure("not finished for type " ^ expr_type))
@@ -1221,10 +1221,6 @@ and cFunc_list_from_anonDef_list symbol_table adlist = match adlist with
             hfuncs@tfuncs
 
         
-(*let rec print_capture_structs symbol_table cs = match cs with*)
-    (*[] -> ()*)
-  (*| [x] -> ()*)
-  (*| h::t -> ()*)
 let cProgram_from_tProgram program =
         let updated_program = Semant.update_structs_in_program program in
 
@@ -1272,7 +1268,7 @@ let cProgram_from_tProgram program =
 
 
         {
-                cstructs = cStructs;
+                cstructs = cStructs@capture_structs;
                 cglobals = [];
                 cfunctions = cFuncs;
         }
