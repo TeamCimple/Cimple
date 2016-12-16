@@ -19,7 +19,7 @@ void capture(func()(string) op)
     string strFromOutsideScope = "This string was captured from the enclosing scope";
     string argS = "";
 
-    apply_op(str, func()(string s) {
+    apply_op(argS, func()(string s) {
         printf(strFromOutsideScope);
     });
 }
