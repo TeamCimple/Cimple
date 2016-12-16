@@ -66,7 +66,7 @@ and cExpr =
    | CPostfix of cExpr * tPostfixOperator
    | CCall of int * cExpr * cExpr * cExpr list (* The int field is a flag to
    indiciate it is a pointer dereference *)
-   | CAlloc of cType * int
+   | CAlloc of cType * string
    | CDeref of cExpr
    | CCompareExpr of cExpr * tLogicalOperator * cExpr
    | CPointify of cExpr
@@ -118,6 +118,9 @@ let interface_field_name_in_struct interface_name struct_name =
 let cStructName_from_tStruct name = 
         String.concat "" ["_struct"; name]
 
+let constructor_name_from_tStruct name = 
+        String.concat "_" ["_constructor";name]
+
 (*let cNullFunction = {*)
     (*cfunc_name = "$NULL_FUNCTION";*)
     (*cfunc_body = CCompoundStatement([], []);*)
@@ -143,6 +146,21 @@ let cType_from_tTypeSpec = function
   | Unsigned -> raise(Failure("cType_from_tTypeSpec: Error, Unsigned unsuported at the moment"))
   | String -> CPointerType(CType(CPrimitiveType(Cchar)), 1) 
   | _ -> raise(Failure("cType_from_tTypeSpec: Error, unsupported tTypeSpec"))
+
+let rec print_pointers n =
+        if (n = 1) then "*" else
+       ( String.concat "" ["*";(print_pointers (n-1))])
+
+let rec sizeof_string tSymbol_table typ_ = match typ_ with 
+  | CType(CPrimitiveType(Cvoid)) -> "void"
+  | CType(CPrimitiveType(Cchar)) -> "char"
+  | CType(CPrimitiveType(Cint)) -> "int"
+  | CType(CPrimitiveType(Clong)) -> "long"
+  | CType(CPrimitiveType(Cfloat)) -> "float"
+  | CType(CPrimitiveType(Cdouble)) -> "double"
+  | CType(CStruct(t)) -> String.concat " " ["struct"; t]
+  | CPointerType(base, n) -> String.concat " " [(sizeof_string tSymbol_table
+  typ_); (print_pointers n)] 
 
 let rec cType_from_tType symbol_table = function
     PrimitiveType(typeSpec) -> cType_from_tTypeSpec typeSpec
@@ -441,7 +459,7 @@ and capture_struct_list_from_anon_def_list symbols defList = match defList with
     | h::t -> [capture_struct_from_anon_def symbols h]@capture_struct_list_from_anon_def_list symbols t
 
 and cFunc_name_for_constructor tStructName = String.concat "_"
-["constructor";tStructName]
+["_constructor";tStructName]
 
 and cFunc_from_tMethod cStruct_Name tFuncName = String.concat "_" [cStruct_Name;tFuncName]
 
@@ -572,7 +590,7 @@ let cFunc_from_tMethod tStructName tFuncName =
         Semant.symbol_table_key_for_method tStructName tFuncName
 
 let first_param_for_constructor struct_name =
-        (CPointerType(CType(CStruct(cStructName_from_tStruct struct_name)), 1),
+        (CPointerType(CType(CStruct(cStructName_from_tStruct struct_name)), 2),
         CIdentifier("_this"))
 
 
@@ -612,7 +630,11 @@ let rec update_expr texpr tSymbol_table  = match texpr with
 
         (CCompareExpr(updated_e1, op, updated_e2), e1_stmts @ e2_stmts))
 
-        | AsnExpr(e1, op, e2)  -> (let (updated_e1, e1_stmts) = update_expr e1
+        | AsnExpr(e1, op, e2)  -> (match e2 with 
+                        | Make(typ_, expr_list) -> cAllocExpr_from_tMakeExpr
+                        tSymbol_table e1 e2
+                        | _ -> ( 
+                        let (updated_e1, e1_stmts) = update_expr e1
                                 tSymbol_table in 
                         let (updated_e2, e2_stmts) = update_expr e2
                         tSymbol_table  in 
@@ -621,7 +643,7 @@ let rec update_expr texpr tSymbol_table  = match texpr with
 
                         let e2_type = Semant.type_from_expr tSymbol_table e2 in 
 
-                        match (e1_type, e2_type) with 
+                        (match (e1_type, e2_type) with 
                         
                         (* Check if we are assigning custom types. Since we are
                          * past semantic analysis the only possibilities are 1.
@@ -653,7 +675,7 @@ let rec update_expr texpr tSymbol_table  = match texpr with
 
                         | _ -> (CAsnExpr(updated_e1, op, updated_e2), e1_stmts
                                         @ e2_stmts)
-                        )
+                        )))
                    
      | Call(expr, Id(Identifier(s)), expr_list) -> 
                      let sym = Semant.type_from_expr tSymbol_table expr in 
@@ -669,14 +691,45 @@ let rec update_expr texpr tSymbol_table  = match texpr with
                 | _ -> raise(Failure("Bad Mem Access")))
      | Id(Identifier(s)) -> (CId(CIdentifier(s)), [])
      | Literal(d) -> (CLiteral(d), [])
-     | Make(typ_, expr_list) -> raise(Failure("Not implemented"))
+     | Make(typ_, expr_list) -> (let ctype = cType_from_tType tSymbol_table typ_
+                  in match typ_ with 
+                | PrimitiveType(s) -> (CAlloc(ctype, (sizeof_string tSymbol_table ctype)), [])
+                | CustomType(s) -> (CAlloc(ctype, (sizeof_string tSymbol_table
+                ctype)), []))
      | FloatLiteral(d) -> (CFloatLiteral(d), [])
      | StringLiteral(s) -> (CStringLiteral(s), [])
      | Postfix(e1, op) -> (let (updated_e1, e1_stmts) = update_expr e1
                                 tSymbol_table  in 
                         (CPostfix(updated_e1, op), e1_stmts))
      | _ -> raise(Failure("not finished"))
- 
+
+and cAllocExpr_from_tMakeExpr tSymbol_table asn_expr tMakeExpr = 
+        let (updated_e1, updated_stmts) = (update_expr asn_expr tSymbol_table) in
+        let Make(typ_, expr_list) = tMakeExpr in
+        let ctype = cType_from_tType tSymbol_table typ_ in  
+        match typ_ with 
+        | CustomType(typ) -> (
+                let StructSymbol(name, tStruct) = Semant.lookup_symbol_by_id
+                tSymbol_table (Identifier(typ)) in 
+
+                if (tStruct.constructor.constructor_name <> "") then (
+                        (* We have a constructor *)
+                        let params = tStruct.constructor.constructor_params in 
+                        let updated_expr_list = (List.map2
+                        (cExpr_from_tExpr_in_tCall tSymbol_table) expr_list params) in 
+
+                        
+                        (CCall(0, CNoexpr,
+                        CId(CIdentifier(constructor_name_from_tStruct
+                        tStruct.struct_name)),
+                        [CPointify(updated_e1)] @ updated_expr_list), [])
+
+                ) else (
+
+                        (CAlloc(ctype, (sizeof_string tSymbol_table
+                                ctype)), [])
+                )
+            )
    
 and cExpr_from_tExpr_in_tCall tSymbol_table  tExpr tFuncParam = 
       let expr_type = Semant.type_from_expr
@@ -734,7 +787,7 @@ and cCallExpr_from_tCallExpr expr tSym  func_name expr_list = match expr with
                                         1), fst (update_expr expr tSym
                                         )) in 
                                 (CCall(1, fst(update_expr expr tSym),
-                                CId(CIdentifier(cFunc_from_tMethod a
+                                CId(CIdentifier(
                                 func_name)), [first_arg] @ (List.map2
                                 (cExpr_from_tExpr_in_tCall tSym ) expr_list
                                 fdecl.params)), [])
@@ -751,10 +804,15 @@ let generate_virtual_table_assignments isPointer tStruct tSymbol_table id=
 
                 let cFunc_name = cFunc_from_tMethod (fst(inter_fdecl.receiver)) tmethod_name in
 
+                if (isPointer >= 0) then 
                 CExpr(CAsnExpr(CMemAccess(isPointer,CId(CIdentifier(id)), CIdentifier(tmethod_name)),
                       Asn,
                      (CId(CIdentifier(cFunc_name)))))
-                ) fdecls
+                else
+                CExpr(CAsnExpr(CMemAccess(1,CDeref(CId(CIdentifier(id))), CIdentifier(tmethod_name)),
+                      Asn,
+                     (CId(CIdentifier(cFunc_name)))))) 
+         fdecls
                                  
 
 let c_init_decl_from_string str = 
@@ -809,7 +867,81 @@ let update_interface_decl_for_struct id struct_name tSymbol_table =
         CDeclaration(CDeclSpecTypeSpecAny(CType(CStruct(cstruct_name_for_interface))),
                                                cinit_decl)
 
+let interface_decl_and_assignments_for_struct isPointer struct_ tSymbol_table id
+= 
+        let custom_type = struct_.struct_name in
+        let virt_table_assignments =
+                        generate_virtual_table_assignments isPointer struct_ tSymbol_table id in 
 
+        let implements = Semant.get_interface_for_struct custom_type tSymbol_table in
+
+        if (implements <> "") then (
+                   let interface = Semant.get_interface tSymbol_table
+                                   (Semant.get_interface_for_struct
+                                    custom_type tSymbol_table) in
+
+                   let interface_decl = update_interface_decl_for_struct
+                        id custom_type tSymbol_table in
+
+                   let cstruct_for_interface = cStructName_from_tInterface
+                                        implements in
+
+                   let access_id = String.concat "" ["_";id;cstruct_for_interface] in 
+
+                   let fdecls = (List.map (fun fdecl -> Semant.var_name_from_direct_declarator
+                                                fdecl.func_name) interface.funcs) in
+                   let interface_assignments  = List.map (fun tmethod_name -> 
+                                   let inter_fdecl =  Semant.get_fdecl_for_receiver 
+                                                custom_type tSymbol_table
+                                                tmethod_name in
+
+                                   let cFunc_name = cFunc_from_tMethod (fst
+                                        (inter_fdecl.receiver)) tmethod_name in
+
+                                        
+                                   CExpr(CAsnExpr(CMemAccess(0,CId(CIdentifier(access_id)),
+                                        CIdentifier(tmethod_name)),
+                                                Asn,
+                                                (CId(CIdentifier(cFunc_name)))))
+                                        ) fdecls in
+                                
+                                 
+                    let reference_implementer_asn =
+                              let struct_expr = if (isPointer = 0) then
+                                      CPointify(CId(CIdentifier(id))) else (if
+                                              (isPointer > 0) then 
+                                              (CId(CIdentifier(id)))
+                                      else 
+                                              (CDeref(CId(CIdentifier(id))))) in
+
+                                        CExpr(CAsnExpr(CMemAccess(0,
+                                        CId(CIdentifier(access_id)),
+                                        CIdentifier("body")), Asn,
+                                        CCastExpr(CPointerType(CType(CPrimitiveType(Cvoid)),
+                                        1), struct_expr))) in
+                                
+                    let interface_field_name = interface_field_name_in_struct implements custom_type in
+
+                    let cStruct_mem_access_expr = if (isPointer >= 0) then CMemAccess(isPointer,
+                                                CId(CIdentifier(id)),
+                                                CIdentifier(interface_field_name))
+                    else (CMemAccess(1, CDeref(CId(CIdentifier(id))),
+                    CIdentifier(interface_field_name))) in 
+                                 
+                    let implementer_add_interface_assn = 
+                                                        CExpr(CAsnExpr(cStruct_mem_access_expr,
+                                                        Asn,
+                                                        CId(CIdentifier(access_id)))) in 
+
+                    let assignments = interface_assignments @
+                                                [reference_implementer_asn] @
+                                                [implementer_add_interface_assn]
+                                                in
+
+                    ([interface_decl],
+                                 assignments@virt_table_assignments) 
+ 
+        ) else ([], virt_table_assignments)
 
 let update_decl_for_custom_type id decl custom_type tSymbol_table = 
         let sym = Semant.lookup_symbol_by_id tSymbol_table
@@ -825,81 +957,11 @@ let update_decl_for_custom_type id decl custom_type tSymbol_table =
                         let (cstruct_decl, stmts) = generate_decls_and_stmts_from_id
                         tSymbol_table id decl cstruct_type in
 
-                        let virt_table_assignments =
-                                generate_virtual_table_assignments 0 struct_
-                                tSymbol_table id in 
+                        let (decls, assigns) =
+                                interface_decl_and_assignments_for_struct 0
+                                struct_ tSymbol_table id in
 
-                        let implements = Semant.get_interface_for_struct
-                        custom_type tSymbol_table in
-
-                        if (implements <> "") then (
-                                let interface = Semant.get_interface tSymbol_table
-                                        (Semant.get_interface_for_struct
-                                        custom_type tSymbol_table) in
-
-                                let interface_decl = update_interface_decl_for_struct
-                        id custom_type tSymbol_table in
-
-                                let cstruct_for_interface =
-                                        cStructName_from_tInterface
-                                        implements in
-
-                                let access_id = String.concat ""
-                                ["_";id;cstruct_for_interface] in 
-
-                                let fdecls = (List.map (fun fdecl -> Semant.var_name_from_direct_declarator
-                                                fdecl.func_name) interface.funcs) in
-                                let interface_assignments  = List.map (fun tmethod_name -> 
-                                        let inter_fdecl =
-                                                Semant.get_fdecl_for_receiver 
-                                                custom_type tSymbol_table
-                                                tmethod_name in
-
-                                        let cFunc_name = cFunc_from_tMethod (fst
-                                        (inter_fdecl.receiver)) tmethod_name in
-
-                                        
-                                        CExpr(CAsnExpr(CMemAccess(0,CId(CIdentifier(access_id)),
-                                        CIdentifier(tmethod_name)),
-                                                Asn,
-                                                (CId(CIdentifier(cFunc_name)))))
-                                        ) fdecls in
-                                
-                                 
-                                 let reference_implementer_asn =
-                                        let struct_expr =
-                                                        CPointify(CId(CIdentifier(id)))
-                                        in
-                                        CExpr(CAsnExpr(CMemAccess(0,
-                                        CId(CIdentifier(access_id)),
-                                        CIdentifier("body")), Asn,
-                                        CCastExpr(CPointerType(CType(CPrimitiveType(Cvoid)),
-                                        1), struct_expr))) in
-                                
-                                 let interface_field_name =
-                                         interface_field_name_in_struct
-                                         implements custom_type in
-
-                                 let cStruct_mem_access_expr =
-                                                CMemAccess(0,
-                                                CId(CIdentifier(id)),
-                                                CIdentifier(interface_field_name)) in 
-                                 
-                                 let implementer_add_interface_assn = 
-                                                        CExpr(CAsnExpr(cStruct_mem_access_expr,
-                                                        Asn,
-                                                        CId(CIdentifier(access_id)))) in 
-
-                                 let assignments = interface_assignments @
-                                                [reference_implementer_asn] @
-                                                [implementer_add_interface_assn]
-                                                in
-
-                                 (cstruct_decl@[interface_decl],
-                                 stmts@assignments@virt_table_assignments) 
- 
-                        )
-                        else (cstruct_decl, stmts@virt_table_assignments)
+                        (cstruct_decl@decls, stmts@assigns)
                         
 
 let update_decl decl tSymbol_table  = 
@@ -956,7 +1018,8 @@ let rec update_statement tstmt tSymbol_table  =  match tstmt with
          in (CExpr(updated_e), stmts)
 
 let cFunc_from_tConstructor symbol_table constructor tStruct = 
-        let cconstructor_name = String.concat "_" ["constructor";tStruct.struct_name]
+        let cconstructor_name = constructor_name_from_tStruct
+        tStruct.struct_name
         in 
         
         let first_param = first_param_for_constructor tStruct.struct_name in 
@@ -969,10 +1032,22 @@ let cFunc_from_tConstructor symbol_table constructor tStruct =
                    tdecl_id tdecl tdecl_type in cdecls @ cdecl
         ) [] tStruct.members in 
 
+        let ctype = cType_from_tType symbol_table
+        (CustomType(tStruct.struct_name)) in
+        
+        let alloc_this = CExpr(CAsnExpr(CDeref(CId(CIdentifier("_this"))),
+                   Asn, CAlloc(ctype, (sizeof_string symbol_table
+                   ctype)))) in         
+       
+        let (decls, interface_assignments) =
+                interface_decl_and_assignments_for_struct (-1) tStruct
+                symbol_table "_this" in 
+
         let tail_assignments = List.fold_left (fun assignments tdecl ->
-                   let tdecl_id = (Semant.var_name_from_declaration tdecl) in 
+                   let tdecl_id = (Semant.var_name_from_declaration tdecl) in
+                   
                    let asn_expr = CExpr(CAsnExpr(CMemAccess(1,
-                   CId(CIdentifier("_this")), CIdentifier(tdecl_id)),
+                   CDeref(CId(CIdentifier("_this"))), CIdentifier(tdecl_id)),
                    Asn, CId(CIdentifier(tdecl_id)))) in assignments @ [asn_expr] ) [] tStruct.members
         in 
 
@@ -984,8 +1059,8 @@ let cFunc_from_tConstructor symbol_table constructor tStruct =
                                                 symbol_table)
                                                 constructor.constructor_params);
 
-                cfunc_body = CCompoundStatement(augmented_decls,
-                tail_assignments);
+                cfunc_body = CCompoundStatement(augmented_decls@decls,
+                [alloc_this] @ tail_assignments @ interface_assignments);
         
                 cfunc_name = cconstructor_name;
 
