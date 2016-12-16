@@ -465,12 +465,7 @@ and capture_struct_list_from_anon_def_list program defList = match defList with
     | [x] -> [capture_struct_from_anon_def program x]
     | h::t -> [capture_struct_from_anon_def program h]@capture_struct_list_from_anon_def_list program t
 
-and cFunc_name_for_constructor tStructName = String.concat "_"
-["_constructor";tStructName]
-
 and cFunc_from_tMethod cStruct_Name tFuncName = String.concat "_" [cStruct_Name;tFuncName]
-
-
 
 and cStruct_from_tStruct symbol_table tStruct = 
         let symconvert m = cSymbol_from_sSymbol symbol_table m in
@@ -729,7 +724,8 @@ and cAllocExpr_from_tMakeExpr tSymbol_table asn_expr tMakeExpr =
                         (CCall(0, CNoexpr,
                         CId(CIdentifier(constructor_name_from_tStruct
                         tStruct.struct_name)),
-                        [CPointify(updated_e1)] @ updated_expr_list), [])
+                        [CCastExpr(CPointerType(CType(CStruct(cStructName_from_tStruct
+                        tStruct.struct_name)), 2), CPointify(updated_e1))] @ updated_expr_list), [])
 
                 ) else (
 
@@ -1169,7 +1165,8 @@ let update_cConstructor tSymbol_table cFunc tStruct =
         (Semant.get_id_from_symbol symbol) symbol m) tSymbol_table ((Semant.symbols_from_decls
         (Semant.get_decls_from_compound_stmt
         tStruct.constructor.constructor_body)) @ (Semant.symbols_from_decls
-        tStruct.members)) in 
+        tStruct.members) @ (Semant.symbols_from_func_params
+        tStruct.constructor.constructor_params))  in 
 
         let CCompoundStatement(decls, stmts) = cFunc.cfunc_body in 
         let CCompoundStatement(updated_decls, updated_stmts) = fst

@@ -10,6 +10,7 @@ rule token = parse
 | "--" { MINUSMINUS }
 | '-' { MINUS }
 | "-=" { MINUS_ASSIGN }
+| "/*" { comment 1 lexbuf} 
 | '*' { TIMES }
 | "*=" { TIMES_ASSIGN }
 | '/' { DIVIDE }
@@ -92,3 +93,9 @@ rule token = parse
 | ['A'-'Z']+['a'-'z''A'-'Z''_''0'-'9']* as structLit {
         STRUCT_IDENTIFIER(structLit) } 
 | eof { EOF }
+| _ as char { raise (Failure("illegal character " ^ Char.escaped char)) }
+
+and comment depth = parse
+  "/*"  {comment (depth+1) lexbuf}
+|   "*/" { if (depth = 1) then token lexbuf else comment (depth-1) lexbuf}
+| _ { comment depth lexbuf }

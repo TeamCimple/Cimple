@@ -1,6 +1,6 @@
 TARFILES = Makefile scanner.mll parser.mly ast.mli cimple.ml
 
-OBJS = parser.cmo scanner.cmo astutil.cmo semant.cmo ctree.cmo ccodegen.cmo cimple.cmo  
+OBJS = parser.cmo scanner.cmo astutil.cmo semant.cmo ctree.cmo ccodegen.cmo cimple.cmo
 
 all: clean cimple
 
