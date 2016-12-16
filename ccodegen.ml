@@ -95,9 +95,10 @@ let rec gen_cexpr  expr = match expr with
    | CCastExpr(ct, e) -> "(" ^ (gen_ctype  ct) ^ ")" ^ "(" ^ (gen_cexpr  e) ^ ")"
    | CPostfix(e, pfop) -> (gen_cexpr  e) ^ (gen_postfix_op pfop)
    | CCall(n, s, e, elist) -> if (n > 0) then (gen_cexpr s) ^ "->" ^ (gen_cexpr
-   e) ^ "(" ^ gen_expr_list elist ^ ")" else (gen_cexpr e) ^ "(" ^ gen_expr_list
-   elist ^ ")"
-   | CAlloc(ct, n) -> "malloc(" ^ (string_of_int n) ^ ")"
+   e) ^ "(" ^ gen_expr_list elist ^ ")" else (if (s <> CNoexpr) then (gen_cexpr
+   s) ^ "." ^ (gen_cexpr e) ^ "(" ^ gen_expr_list
+   elist ^ ")" else (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")")
+   | CAlloc(ct, s) -> "malloc(" ^ "sizeof(" ^ s ^")" ^ ")"
    | CCompareExpr(e1, op, e2) -> gen_cexpr e1 ^ gen_logical_op op ^
    gen_cexpr e2
    | CPointify(e) -> "&(" ^ (gen_cexpr  e) ^ ")"
@@ -105,6 +106,7 @@ let rec gen_cexpr  expr = match expr with
    ^a) else (gen_cexpr e
    ^ "." ^ a)
    | CId(CIdentifier(s)) -> s
+   | CDeref(e) -> "(*" ^ gen_cexpr e ^ ")"
    | CDeclExpr(d) -> gen_cdeclaration  d
    | _ -> ""
 
@@ -137,10 +139,18 @@ and gen_cfunc_param  fparam = match fparam with
                 (rtype ^ "(*" ^ s ^ ")(" ^ ptypes ^ ")")
           | _ -> (gen_ctype  ct) ^ " " ^ s)
 
+and gen_cfunc_param_type fparam = match fparam with
+    (ct, _) -> (gen_ctype ct)
+
 and gen_cfunc_param_list  plist = match plist with
       [] -> ""
     | [p] -> gen_cfunc_param  p
     | h::t -> (gen_cfunc_param  h) ^ ", " ^ (gen_cfunc_param_list  t)
+
+and gen_cfunc_param_type_list plist = match plist with 
+      [] -> ""
+    | [p] -> gen_cfunc_param_type p
+    | h::t -> (gen_cfunc_param_type h) ^ ", " ^ (gen_cfunc_param_type_list t)
 
 and gen_cdeclaration  dcltn = match dcltn with
       CDeclaration(declSpecs, initDecl) -> (gen_cdeclaration_specifiers  declSpecs) ^ " " ^ (gen_cinit_declarator  initDecl)
@@ -182,8 +192,8 @@ and gen_csymbol_list  slist = match slist with
    | h::t -> (gen_csymbol  h) ^ ";\n" ^ (gen_csymbol_list  t)
 
 and gen_cstruct  s = 
-    let sname = s.struct_name in
-    let smembers = (gen_csymbol_list  s.struct_members) in
+    let sname = s.cstruct_name in
+    let smembers = (gen_csymbol_list  s.cstruct_members) in
     "struct " ^ sname ^ "{\n" ^ smembers ^ "}\n"
 
 
@@ -192,7 +202,13 @@ and gen_cfunc f =
     let fname = f.cfunc_name in
     let fparams = (gen_cfunc_param_list  f.cfunc_params) in
     let fbody = (gen_cstatement  f.cfunc_body) in
-    rtype ^ " " ^ fname ^ " ( " ^ fparams ^ ")" ^ fbody ^ "\n\n"  
+    rtype ^ " " ^ fname ^ " ( " ^ fparams ^ ")" ^ fbody ^ "\n\n"
+ 
+and gen_cfunc_header f = 
+    let rtype = (gen_ctype f.creturn_type) in 
+    let fname = f.cfunc_name in 
+    let fparams = (gen_cfunc_param_type_list f.cfunc_params) in 
+    rtype ^ " " ^ fname ^ " ( " ^ fparams ^ ")" ^ "\n\n" 
 
 
 let rec print_anon_capture_struct cs = 
@@ -218,8 +234,9 @@ let test_anon_defs program  =
         Semant.print_anon_defs anon_defs
 
 let gen_cprogram cprogram =
-    add_header "stdio" ^ "\n" ^ (String.concat ";\n" (List.map gen_cdeclaration
+    add_header "stdio" ^ "\n" ^ add_header "stdlib" ^ "\n" ^ (String.concat ";\n" (List.map gen_cdeclaration
     cprogram.cglobals)) ^ (String.concat ";\n" (List.map gen_cstruct
-    cprogram.cstructs)) ^ ";\n\n" ^ (String.concat "\n" (List.map gen_cfunc
+    cprogram.cstructs)) ^ ";\n\n" ^ (String.concat ";\n" (List.map gen_cfunc_header
+    cprogram.cfunctions))  ^ ";\n\n" ^ (String.concat "\n" (List.map gen_cfunc
     (cprogram.cfunctions)));
 

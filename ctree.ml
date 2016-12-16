@@ -20,9 +20,9 @@ type cProgram = {
 }
 
 and cStruct = {
-  struct_name: string;
-  struct_members: cSymbol list;
-  method_to_functions: cFunc StringMap.t;
+  cstruct_name: string;
+  cstruct_members: cSymbol list;
+  cmethod_to_functions: cFunc StringMap.t;
 }
 
 and cFuncSignature = {
@@ -66,7 +66,8 @@ and cExpr =
    | CPostfix of cExpr * tPostfixOperator
    | CCall of int * cExpr * cExpr * cExpr list (* The int field is a flag to
    indiciate it is a pointer dereference *)
-   | CAlloc of cType * int
+   | CAlloc of cType * string
+   | CDeref of cExpr
    | CCompareExpr of cExpr * tLogicalOperator * cExpr
    | CPointify of cExpr
    | CMemAccess of int * cExpr * cIdentifier (* The int field is a flag to
@@ -117,6 +118,9 @@ let interface_field_name_in_struct interface_name struct_name =
 let cStructName_from_tStruct name = 
         String.concat "" ["_struct"; name]
 
+let constructor_name_from_tStruct name = 
+        String.concat "_" ["_constructor";name]
+
 (*let cNullFunction = {*)
     (*cfunc_name = "$NULL_FUNCTION";*)
     (*cfunc_body = CCompoundStatement([], []);*)
@@ -142,6 +146,21 @@ let cType_from_tTypeSpec = function
   | Unsigned -> raise(Failure("cType_from_tTypeSpec: Error, Unsigned unsuported at the moment"))
   | String -> CPointerType(CType(CPrimitiveType(Cchar)), 1) 
   | _ -> raise(Failure("cType_from_tTypeSpec: Error, unsupported tTypeSpec"))
+
+let rec print_pointers n =
+        if (n = 1) then "*" else
+       ( String.concat "" ["*";(print_pointers (n-1))])
+
+let rec sizeof_string tSymbol_table typ_ = match typ_ with 
+  | CType(CPrimitiveType(Cvoid)) -> "void"
+  | CType(CPrimitiveType(Cchar)) -> "char"
+  | CType(CPrimitiveType(Cint)) -> "int"
+  | CType(CPrimitiveType(Clong)) -> "long"
+  | CType(CPrimitiveType(Cfloat)) -> "float"
+  | CType(CPrimitiveType(Cdouble)) -> "double"
+  | CType(CStruct(t)) -> String.concat " " ["struct"; t]
+  | CPointerType(base, n) -> String.concat " " [(sizeof_string tSymbol_table
+  typ_); (print_pointers n)] 
 
 let rec cType_from_tType symbol_table = function
     PrimitiveType(typeSpec) -> cType_from_tTypeSpec typeSpec
@@ -241,9 +260,9 @@ let cStruct_from_tInterface symbol_table interface =
         1))] in (* This is the void * body that we apply to all the functions *) 
         let cSymbols = List.map (cDeclaration_from_tFdecl symbol_table) interface.funcs in 
         {
-                struct_members = cBodySymbol @ cSymbols;
-                struct_name = cStructName_from_tInterface interface.name;
-                method_to_functions = StringMap.empty
+                cstruct_members = cBodySymbol @ cSymbols;
+                cstruct_name = cStructName_from_tInterface interface.name;
+                cmethod_to_functions = StringMap.empty
         }
 
 let cSymbol_from_Implements implements =
@@ -437,9 +456,9 @@ and capture_struct_from_anon_def program def =
   Astutil.print_symbol_table symbols;
   Printf.printf "-----------End printing of symbol table\n";
     {
-      struct_name = def.anon_name;
-      struct_members = (List.map symconvert (struct_members_from_anon_body updated_symbols param_symtable [] def.anon_body));
-      method_to_functions = StringMap.empty
+      cstruct_name = def.anon_name;
+      cstruct_members = (List.map symconvert (struct_members_from_anon_body updated_symbols param_symtable [] def.anon_body));
+      cmethod_to_functions = StringMap.empty
     }
 
 
@@ -448,7 +467,12 @@ and capture_struct_list_from_anon_def_list program defList = match defList with
     | [x] -> [capture_struct_from_anon_def program x]
     | h::t -> [capture_struct_from_anon_def program h]@capture_struct_list_from_anon_def_list program t
 
+and cFunc_name_for_constructor tStructName = String.concat "_"
+["_constructor";tStructName]
+
 and cFunc_from_tMethod cStruct_Name tFuncName = String.concat "_" [cStruct_Name;tFuncName]
+
+
 
 and cStruct_from_tStruct symbol_table tStruct = 
         let symconvert m = cSymbol_from_sSymbol symbol_table m in
@@ -499,9 +523,9 @@ and cStruct_from_tStruct symbol_table tStruct =
                                             (StringMap.empty, []) tStruct.methods) in
 
         ({
-                struct_name = cStructName_from_tStruct tStruct.struct_name;
-                struct_members = cStructMemberSymbols;
-                method_to_functions = methods_to_cfunctions;
+                cstruct_name = cStructName_from_tStruct tStruct.struct_name;
+                cstruct_members = cStructMemberSymbols;
+                cmethod_to_functions = methods_to_cfunctions;
         }, cfuncs)
 
 let cDeclarationSpecifiers_from_tDeclarationSpecifiers symbol_table tDeclSpecs = function
@@ -531,9 +555,9 @@ let cStruct_from_tInterface symbol_table interface =
         1))] in (* This is the void * body that we apply to all the functions *) 
         let bols = List.map (cDeclaration_from_tFdecl symbol_table) interface.funcs in 
         {
-                struct_members = cBodySymbol @ bols;
-                struct_name = cStructName_from_tInterface interface.name;
-                method_to_functions = StringMap.empty
+                cstruct_members = cBodySymbol @ bols;
+                cstruct_name = cStructName_from_tInterface interface.name;
+                cmethod_to_functions = StringMap.empty
         }
 
 let bol_from_Implements implements struct_name =
@@ -550,7 +574,8 @@ let create_cfunc_param_for_receiver receiver =
         (CPointerType(CType(CPrimitiveType(Cvoid)), 1),
         CIdentifier("_body"))
 
- let create_initial_cast_decl receiver =
+
+let create_initial_cast_decl receiver =
         let cstruct_name = cStructName_from_tStruct (fst receiver) in  
         CDeclaration(CDeclSpecTypeSpecAny(CPointerType(CType(CStruct(cstruct_name)),
         1)), CInitDeclaratorAsn(CDirectDeclarator(CVar(CIdentifier(snd receiver)))
@@ -573,10 +598,500 @@ let cFunc_from_tFunc symbol_table tFunc =
 let cFunc_from_tMethod tStructName tFuncName =
         Semant.symbol_table_key_for_method tStructName tFuncName
 
+let first_param_for_constructor struct_name =
+        (CPointerType(CType(CStruct(cStructName_from_tStruct struct_name)), 2),
+        CIdentifier("_this"))
+
+
+and cFunction_from_tMethod object_type method_ tSymbol_table = 
+        match object_type  with 
+        | CustomType(name) -> ( let typ_symbol  =
+                Semant.lookup_symbol_by_id tSymbol_table (Identifier(name)) in match
+                typ_symbol with 
+                | StructSymbol(_, _) -> cFunc_from_tMethod
+                (name) method_
+                | InterfaceSymbol(_, _) -> method_)
+        | PointerType(CustomType(name), 1) -> ( let typ_symbol  =
+                Semant.lookup_symbol_by_id tSymbol_table (Identifier(name)) in match
+                typ_symbol with 
+                | StructSymbol(_, _) -> cFunc_from_tMethod
+                ( name) method_ 
+                | InterfaceSymbol(_, _) -> method_)
+        | _ -> raise(Failure("not done"))
+(*
+ * This function takes a cimple expression and returns the pair (C expression,
+ * statement[]). The idea is that some cimple expression may generate multiple
+ * assignment statements such as a make expression with a constructor.
+ * Expressions should not create more declarations, only declarations create
+ * more declarations.
+ *)
+let rec update_expr texpr tSymbol_table  = match texpr with
+        | Binop(e1, op, e2) -> (let (updated_e1, e1_stmts) = update_expr e1
+                                tSymbol_table in 
+                        let (updated_e2, e2_stmts) = update_expr e2
+                        tSymbol_table  in 
+
+                        (CBinop(updated_e1, op, updated_e1), e1_stmts @
+                        e2_stmts))
+        | CompareExpr(e1, op, e2) -> ( let (updated_e1, e1_stmts) = update_expr
+        e1 tSymbol_table in let (updated_e2, e2_stmts) = update_expr e2
+        tSymbol_table in 
+
+        (CCompareExpr(updated_e1, op, updated_e2), e1_stmts @ e2_stmts))
+
+        | AsnExpr(e1, op, e2)  -> (match e2 with 
+                        | Make(typ_, expr_list) -> cAllocExpr_from_tMakeExpr
+                        tSymbol_table e1 e2
+                        | _ -> ( 
+                        let (updated_e1, e1_stmts) = update_expr e1
+                                tSymbol_table in 
+                        let (updated_e2, e2_stmts) = update_expr e2
+                        tSymbol_table  in 
+
+                        let e1_type = Semant.type_from_expr tSymbol_table e1 in 
+
+                        let e2_type = Semant.type_from_expr tSymbol_table e2 in 
+
+                        (match (e1_type, e2_type) with 
+                        
+                        (* Check if we are assigning custom types. Since we are
+                         * past semantic analysis the only possibilities are 1.
+                         * we are assining a derived class to its ancestor or 2.
+                         * we are assigning the same types. In those cases we
+                         * need to cast *) 
+
+                        | (PointerType(CustomType(s), _),
+                        PointerType(CustomType(t), _)) ->  (if
+                                (Semant.t1_inherits_t2 s t tSymbol_table) then 
+                                (CAsnExpr(updated_e1, op,
+                                CCastExpr((cType_from_tType tSymbol_table
+                                e1_type), updated_e2)), e1_stmts @
+                                e2_stmts)
+                                
+                                else 
+                                        (CAsnExpr(updated_e1, op, updated_e2), e1_stmts
+                                        @ e2_stmts))
+                        | (CustomType(s), CustomType(t)) -> (if
+                                (Semant.t1_inherits_t2 s t tSymbol_table) then 
+                                (CAsnExpr(updated_e1, op,
+                                CCastExpr((cType_from_tType tSymbol_table
+                                e1_type), updated_e2)), e1_stmts @
+                                e2_stmts)
+                                
+                                else 
+                                        (CAsnExpr(updated_e1, op, updated_e2), e1_stmts
+                                        @ e2_stmts))
+
+                        | _ -> (CAsnExpr(updated_e1, op, updated_e2), e1_stmts
+                                        @ e2_stmts)
+                        )))
+                   
+     | Call(expr, Id(Identifier(s)), expr_list) -> 
+                     let sym = Semant.type_from_expr tSymbol_table expr in 
+                                        cCallExpr_from_tCallExpr expr
+                                        tSymbol_table s expr_list                  
+     | MemAccess(expr, Identifier(s)) -> (let typ_ = Semant.type_from_expr
+     tSymbol_table expr in match (typ_) with 
+                | CustomType(name) -> (CMemAccess(0, fst (update_expr expr
+                tSymbol_table ), CIdentifier(s)), [])
+                | PointerType(CustomType(name), 1) -> (CMemAccess(1, fst
+                (update_expr expr tSymbol_table ), CIdentifier(s)),
+                [])
+                | _ -> raise(Failure("Bad Mem Access")))
+     | Id(Identifier(s)) -> (CId(CIdentifier(s)), [])
+     | Literal(d) -> (CLiteral(d), [])
+     | Make(typ_, expr_list) -> (let ctype = cType_from_tType tSymbol_table typ_
+                  in match typ_ with 
+                | PrimitiveType(s) -> (CAlloc(ctype, (sizeof_string tSymbol_table ctype)), [])
+                | CustomType(s) -> (CAlloc(ctype, (sizeof_string tSymbol_table
+                ctype)), []))
+     | FloatLiteral(d) -> (CFloatLiteral(d), [])
+     | StringLiteral(s) -> (CStringLiteral(s), [])
+     | Postfix(e1, op) -> (let (updated_e1, e1_stmts) = update_expr e1
+                                tSymbol_table  in 
+                        (CPostfix(updated_e1, op), e1_stmts))
+     | _ -> raise(Failure("not finished"))
+
+and cAllocExpr_from_tMakeExpr tSymbol_table asn_expr tMakeExpr = 
+        let (updated_e1, updated_stmts) = (update_expr asn_expr tSymbol_table) in
+        let Make(typ_, expr_list) = tMakeExpr in
+        let ctype = cType_from_tType tSymbol_table typ_ in  
+        match typ_ with 
+        | CustomType(typ) -> (
+                let StructSymbol(name, tStruct) = Semant.lookup_symbol_by_id
+                tSymbol_table (Identifier(typ)) in 
+
+                if (tStruct.constructor.constructor_name <> "") then (
+                        (* We have a constructor *)
+                        let params = tStruct.constructor.constructor_params in 
+                        let updated_expr_list = (List.map2
+                        (cExpr_from_tExpr_in_tCall tSymbol_table) expr_list params) in 
+
+                        
+                        (CCall(0, CNoexpr,
+                        CId(CIdentifier(constructor_name_from_tStruct
+                        tStruct.struct_name)),
+                        [CPointify(updated_e1)] @ updated_expr_list), [])
+
+                ) else (
+
+                        (CAlloc(ctype, (sizeof_string tSymbol_table
+                                ctype)), [])
+                )
+            )
+   
+and cExpr_from_tExpr_in_tCall tSymbol_table  tExpr tFuncParam = 
+      let expr_type = Semant.type_from_expr
+        tSymbol_table tExpr in let param_type = Semant.type_from_func_param
+        tFuncParam in  match (expr_type, param_type) with
+                        |  (CustomType(a), CustomType(b)) -> if (Semant.is_interface
+                        tSymbol_table (Identifier(b))) then CPointify(CMemAccess(0, fst (update_expr tExpr
+                        tSymbol_table ),
+                        CIdentifier(interface_field_name_in_struct b a))) else ( if
+                                (Semant.t1_inherits_t2 a b tSymbol_table) then
+                                        CCastExpr(CType(CStruct(cStructName_from_tStruct
+                                        b)), fst (update_expr tExpr
+                                        tSymbol_table )) else fst (update_expr tExpr
+                                        tSymbol_table ))
+                        | (PointerType(CustomType(a), 1),
+                        CustomType(b)) ->  CPointify(CMemAccess(1, fst (update_expr tExpr
+                        tSymbol_table ),
+                        CIdentifier(interface_field_name_in_struct b a)))
+                        | _ -> fst (update_expr tExpr tSymbol_table
+                        )
+
+and cCallExpr_from_tCallExpr expr tSym  func_name expr_list = match expr with
+        | Noexpr -> let FuncSymbol(_, fdecl) = StringMap.find func_name tSym in (CCall(0,
+        CNoexpr, CId(CIdentifier(func_name)), (List.map2
+        (cExpr_from_tExpr_in_tCall tSym ) expr_list fdecl.params)), [])
+
+        | _ -> let expr_type = Semant.type_from_expr tSym expr in (match expr_type with 
+                | CustomType(a) -> let fdecl = Semant.get_fdecl_for_receiver a
+                tSym func_name in 
+
+                        if (Semant.is_interface tSym (Identifier(a))) then
+                                let updated_expr = (fst (update_expr expr tSym))
+                                in 
+                                let cexpr_list = [CMemAccess(1,
+                                (updated_expr), CIdentifier("body"))] @
+                                (List.map2 (cExpr_from_tExpr_in_tCall tSym)
+                                expr_list fdecl.params) in 
+
+                                (CCall(1, (fst (update_expr expr tSym )),
+                                CId(CIdentifier(func_name)), cexpr_list), [])
+                        else
+                                let first_arg =
+                                        CCastExpr(CPointerType(CType(CPrimitiveType(Cvoid)),
+                                        1), CPointify(fst (update_expr expr tSym
+                                        ))) in 
+                                (CCall(0, fst( (update_expr expr tSym)),
+                                CId(CIdentifier(
+                                func_name)), [first_arg] @ (List.map2
+                                (cExpr_from_tExpr_in_tCall tSym ) expr_list
+                                fdecl.params)), [])
+               | PointerType(CustomType(a), 1) -> let fdecl =
+                       Semant.get_fdecl_for_receiver a tSym func_name in 
+                                let first_arg =
+                                        CCastExpr(CPointerType(CType(CPrimitiveType(Cvoid)),
+                                        1), fst (update_expr expr tSym
+                                        )) in 
+                                (CCall(1, fst(update_expr expr tSym),
+                                CId(CIdentifier(
+                                func_name)), [first_arg] @ (List.map2
+                                (cExpr_from_tExpr_in_tCall tSym ) expr_list
+                                fdecl.params)), [])
+               | _ -> raise(Failure("No other functions can call methods")))
+
+let generate_virtual_table_assignments isPointer tStruct tSymbol_table id= 
+        let fdecls = Semant.get_unique_method_names_for_struct tSymbol_table tStruct in
+        
+         List.map (fun tmethod_name -> 
+                                       
+                let inter_fdecl = Semant.get_fdecl_for_receiver 
+                                           tStruct.struct_name tSymbol_table
+                                           tmethod_name in
+
+                let cFunc_name = cFunc_from_tMethod (fst(inter_fdecl.receiver)) tmethod_name in
+
+                if (isPointer >= 0) then 
+                CExpr(CAsnExpr(CMemAccess(isPointer,CId(CIdentifier(id)), CIdentifier(tmethod_name)),
+                      Asn,
+                     (CId(CIdentifier(cFunc_name)))))
+                else
+                CExpr(CAsnExpr(CMemAccess(1,CDeref(CId(CIdentifier(id))), CIdentifier(tmethod_name)),
+                      Asn,
+                     (CId(CIdentifier(cFunc_name)))))) 
+         fdecls
+                                 
+
+let c_init_decl_from_string str = 
+       CInitDeclarator(CDirectDeclarator(CVar(CIdentifier(str))))
+
+let c_init_decl_from_string_asn str op cExpr = 
+       CInitDeclaratorAsn(CDirectDeclarator(CVar(CIdentifier(str))), op, cExpr) 
+        
+
+let generate_decls_and_stmts_from_id tSymbol_table id decl typ_ = 
+       match decl with 
+       | Declaration(_, InitDeclList([InitDeclarator(_)])) ->
+                       let ctype = cType_from_tType tSymbol_table typ_ in 
+                       let cinit_decl = c_init_decl_from_string id in 
+                       ([CDeclaration(CDeclSpecTypeSpecAny(ctype),
+                       cinit_decl)], [])
+
+       | Declaration(_, InitDeclList([InitDeclaratorAsn(_, op, expr)])) -> 
+                       let (updated_expr, extra_stmts) = update_expr expr
+                       tSymbol_table in
+
+                       let ctype = cType_from_tType tSymbol_table typ_ in
+                       let cinit_decl = c_init_decl_from_string_asn id op
+                       updated_expr in 
+
+                       ([CDeclaration(CDeclSpecTypeSpecAny(ctype),
+                       cinit_decl)], extra_stmts)
+
+
+let update_decl_for_non_custom_type id decl tSymbol_table = 
+        let sym = Semant.lookup_symbol_by_id tSymbol_table (Identifier(id)) in (match
+        sym with 
+        | VarSymbol(id, type_) -> (match decl with 
+                        | Declaration(_,
+                        InitDeclList([InitDeclarator(DirectDeclarator(_))])) ->
+
+                                generate_decls_and_stmts_from_id tSymbol_table
+                                id decl type_
+        | _ -> raise(Failure("cannot update decl for other symbol right now: " ^
+        id)))) 
+
+let update_interface_decl_for_struct id struct_name tSymbol_table = 
+        let interface = Semant.get_interface tSymbol_table
+        (Semant.get_interface_for_struct struct_name tSymbol_table) in
+
+        let cstruct_name_for_interface = cStructName_from_tInterface
+        interface.name in
+
+        let cinit_decl = c_init_decl_from_string (String.concat ""
+        ["_";id;(cStructName_from_tInterface interface.name)]) in 
+
+        CDeclaration(CDeclSpecTypeSpecAny(CType(CStruct(cstruct_name_for_interface))),
+                                               cinit_decl)
+
+let interface_decl_and_assignments_for_struct isPointer struct_ tSymbol_table id
+= 
+        let custom_type = struct_.struct_name in
+        let virt_table_assignments =
+                        generate_virtual_table_assignments isPointer struct_ tSymbol_table id in 
+
+        let implements = Semant.get_interface_for_struct custom_type tSymbol_table in
+
+        if (implements <> "") then (
+                   let interface = Semant.get_interface tSymbol_table
+                                   (Semant.get_interface_for_struct
+                                    custom_type tSymbol_table) in
+
+                   let interface_decl = update_interface_decl_for_struct
+                        id custom_type tSymbol_table in
+
+                   let cstruct_for_interface = cStructName_from_tInterface
+                                        implements in
+
+                   let access_id = String.concat "" ["_";id;cstruct_for_interface] in 
+
+                   let fdecls = (List.map (fun fdecl -> Semant.var_name_from_direct_declarator
+                                                fdecl.func_name) interface.funcs) in
+                   let interface_assignments  = List.map (fun tmethod_name -> 
+                                   let inter_fdecl =  Semant.get_fdecl_for_receiver 
+                                                custom_type tSymbol_table
+                                                tmethod_name in
+
+                                   let cFunc_name = cFunc_from_tMethod (fst
+                                        (inter_fdecl.receiver)) tmethod_name in
+
+                                        
+                                   CExpr(CAsnExpr(CMemAccess(0,CId(CIdentifier(access_id)),
+                                        CIdentifier(tmethod_name)),
+                                                Asn,
+                                                (CId(CIdentifier(cFunc_name)))))
+                                        ) fdecls in
+                                
+                                 
+                    let reference_implementer_asn =
+                              let struct_expr = if (isPointer = 0) then
+                                      CPointify(CId(CIdentifier(id))) else (if
+                                              (isPointer > 0) then 
+                                              (CId(CIdentifier(id)))
+                                      else 
+                                              (CDeref(CId(CIdentifier(id))))) in
+
+                                        CExpr(CAsnExpr(CMemAccess(0,
+                                        CId(CIdentifier(access_id)),
+                                        CIdentifier("body")), Asn,
+                                        CCastExpr(CPointerType(CType(CPrimitiveType(Cvoid)),
+                                        1), struct_expr))) in
+                                
+                    let interface_field_name = interface_field_name_in_struct implements custom_type in
+
+                    let cStruct_mem_access_expr = if (isPointer >= 0) then CMemAccess(isPointer,
+                                                CId(CIdentifier(id)),
+                                                CIdentifier(interface_field_name))
+                    else (CMemAccess(1, CDeref(CId(CIdentifier(id))),
+                    CIdentifier(interface_field_name))) in 
+                                 
+                    let implementer_add_interface_assn = 
+                                                        CExpr(CAsnExpr(cStruct_mem_access_expr,
+                                                        Asn,
+                                                        CId(CIdentifier(access_id)))) in 
+
+                    let assignments = interface_assignments @
+                                                [reference_implementer_asn] @
+                                                [implementer_add_interface_assn]
+                                                in
+
+                    ([interface_decl],
+                                 assignments@virt_table_assignments) 
+ 
+        ) else ([], virt_table_assignments)
+
+let update_decl_for_custom_type id decl custom_type tSymbol_table = 
+        let sym = Semant.lookup_symbol_by_id tSymbol_table
+        (Identifier(custom_type)) in 
+
+        match sym with 
+        | StructSymbol(s, struct_) -> 
+                        let cstruct_name = cStructName_from_tStruct custom_type
+                        in 
+
+                        let cstruct_type = CustomType(custom_type) in 
+
+                        let (cstruct_decl, stmts) = generate_decls_and_stmts_from_id
+                        tSymbol_table id decl cstruct_type in
+
+                        let (decls, assigns) =
+                                interface_decl_and_assignments_for_struct 0
+                                struct_ tSymbol_table id in
+
+                        (cstruct_decl@decls, stmts@assigns)
+                        
+
+let update_decl decl tSymbol_table  = 
+                let id = Semant.var_name_from_declaration decl in 
+                   let tType = Semant.type_from_identifier tSymbol_table (Identifier(id))
+                   in 
+                   
+                   match (tType) with
+                   | PrimitiveType(t) -> update_decl_for_non_custom_type id decl
+                   tSymbol_table
+                   | CustomType(t) -> update_decl_for_custom_type id decl t
+                   tSymbol_table
+                   | _ -> generate_decls_and_stmts_from_id tSymbol_table id decl tType
+                                     
+                               
+let rec update_statement tstmt tSymbol_table  =  match tstmt with 
+        | CompoundStatement(decls, stmts) -> let (new_decls, new_stmts) =
+                List.fold_left (fun decl_stmt_acc decl -> let (n_decls, n_stmts)
+                = update_decl decl
+                tSymbol_table  in ((fst (decl_stmt_acc)) @ n_decls,
+                (snd (decl_stmt_acc) @ n_stmts))) ([], []) decls in 
+        
+                let more_new_stmts = List.fold_left (fun stmt_acc stmt -> let
+                (updated_stmt, additional_stmts) = update_statement stmt
+                tSymbol_table  in stmt_acc @
+                additional_stmts @ [updated_stmt]) [] stmts in 
+
+                (CCompoundStatement(new_decls, new_stmts @ more_new_stmts), [])
+
+        | EmptyElse -> (CEmptyElse, [])
+        | Return(e) -> let (updated_e, stmts) = update_expr e tSymbol_table
+         in (CReturn(updated_e), stmts)
+        | If(e, stmt1, stmt2) -> let (updated_expr, stmts) = update_expr e
+        tSymbol_table  in let (updated_stmt1, additional_stmts) = update_statement
+        stmt1 tSymbol_table   in let (updated_stmt2,
+        additional_stmts2) =
+                update_statement stmt2 tSymbol_table  in
+        (CIf(updated_expr, updated_stmt1, updated_stmt2), additional_stmts @
+        additional_stmts2)
+        | For(e1, e2, e3, stmt) -> let (updated_e1, stmts_e1) = update_expr e1
+        tSymbol_table  in let (updated_e2, stmts_e2) = update_expr
+        e2 tSymbol_table  in let (updated_e3, stmts_e3) =
+                update_expr e3 tSymbol_table  in let (updated_stmt,
+                additional_stmts) = update_statement stmt  tSymbol_table
+                 in (CFor(updated_e1, updated_e2, updated_e3,
+                updated_stmt), stmts_e1 @ stmts_e2 @ stmts_e3 @
+                additional_stmts)
+        | While(e1, stmt) -> let (updated_e1, stmts_e1) = update_expr e1
+        tSymbol_table  in let (updated_stmt, additional_stmts) =
+                update_statement stmt tSymbol_table  in
+        (CWhile(updated_e1, updated_stmt), stmts_e1 @ additional_stmts)
+        | Break -> (CBreak, [])
+        | Expr(e) -> let (updated_e, stmts) = update_expr e tSymbol_table
+         in (CExpr(updated_e), stmts)
+
+let cFunc_from_tConstructor symbol_table constructor tStruct = 
+        let cconstructor_name = constructor_name_from_tStruct
+        tStruct.struct_name
+        in 
+        
+        let first_param = first_param_for_constructor tStruct.struct_name in 
+
+        let augmented_decls = List.fold_left (fun cdecls tdecl ->
+                   let tdecl_id = (Semant.var_name_from_declaration tdecl) in
+                   let tdecl_type = (Semant.type_from_declaration tdecl) in 
+
+                   let (cdecl, _)  = generate_decls_and_stmts_from_id symbol_table
+                   tdecl_id tdecl tdecl_type in cdecls @ cdecl
+        ) [] tStruct.members in 
+
+        let ctype = cType_from_tType symbol_table
+        (CustomType(tStruct.struct_name)) in
+        
+        let alloc_this = CExpr(CAsnExpr(CDeref(CId(CIdentifier("_this"))),
+                   Asn, CAlloc(ctype, (sizeof_string symbol_table
+                   ctype)))) in         
+       
+        let (decls, interface_assignments) =
+                interface_decl_and_assignments_for_struct (-1) tStruct
+                symbol_table "_this" in 
+
+        let tail_assignments = List.fold_left (fun assignments tdecl ->
+                   let tdecl_id = (Semant.var_name_from_declaration tdecl) in
+                   
+                   let asn_expr = CExpr(CAsnExpr(CMemAccess(1,
+                   CDeref(CId(CIdentifier("_this"))), CIdentifier(tdecl_id)),
+                   Asn, CId(CIdentifier(tdecl_id)))) in assignments @ [asn_expr] ) [] tStruct.members
+        in 
+
+        {
+                creturn_type = CType(CPrimitiveType(Cvoid));
+                                                
+                cfunc_params = [first_param] @ (List.map
+                                                (cFuncParam_from_tFuncParam
+                                                symbol_table)
+                                                constructor.constructor_params);
+
+                cfunc_body = CCompoundStatement(augmented_decls@decls,
+                [alloc_this] @ tail_assignments @ interface_assignments);
+        
+                cfunc_name = cconstructor_name;
+
+        } 
+
+
 let cStruct_from_tStruct symbol_table tStruct = 
-        let defaultStructMemberSymbols = List.map (cSymbol_from_sSymbol
+        let fieldSymbols = List.map (cSymbol_from_sSymbol
         symbol_table) (List.map (Semant.symbol_from_declaration)
-        tStruct.members) in 
+        tStruct.members) in
+
+        let all_methods_for_struct = (List.map (Semant.get_fdecl_for_receiver
+                tStruct.struct_name symbol_table)
+                (Semant.get_unique_method_names_for_struct symbol_table
+                tStruct))
+        in
+
+        let methodMemberSymbols = List.map (cDeclaration_from_tFdecl
+                        symbol_table)
+                        all_methods_for_struct in
+        
+        let defaultStructMemberSymbols = fieldSymbols @ methodMemberSymbols in
 
         (* If there is an interface then add a struct member corresponding to
          * the interface to our struct *)
@@ -621,367 +1136,18 @@ let cStruct_from_tStruct symbol_table tStruct =
                                          } in (StringMap.add tfunc_name cfunc
                                          sym, cfunc_list @ [cfunc])))
                                             (StringMap.empty, []) tStruct.methods) in
-
-        ({
-                struct_name = cStructName_from_tStruct tStruct.struct_name;
-                struct_members = cStructMemberSymbols;
-                method_to_functions = methods_to_cfunctions;
-        }, cfuncs)
-
-let cFunction_from_tMethod object_type method_ tSymbol_table = 
-        match object_type  with 
-        | CustomType(name) -> ( let typ_symbol  =
-                Semant.lookup_symbol_by_id tSymbol_table (Identifier(name)) in match
-                typ_symbol with 
-                | StructSymbol(_, _) -> cFunc_from_tMethod
-                (name) method_
-                | InterfaceSymbol(_, _) -> method_)
-        | PointerType(CustomType(name), 1) -> ( let typ_symbol  =
-                Semant.lookup_symbol_by_id tSymbol_table (Identifier(name)) in match
-                typ_symbol with 
-                | StructSymbol(_, _) -> cFunc_from_tMethod
-                ( name) method_ 
-                | InterfaceSymbol(_, _) -> method_)
-        | _ -> raise(Failure("not done"))
-(*
- * This function takes a cimple expression and returns the pair (C expression,
- * statement[]). The idea is that some cimple expression may generate multiple
- * assignment statements such as a make expression with a constructor.
- * Expressions should not create more declarations, only declarations create
- * more declarations.
- *)
-let rec update_expr texpr tSymbol_table  = match texpr with
-        | Binop(e1, op, e2) -> (let (updated_e1, e1_stmts) = update_expr e1
-                                tSymbol_table in 
-                        let (updated_e2, e2_stmts) = update_expr e2
-                        tSymbol_table  in 
-
-                        (CBinop(updated_e1, op, updated_e1), e1_stmts @
-                        e2_stmts))
-        | CompareExpr(e1, op, e2) -> ( let (updated_e1, e1_stmts) = update_expr
-        e1 tSymbol_table in let (updated_e2, e2_stmts) = update_expr e2
-        tSymbol_table in 
-
-        (CCompareExpr(updated_e1, op, updated_e2), e1_stmts @ e2_stmts))
-
-        | AsnExpr(e1, op, e2)  -> (let (updated_e1, e1_stmts) = update_expr e1
-                                tSymbol_table in 
-                        let (updated_e2, e2_stmts) = update_expr e2
-                        tSymbol_table  in 
-
-                        let e1_type = Semant.type_from_expr tSymbol_table e1 in 
-
-                        let e2_type = Semant.type_from_expr tSymbol_table e2 in 
-
-                        match (e1_type, e2_type) with 
-                        
-                        (* Check if we are assigning custom types. Since we are
-                         * past semantic analysis the only possibilities are 1.
-                         * we are assining a derived class to its ancestor or 2.
-                         * we are assigning the same types. In those cases we
-                         * need to cast *) 
-
-                        | (PointerType(CustomType(s), _),
-                        PointerType(CustomType(t), _)) ->  (if
-                                (Semant.t1_inherits_t2 s t tSymbol_table) then 
-                                (CAsnExpr(updated_e1, op,
-                                CCastExpr((cType_from_tType tSymbol_table
-                                e1_type), updated_e2)), e1_stmts @
-                                e2_stmts)
-                                
-                                else 
-                                        (CAsnExpr(updated_e1, op, updated_e2), e1_stmts
-                                        @ e2_stmts))
-                        | (CustomType(s), CustomType(t)) -> (if
-                                (Semant.t1_inherits_t2 s t tSymbol_table) then 
-                                (CAsnExpr(updated_e1, op,
-                                CCastExpr((cType_from_tType tSymbol_table
-                                e1_type), updated_e2)), e1_stmts @
-                                e2_stmts)
-                                
-                                else 
-                                        (CAsnExpr(updated_e1, op, updated_e2), e1_stmts
-                                        @ e2_stmts))
-
-                        | _ -> (CAsnExpr(updated_e1, op, updated_e2), e1_stmts
-                                        @ e2_stmts)
-                        )
-                   
-     | Call(expr, Id(Identifier(s)), expr_list) -> 
-                     let sym = Semant.type_from_expr tSymbol_table expr in 
-                                        cCallExpr_from_tCallExpr expr
-                                        tSymbol_table s expr_list                  
-     | MemAccess(expr, Identifier(s)) -> (let typ_ = Semant.type_from_expr
-     tSymbol_table expr in match (typ_) with 
-                | CustomType(name) -> (CMemAccess(0, fst (update_expr expr
-                tSymbol_table ), CIdentifier(s)), [])
-                | PointerType(CustomType(name), 1) -> (CMemAccess(1, fst
-                (update_expr expr tSymbol_table ), CIdentifier(s)),
-                [])
-                | _ -> raise(Failure("Bad Mem Access")))
-     | Id(Identifier(s)) -> (CId(CIdentifier(s)), [])
-     | Literal(d) -> (CLiteral(d), [])
-     | FloatLiteral(d) -> (CFloatLiteral(d), [])
-     | StringLiteral(s) -> (CStringLiteral(s), [])
-     | Postfix(e1, op) -> (let (updated_e1, e1_stmts) = update_expr e1
-                                tSymbol_table  in 
-                        (CPostfix(updated_e1, op), e1_stmts))
-     | _ -> raise(Failure("not finished"))
- 
-and cExpr_from_tExpr_in_tCall tSymbol_table  tExpr tFuncParam = 
-      let expr_type = Semant.type_from_expr
-        tSymbol_table tExpr in let param_type = Semant.type_from_func_param
-        tFuncParam in  match (expr_type, param_type) with
-                        |  (CustomType(a), CustomType(b)) -> if (Semant.is_interface
-                        tSymbol_table (Identifier(b))) then CPointify(CMemAccess(0, fst (update_expr tExpr
-                        tSymbol_table ),
-                        CIdentifier(interface_field_name_in_struct b a))) else ( if
-                                (Semant.t1_inherits_t2 a b tSymbol_table) then
-                                        CCastExpr(CType(CStruct(cStructName_from_tStruct
-                                        b)), fst (update_expr tExpr
-                                        tSymbol_table )) else fst (update_expr tExpr
-                                        tSymbol_table ))
-                        | (PointerType(CustomType(a), 1),
-                        CustomType(b)) ->  CPointify(CMemAccess(1, fst (update_expr tExpr
-                        tSymbol_table ),
-                        CIdentifier(interface_field_name_in_struct b a)))
-                        | _ -> fst (update_expr tExpr tSymbol_table
-                        )
-
-and cCallExpr_from_tCallExpr expr tSym  func_name expr_list = match expr with
-        | Noexpr -> let FuncSymbol(_, fdecl) = StringMap.find func_name tSym in (CCall(0,
-        CNoexpr, CId(CIdentifier(func_name)), (List.map2
-        (cExpr_from_tExpr_in_tCall tSym ) expr_list fdecl.params)), [])
-
-        | _ -> let expr_type = Semant.type_from_expr tSym expr in (match expr_type with 
-                | CustomType(a) -> let fdecl = Semant.get_fdecl_for_receiver a
-                func_name tSym in 
-
-                        if (Semant.is_interface tSym (Identifier(a))) then
-                                let updated_expr = (fst (update_expr expr tSym))
-                                in 
-                                let cexpr_list = [CMemAccess(1,
-                                (updated_expr), CIdentifier("body"))] @
-                                (List.map2 (cExpr_from_tExpr_in_tCall tSym)
-                                expr_list fdecl.params) in 
-
-                                (CCall(1, (fst (update_expr expr tSym )),
-                                CId(CIdentifier(func_name)), cexpr_list), [])
-                        else
-                                let first_arg =
-                                        CCastExpr(CPointerType(CType(CPrimitiveType(Cvoid)),
-                                        1), CPointify(fst (update_expr expr tSym
-                                        ))) in 
-                                (CCall(0, CNoexpr,
-                                CId(CIdentifier(cFunc_from_tMethod a
-                                func_name)), [first_arg] @ (List.map2
-                                (cExpr_from_tExpr_in_tCall tSym ) expr_list
-                                fdecl.params)), [])
-               | PointerType(CustomType(a), 1) -> let fdecl =
-                       Semant.get_fdecl_for_receiver a func_name tSym in 
-                                let first_arg =
-                                        CCastExpr(CPointerType(CType(CPrimitiveType(Cvoid)),
-                                        1), fst (update_expr expr tSym
-                                        )) in 
-                                (CCall(0, CNoexpr,
-                                CId(CIdentifier(cFunc_from_tMethod a
-                                func_name)), [first_arg] @ (List.map2
-                                (cExpr_from_tExpr_in_tCall tSym ) expr_list
-                                fdecl.params)), [])
-               | _ -> raise(Failure("No other functions can call methods")))
- 
-
-let c_init_decl_from_string str = 
-       CInitDeclarator(CDirectDeclarator(CVar(CIdentifier(str))))
-
-let c_init_decl_from_string_asn str op cExpr = 
-       CInitDeclaratorAsn(CDirectDeclarator(CVar(CIdentifier(str))), op, cExpr) 
         
+        let cFunc_for_constructor = if (tStruct.constructor.constructor_name <>
+        "") then cFunc_from_tConstructor symbol_table tStruct.constructor
+        tStruct else {creturn_type = CType(CPrimitiveType(Cvoid)); cfunc_params
+        = []; cfunc_body = CCompoundStatement([], []); cfunc_name = ""} in 
 
-let update_decl decl tSymbol_table  = 
-                let id = Semant.var_name_from_declaration decl in 
-                   let tType = Semant.type_from_identifier tSymbol_table (Identifier(id))
-                   in 
-                   
-                   match (tType) with 
-                   | PrimitiveType(t) -> (let sym = Semant.lookup_symbol_by_id
-                   tSymbol_table (Identifier(id)) in (match sym with 
-                        | VarSymbol(id, type_) -> (match decl with 
-                                        | Declaration(_,
-                                        InitDeclList([InitDeclarator(DirectDeclarator(_))]))
-                                        -> 
-                                        ([CDeclaration(CDeclSpecTypeSpecAny(cType_from_tType
-                                        tSymbol_table type_), c_init_decl_from_string id)],
-                                        [])
-                                        
-                                        | Declaration(_,
-                                        InitDeclList([InitDeclaratorAsn(_, op,
-                                        expr)])) -> let (updated_expr,
-                                        extra_stmts) = update_expr expr tSymbol_table
-                                         in 
-                                                ([CDeclaration(CDeclSpecTypeSpecAny(cType_from_tType
-                                                tSymbol_table type_),
-                                                c_init_decl_from_string_asn id
-                                                op updated_expr)], extra_stmts)
-                                                )
-                                        )) 
-                   | CustomType(t) -> (let sym = Semant.lookup_symbol_by_id
-                   tSymbol_table (Identifier(t)) in ( match sym with
-                                        | StructSymbol(s, st) -> if
-                                                (Semant.get_interface_for_struct t
-                                                tSymbol_table
-                                       <> "") then (
-                                                let interface_ =
-                                                        Semant.get_interface
-                                                        tSymbol_table
-                                                        (Semant.get_interface_for_struct
-                                                        t tSymbol_table) in 
+         ({
+                cstruct_name = cStructName_from_tStruct tStruct.struct_name;
+                cstruct_members = cStructMemberSymbols;
+                cmethod_to_functions = methods_to_cfunctions;
+        }, cfuncs, (tStruct, cFunc_for_constructor))
 
-                                                let cInterfaceDecl = 
-                                                      CDeclaration(CDeclSpecTypeSpecAny(CType(CStruct(cStructName_from_tInterface
-                                                interface_.name))),
-                                                c_init_decl_from_string (String.concat ""
-                                                ["_";id;(cStructName_from_tInterface
-                                                interface_.name)])) in
-
-                                                let cdecl = (match decl with
-                                                        | Declaration(_,
-                                                        InitDeclList([InitDeclarator(DirectDeclarator(_))]))
-                                                        ->  
-                                                        CDeclaration(CDeclSpecTypeSpecAny(CType(CStruct(cStructName_from_tStruct
-                                                        st.struct_name))),
-                                                        c_init_decl_from_string
-                                                        id)
-                                                        
-                                                        | _ ->
-                                                                        raise(Failure("Need
-                                                                        to
-                                                                        implement
-                                                                        InitDeclAsn")))
-                                                in
-                                                
-                                                let decls = [cInterfaceDecl] @
-                                                [cdecl] in 
-                                                
-                                                (* Assign the C function
-                                                        * associated with the
-                                                        * method to the
-                                                        * corresponding field of
-                                                        * the newly created
-                                                        * interface struct *) 
-                                                let method_asns = List.map (fun
-                                                        tmethod_name
-                                                -> let
-                                                inter_fdecl =
-                                                        Semant.get_fdecl_for_receiver
-                                                        s tmethod_name
-                                                        tSymbol_table in
-                                                CExpr(CAsnExpr(CMemAccess(0,
-                                                (CId(CIdentifier(String.concat ""
-                                                ["_";id;(cStructName_from_tInterface
-                                                interface_.name)]))),
-                                                (CIdentifier(tmethod_name))),
-                                                Asn,
-                                                (let cfunc_name =
-                                                        cFunc_from_tMethod
-                                                        (fst
-                                                        (inter_fdecl.receiver)) tmethod_name  in
-                                                (CId(CIdentifier(cfunc_name)))))))
-                                                (List.map (fun fdecl ->
-                                                        Semant.var_name_from_direct_declarator
-                                                fdecl.func_name) interface_.funcs) in 
-
-                                                let reference_implementer_asn =
-                                                        CExpr(CAsnExpr(CMemAccess(0,
-                                                        (CId(CIdentifier(String.concat ""
-                                                ["_";id;(cStructName_from_tInterface
-                                                interface_.name)]))),
-                                                (CIdentifier("body"))), Asn,
-                                                CCastExpr(CPointerType(CType(CPrimitiveType(Cvoid)),
-                                                1),
-                                                CPointify(CId((CIdentifier(id)))))))
-                                                in
-
-                                                let
-                                                implementer_add_interface_assn = 
-                                                        CExpr(CAsnExpr(CMemAccess(0,
-                                                        CId(CIdentifier(id)),
-                                                        CIdentifier(interface_field_name_in_struct
-                                                interface_.name s)), Asn,
-                                                CId(CIdentifier(String.concat ""
-                                                ["_";id;(cStructName_from_tInterface
-                                                interface_.name)])))) in 
-
-                                                let assignments = method_asns @
-                                                [reference_implementer_asn] @
-                                                [implementer_add_interface_assn]
-                                                in
-
-                                                (decls, assignments) 
-
-                                       ) else let cdecl = (match decl with
-                                                        | Declaration(_,
-                                                        InitDeclList([InitDeclarator(DirectDeclarator(_))]))
-                                                        ->  
-                                                        CDeclaration(CDeclSpecTypeSpecAny(CType(CStruct(cStructName_from_tStruct
-                                                        st.struct_name))),
-                                                        c_init_decl_from_string
-                                                        id)
-                                                        
-                                                        | _ ->
-                                                                        raise(Failure("Need
-                                                                        to
-                                                                        implement
-                                                                        InitDeclAsn"))
-                                       ) in 
-                                       ([cdecl], [])
-                                        | _ -> raise(Failure("Non struct type
-                                        decl'd"))))
-
-               
-               
-
-                               
-let rec update_statement tstmt tSymbol_table  =  match tstmt with 
-        | CompoundStatement(decls, stmts) -> let (new_decls, new_stmts) =
-                List.fold_left (fun decl_stmt_acc decl -> let (n_decls, n_stmts)
-                = update_decl decl
-                tSymbol_table  in ((fst (decl_stmt_acc)) @ n_decls,
-                (snd (decl_stmt_acc) @ n_stmts))) ([], []) decls in 
-        
-                let more_new_stmts = List.fold_left (fun stmt_acc stmt -> let
-                (updated_stmt, additional_stmts) = update_statement stmt
-                tSymbol_table  in stmt_acc @
-                additional_stmts @ [updated_stmt]) [] stmts in 
-
-                (CCompoundStatement(new_decls, new_stmts @ more_new_stmts), [])
-
-        | EmptyElse -> (CEmptyElse, [])
-        | Return(e) -> let (updated_e, stmts) = update_expr e tSymbol_table
-         in (CReturn(updated_e), stmts)
-        | If(e, stmt1, stmt2) -> let (updated_expr, stmts) = update_expr e
-        tSymbol_table  in let (updated_stmt1, additional_stmts) = update_statement
-        stmt1 tSymbol_table   in let (updated_stmt2,
-        additional_stmts2) =
-                update_statement stmt2 tSymbol_table  in
-        (CIf(updated_expr, updated_stmt1, updated_stmt2), additional_stmts @
-        additional_stmts2)
-        | For(e1, e2, e3, stmt) -> let (updated_e1, stmts_e1) = update_expr e1
-        tSymbol_table  in let (updated_e2, stmts_e2) = update_expr
-        e2 tSymbol_table  in let (updated_e3, stmts_e3) =
-                update_expr e3 tSymbol_table  in let (updated_stmt,
-                additional_stmts) = update_statement stmt  tSymbol_table
-                 in (CFor(updated_e1, updated_e2, updated_e3,
-                updated_stmt), stmts_e1 @ stmts_e2 @ stmts_e3 @
-                additional_stmts)
-        | While(e1, stmt) -> let (updated_e1, stmts_e1) = update_expr e1
-        tSymbol_table  in let (updated_stmt, additional_stmts) =
-                update_statement stmt tSymbol_table  in
-        (CWhile(updated_e1, updated_stmt), stmts_e1 @ additional_stmts)
-        | Break -> (CBreak, [])
-        | Expr(e) -> let (updated_e, stmts) = update_expr e tSymbol_table
-         in (CExpr(updated_e), stmts)
-        
       
 let update_cFunc tSymbol_table cFunc tFunc  =
         let updated_symbol_table = List.fold_left (fun m symbol -> StringMap.add
@@ -998,6 +1164,26 @@ let update_cFunc tSymbol_table cFunc tFunc  =
                 cfunc_body = CCompoundStatement(decls @ updated_decls,
                 updated_stmts);
                 cfunc_params = cFunc.cfunc_params; 
+        }
+
+let update_cConstructor tSymbol_table cFunc tStruct = 
+        let updated_symbol_table = List.fold_left (fun m symbol -> StringMap.add
+        (Semant.get_id_from_symbol symbol) symbol m) tSymbol_table ((Semant.symbols_from_decls
+        (Semant.get_decls_from_compound_stmt
+        tStruct.constructor.constructor_body)) @ (Semant.symbols_from_decls
+        tStruct.members)) in 
+
+        let CCompoundStatement(decls, stmts) = cFunc.cfunc_body in 
+        let CCompoundStatement(updated_decls, updated_stmts) = fst
+        (update_statement tStruct.constructor.constructor_body
+        updated_symbol_table) in 
+
+        {
+                cfunc_name = cFunc.cfunc_name;
+                creturn_type = cFunc.creturn_type;
+                cfunc_body = CCompoundStatement(decls @ updated_decls,
+                updated_stmts @ stmts);
+                cfunc_params = cFunc.cfunc_params;
         }
 
 let rec cFunc_from_anonDef symbol_table anonDef =
@@ -1027,7 +1213,6 @@ and cFunc_list_from_anonDef_list symbol_table adlist = match adlist with
     (*[] -> ()*)
   (*| [x] -> ()*)
   (*| h::t -> ()*)
-
 let cProgram_from_tProgram program =
         let updated_program = Semant.update_structs_in_program program in
 
@@ -1035,9 +1220,14 @@ let cProgram_from_tProgram program =
         Astutil.print_symbol_table tSymbol_table;
         let cstructs_and_functions = List.map (cStruct_from_tStruct tSymbol_table) updated_program.structs in 
 
-        let cstructs = List.map fst cstructs_and_functions in 
+        let cstructs = List.map (fun (structs, _, _) -> structs) cstructs_and_functions in 
 
-        let cfuncs_methods = List.concat (List.map snd cstructs_and_functions) in 
+        let cfuncs_methods = List.concat (List.map (fun(_, methods, _) ->
+                methods) cstructs_and_functions) in 
+
+        let cconstructors = List.map (fun(_, _, constructor) -> constructor)
+        (List.filter (fun(_, _, (_, const)) -> if (const.cfunc_name = "") then false
+        else true) cstructs_and_functions) in
 
         let cStructs = (List.map (cStruct_from_tInterface
         tSymbol_table) program.interfaces) @ cstructs in
@@ -1049,16 +1239,23 @@ let cProgram_from_tProgram program =
         (* The function bodies have not been filled out yet. Just the parameters
          * and return types *)
         let cDeclaredMethodsAndFuncs = cfuncs_methods @ (List.rev (List.map (cFunc_from_tFunc tSymbol_table)
-        (List.filter (fun fdecl -> if (fdecl.receiver = ("", "")) then true else
+        (List.filter (fun fdecl ->
+                if (fdecl.receiver = ("", "")) then true else
                 false) program.functions))) in 
                 
-        let cUpdatedDeclaredMethodsAndFuncs = List.fold_left (fun acc cFunc -> let sym_ = StringMap.find
+        let cUpdatedDeclaredMethodsAndFuncs = List.fold_left (fun acc cFunc ->
+                let sym_ = StringMap.find
         cFunc.cfunc_name tSymbol_table in (match sym_ with 
-                       | FuncSymbol(_, fdecl) -> acc @ [update_cFunc tSymbol_table
-                       cFunc fdecl] 
-                       | _ -> raise(Failure("error")))) [] cDeclaredMethodsAndFuncs in 
+                                | FuncSymbol(_, fdecl) -> acc @ [update_cFunc tSymbol_table
+                                        cFunc fdecl] 
+                                | _ -> raise(Failure("error")))
+                       ) [] cDeclaredMethodsAndFuncs in
+
+        let cConstructors = List.fold_left (fun acc (tStruct, cConst) ->
+                acc @ [update_cConstructor tSymbol_table cConst tStruct]) []
+                cconstructors in
        
-        let cFuncs = cUpdatedDeclaredMethodsAndFuncs @ cFuncsTranslatedFromAnonDefs
+        let cFuncs = cConstructors @ cUpdatedDeclaredMethodsAndFuncs @ cFuncsTranslatedFromAnonDefs
         in
 
 
