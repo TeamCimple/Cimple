@@ -726,7 +726,8 @@ and cAllocExpr_from_tMakeExpr tSymbol_table asn_expr tMakeExpr =
                         (CCall(0, CNoexpr,
                         CId(CIdentifier(constructor_name_from_tStruct
                         tStruct.struct_name)),
-                        [CPointify(updated_e1)] @ updated_expr_list), [])
+                        [CCastExpr(CPointerType(CType(CStruct(cStructName_from_tStruct
+                        tStruct.struct_name)), 2), CPointify(updated_e1))] @ updated_expr_list), [])
 
                 ) else (
 

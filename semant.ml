@@ -269,6 +269,32 @@ let rec t1_implements_t2 t1 t2 symbols =
                         | _ -> raise(Failure("Not supported")))
                | _ -> raise(Failure("Not supported"))
 
+let rec t1_inherits_t2 t1 t2 symbols = 
+        let sym1 = (lookup_symbol_by_id symbols (Identifier(t1))) in 
+                match sym1 with 
+                | StructSymbol(typ_, struct_) -> (let sym2 =
+                        (lookup_symbol_by_id symbols (Identifier(t2))) in match
+                        sym2 with
+                        | StructSymbol(typ2_, struct2_) -> if (struct_.extends
+                        <> "") then (if (struct_.extends = struct2_.struct_name)
+                        then true else t1_inherits_t2 struct_.extends t2 symbols) else
+                                false)
+
+let check_compatible_custom_types symbols t1 t2 =
+        let t1_sym = lookup_symbol_by_id symbols t1 in 
+        let t2_sym  = lookup_symbol_by_id symbols t2 in 
+        match (t1_sym, t2_sym) with 
+        | (StructSymbol(t1_name, t1_struct), StructSymbol(t2_name, t2_struct))
+        -> if (t1_name = t2_name || (t1_inherits_t2 t1_name t2_name symbols)) then () else
+                raise(Failure("Incompatible types:" ^ t1_name ^ "," ^ t2_name))
+        | (StructSymbol(t1_name, t1_struct), InterfaceSymbol(name, _)) ->
+                        raise(Failure("Incompatible types:" ^ t1_name ^ "," ^
+                        name))
+        | (InterfaceSymbol(name, _), StructSymbol(t2_name, t2_struct)) -> if
+                (t1_implements_t2 t2_name name symbols) then () else
+                        raise(Failure("Incompatible types:" ^ t2_name ^ "," ^
+                        name)) 
+
 let rec check_compatible_anon_types symbols t1 t2 =
         let f a b =
             let error_str = "t1 = " ^ string_of_type t1 ^ ", t2 = " ^ string_of_type t2
@@ -304,9 +330,8 @@ and check_compatible_types symbols t1 t2 = match (t1, t2) with
   incompatible with custom type"))
   | (CustomType(_), PrimitiveType(_)) -> raise(Failure("Custom type incompatible
   with primitive type"))
-  | (CustomType(a), CustomType(b)) -> if (a = b) then () else (if
-          ((t1_inherits_t2 a b symbols) || t1_implements_t2 a b symbols) then () else
-          raise(Failure("Incompatible custom types: " ^ a ^ " " ^ b)))
+  | (CustomType(a), CustomType(b)) -> check_compatible_custom_types symbols (Identifier(a))
+  (Identifier(b)) 
   | (PointerType(CustomType(a), 1), CustomType(b)) -> if (t1_implements_t2 a b
   symbols) then () else raise(Failure("Incompatible types, pointer and custom type: "
   ^ a ^ " " ^ b))
@@ -550,7 +575,7 @@ let rec check_expr symbols e = match e with
                                  (PrimitiveType(Void), _) | (_, PrimitiveType(Void)) -> raise(Failure("Cannot assign to type void"))
                                | (PrimitiveType(_), CustomType(_)) -> raise(Failure("Cannot assign a struct to a primitive type"))
                                | (CustomType(_), PrimitiveType(_)) -> raise(Failure("Cannot assign a primitive type to a struct"))
-                               | _ -> check_compatible_types symbols t1 t2)
+                               | _ -> check_compatible_types symbols t2 t1)
    | _ -> raise(Failure("unmatched expression"))
 
 let symbols_from_decls decls = List.map symbol_from_declaration decls
