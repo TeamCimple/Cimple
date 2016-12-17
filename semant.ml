@@ -1150,25 +1150,42 @@ and anon_defs_from_func_decl_list (prefix, count) fdlist = match fdlist with
 let anon_defs_from_tprogram tprog =
     let (defs, _) = (anon_defs_from_func_decl_list ("_", 0) (List.rev tprog.functions)) in
     List.rev defs
+   
+let compare_anon_defs_ignore_name a1 a2 =
+   let b1 = {
+       anon_name = "";
+       anon_return_type = a1.anon_return_type;
+       anon_params = a1.anon_params;
+       anon_body = a1.anon_body
+   }
+   in
+   let b2 = {
+       anon_name = "";
+       anon_return_type = a2.anon_return_type;
+       anon_params = a2.anon_params;
+       anon_body = a2.anon_body
+   }
+   in
+   (b1 = b2)
+
+let find_name_for_anon_def tprogram anonDef = 
+    let anonDefs = anon_defs_from_tprogram tprogram in 
+    let find_match (isFound, targetDef) def = 
+        if (isFound = true) then 
+            (isFound, targetDef) (* Leave alone *)
+        else
+            if ((compare_anon_defs_ignore_name targetDef def) = true) then
+                (true, def)
+            else
+                (false, targetDef)
+    in
+    let (found, def) = List.fold_left find_match (false, anonDef) anonDefs in
+    if (found = true) then
+        def.anon_name
+    else
+        raise(Failure("find_name_for_anon_def: Error - could not find a matching anonymous function definition"))
 
 let rec symbols_from_outside_scope_for_anon_def tprogram anonDef = 
-   let compare_anon_defs_ignore_name a1 a2 =
-       let b1 = {
-           anon_name = "";
-           anon_return_type = a1.anon_return_type;
-           anon_params = a1.anon_params;
-           anon_body = a1.anon_body
-       }
-       in
-       let b2 = {
-           anon_name = "";
-           anon_return_type = a2.anon_return_type;
-           anon_params = a2.anon_params;
-           anon_body = a2.anon_body
-       }
-       in
-       (b1 = b2)
-   in
    let rec expr_contains_anon_def symbols anonDef expr = match expr with 
       |  AnonFuncDef(a) ->
             if (compare_anon_defs_ignore_name a anonDef) then 

@@ -727,13 +727,10 @@ let rec update_expr texpr tSymbol_table tprogram  = match texpr with
      | Postfix(e1, op) -> (let ((updated_e1, e1_stmts), _) = update_expr e1
                                 tSymbol_table  tprogram in ((CPostfix(updated_e1, op), e1_stmts), []))
      | AnonFuncDef(anonDef) ->
-             let instanceName = "anon_instance_" ^ anonDef.anon_name in 
-             let structName = "s" ^ anonDef.anon_name in
+             let anon_name = Semant.find_name_for_anon_def tprogram anonDef in
+             let instanceName = "anon_instance_" ^ anon_name in 
+             let structName = "s" ^ anon_name in
              let decls = [CDeclaration(CDeclSpecTypeSpecAny(CType(CStruct(structName))), CInitDeclarator(CDirectDeclarator(CVar(CIdentifier(instanceName)))))] in
-             (*let tFuncParam_from_cSymbol csym = match csym with*)
-                    (*CVarSymbol(name, _) -> FuncParamsDeclared(DeclSpecTypeSpec(Void), DirectDeclarator(Var(Identifier(name))))*)
-                  (*| _ -> raise(Failure("update_expr::AnonFuncDef:: Error - Functions not supported as member variables yet"))*)
-             (*in*)
              let assignments_from_capture_struct c = 
                  List.map (fun csym -> 
                     (match csym with
@@ -744,7 +741,8 @@ let rec update_expr texpr tSymbol_table tprogram  = match texpr with
              let captures = capture_struct_from_anon_def tprogram anonDef in
 
              let newAssignments = assignments_from_capture_struct captures in
-             ((CCall(0, CNoexpr, CId(CIdentifier(anonDef.anon_name)), []), []), []) 
+             ((CId(CIdentifier(anon_name)), []), [])
+             (*((CCall(0, CNoexpr, CId(CIdentifier(anonDef.anon_name)), []), []), []) *)
              (*((CCall(0, CNoexpr, CId(CIdentifier(anonDef.anon_name)), []), newAssignments), decls) *)
              (*((CNoexpr, []), [])*)
      | _ ->

@@ -40,7 +40,7 @@ anon:
 .PHONY: anonbuild
 
 anonbuild:
-	cat tests/anon/anonFunction.cpl | ./cimple -c
+	cat tests/anon/anonFunction2.cpl | ./cimple -c
 
 .PHONY: anonparse
 
