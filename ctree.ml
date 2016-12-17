@@ -755,6 +755,10 @@ let rec update_expr texpr tSymbol_table tprogram  = match texpr with
              (*((CCall(0, CNoexpr, CId(CIdentifier(anonDef.anon_name)), []), newAssignments), decls) *)
              (*((CNoexpr, []), [])*)
      | Noexpr -> ((CNoexpr, []), [])
+     | Pointify(e) -> let ((updated_e, stmts), decls) = update_expr e
+     tSymbol_table tprogram in ((CPointify(updated_e), stmts), decls)
+     | Deref(e) -> let ((updated_e, stmts), decls) = update_expr e tSymbol_table
+     tprogram in ((CDeref(updated_e), stmts), decls)
      | _ ->
              let expr_type = Astutil.string_of_expr texpr in 
              raise(Failure("not finished for type " ^ expr_type))

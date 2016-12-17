@@ -97,7 +97,10 @@ let is_assignment_declaration decl = match decl with
       | _ -> false
 
 let rec type_from_func_param = function
-     FuncParamsDeclared(t, _) -> type_from_declaration_specifiers t
+     FuncParamsDeclared(t, PointerDirDecl(ptr, _)) ->
+             PointerType(type_from_declaration_specifiers t, get_num_pointers
+             ptr)
+   | FuncParamsDeclared(t, _) -> type_from_declaration_specifiers t
    | ParamDeclWithType(declspecs) -> type_from_declaration_specifiers declspecs
    | AnonFuncDecl(adecl) -> type_from_anon_decl adecl 
    | _ -> raise(Failure("Only supports declared parameters"))
@@ -116,7 +119,9 @@ and type_from_anon_decl d = AnonFuncType(d.anon_decl_return_type, type_list_from
 let type_from_anon_def d = AnonFuncType(d.anon_return_type, type_list_from_func_param_list d.anon_params)
 
 let symbol_from_func_param p = match p with
-   | FuncParamsDeclared(decl_specs, decl) -> VarSymbol(var_name_from_direct_declarator decl, type_from_declaration_specifiers decl_specs)
+   | FuncParamsDeclared(decl_specs, decl) ->
+                   VarSymbol(var_name_from_direct_declarator decl,
+                   type_from_func_param p)
    | AnonFuncDecl(d) -> AnonFuncSymbol(Astutil.string_of_identifier d.anon_decl_name, type_from_anon_decl d) 
    | _ -> raise(Failure("symbol_from_func_param not fully implemented. Cannot handle declarations with parameters as types alone"))
 
@@ -282,7 +287,7 @@ let rec t1_inherits_t2 t1 t2 symbols =
 
 let check_compatible_custom_types symbols t1 t2 =
         let t1_sym = lookup_symbol_by_id symbols t1 in 
-        let t2_sym  = lookup_symbol_by_id symbols t2 in 
+        let t2_sym  = lookup_symbol_by_id symbols t2 in
         match (t1_sym, t2_sym) with 
         | (StructSymbol(t1_name, t1_struct), StructSymbol(t2_name, t2_struct))
         -> if (t1_name = t2_name || (t1_inherits_t2 t1_name t2_name symbols)) then () else
@@ -294,6 +299,27 @@ let check_compatible_custom_types symbols t1 t2 =
                 (t1_implements_t2 t2_name name symbols) then () else
                         raise(Failure("Incompatible types:" ^ t2_name ^ "," ^
                         name)) 
+
+(* This is meant to check assignments of custom type to pointer type
+ * The only case this is valid is if a is pointer and b is interface
+ * which a satisfies *)
+
+let check_pointer_and_custom_types a b symbols =
+     let sym_a = lookup_symbol_by_id symbols (Identifier(a)) in 
+
+     let sym_b = lookup_symbol_by_id symbols (Identifier(b)) in 
+
+     match (sym_a, sym_b) with 
+     | (StructSymbol(_, _), StructSymbol(_, _)) ->
+             raise(Failure("Assigning:" ^ b ^"to" ^a ^ "which
+                               is pointer type"))
+     | (StructSymbol(strct, _), InterfaceSymbol(name, _)) -> if
+                       (t1_implements_t2 strct name symbols) then () else
+                               raise(Failure(strct ^ "does not implement" ^
+                               name))
+     | _ -> raise(Failure("Assigning incompatible custom types,
+               pointer and non pointer"))
+
 
 let rec check_compatible_anon_types symbols t1 t2 =
         let f a b =
@@ -332,9 +358,8 @@ and check_compatible_types symbols t1 t2 = match (t1, t2) with
   with primitive type"))
   | (CustomType(a), CustomType(b)) -> check_compatible_custom_types symbols (Identifier(a))
   (Identifier(b)) 
-  | (PointerType(CustomType(a), 1), CustomType(b)) -> if (t1_implements_t2 a b
-  symbols) then () else raise(Failure("Incompatible types, pointer and custom type: "
-  ^ a ^ " " ^ b))
+  | (PointerType(CustomType(a), 1), CustomType(b)) ->
+                  check_pointer_and_custom_types a b symbols
   | (CustomType(a), PointerType(CustomType(b), 1)) -> if (t1_implements_t2 b a
   symbols) then () else raise(Failure("Incompatible types, pointer and custom type: "
   ^ b ^ " " ^ a))
@@ -420,7 +445,7 @@ let rec type_from_expr symbols expr = match expr with
   | Super(_) -> raise(Failure("Super defined outside of head of constructor"))
   | Deref(e) -> (let typ_ = type_from_expr symbols e in 
                         match typ_ with 
-                        | PointerType(base_type, count) -> 
+                        | PointerType(base_type, count) ->
                                         if (count = 1) then 
                                                  base_type
                                         else
@@ -509,11 +534,15 @@ let rec check_expr symbols e = match e with
   | Binop(e1, _, e2) -> let t1 = type_from_expr symbols e1 in
                          let t2 = type_from_expr symbols e2 in 
                          check_compatible_types symbols t1 t2
-   | Pointify(e) -> ()
+   | Pointify(expr) -> ()
 
    | Literal(_) -> ()
    | StringLiteral(_) -> ()
    | FloatLiteral(_) -> ()
+   | Deref(expr) -> (let t1 = type_from_expr symbols expr in
+                        match t1 with
+                        | PointerType(base_type, _) -> ()
+                        | _ -> raise(Failure("Dereferencing non pointer")))
    | Super(_) -> raise(Failure("Super is not at the head of a constructor"))
    | Clean(expr) -> (let t1 = type_from_expr symbols expr in
                         match t1 with 
@@ -620,7 +649,7 @@ let compare_func_return_types symbols r1 r2 =
        check_compatible_types symbols (type_from_declaration_specifiers r1)
   (type_from_declaration_specifiers r2)
 
-let compare_functions symbols f1 f2 = 
+let compare_functions symbols f1 f2 =
         let _ = compare_func_names f1.func_name f2.func_name in
         let _ = compare_func_params symbols f1.params f2.params in
         compare_func_return_types symbols f1.return_type f2.return_type
