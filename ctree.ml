@@ -459,7 +459,7 @@ and capture_struct_from_anon_def program def =
   let param_symtable = (Semant.symtable_from_symlist param_symbols) in
   let updated_symbols = Semant.symtable_from_symlist (builtinSyms@symlist) in
     {
-      cstruct_name = "s" ^ def.anon_name; (* 's' for 'struct' *)
+      cstruct_name = "S" ^ def.anon_name; (* 's' for 'struct' *)
       cstruct_members = (List.map symconvert (struct_members_from_anon_body updated_symbols param_symtable [] def.anon_body));
       cmethod_to_functions = StringMap.empty
     }
@@ -731,14 +731,14 @@ let rec update_expr texpr tSymbol_table tprogram  = match texpr with
                                 tSymbol_table  tprogram in ((CPostfix(updated_e1, op), e1_stmts), []))
      | AnonFuncDef(anonDef) ->
              let anon_name = Semant.find_name_for_anon_def tprogram anonDef in
-             let instanceName = "anon_instance_" ^ anon_name in 
-             let structName = "s" ^ anon_name in
+             let instanceName = "s" ^ anon_name in 
+             let structName = "S" ^ anon_name in
              let decls = [CDeclaration(CDeclSpecTypeSpecAny(CType(CStruct(structName))), CInitDeclarator(CDirectDeclarator(CVar(CIdentifier(instanceName)))))] in
              let assignments_from_capture_struct c = 
                  List.map (fun csym -> 
                     (match csym with
                         CVarSymbol(s, _) ->
-                            CExpr(CAsnExpr(CMemAccess(0, CId(CIdentifier(structName)), CIdentifier(s)), Asn, CId(CIdentifier(s))))
+                            CExpr(CAsnExpr(CMemAccess(0, CId(CIdentifier(instanceName)), CIdentifier(s)), Asn, CId(CIdentifier(s))))
                       | _ -> raise(Failure("update_expr: Invalid CSymbol parameter")))) c.cstruct_members
              in
 
