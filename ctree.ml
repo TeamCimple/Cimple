@@ -284,19 +284,26 @@ let create_cfunc_param_for_receiver receiver =
         , Asn, CCastExpr(CPointerType(CType(CStruct(cstruct_name)), 1),
         CId(CIdentifier("_body")))))
 
-let cFunc_from_tFunc symbol_table tFunc = 
-        {
-                creturn_type = cType_from_tType symbol_table
-                (Semant.type_from_declaration_specifiers tFunc.return_type);
+let number_of_anon_func_parameters_in_tFuncDecl fdecl = 
+    List.fold_left (fun acc f ->
+                     (match f with
+                        AnonFuncDecl(_) -> (acc + 1)
+                      | _ -> acc)) 0 fdecl.params
 
-                cfunc_params = (List.map (cFuncParam_from_tFuncParam
-                symbol_table) tFunc.params);
+(*and cFuncParam = cType * cIdentifier    *)
+let cFunc_from_tFunc symbol_table tFunc =
+    {
+            creturn_type = cType_from_tType symbol_table
+            (Semant.type_from_declaration_specifiers tFunc.return_type);
 
-                cfunc_body = CCompoundStatement([], []);
+            cfunc_params = (List.map (cFuncParam_from_tFuncParam
+            symbol_table) tFunc.params);
 
-                cfunc_name = Semant.var_name_from_direct_declarator
-                tFunc.func_name;
-        }
+            cfunc_body = CCompoundStatement([], []);
+
+            cfunc_name = Semant.var_name_from_direct_declarator
+            tFunc.func_name;
+    }
 
 let rec cSymbol_from_sSymbol symbol_table sym = match sym with
     VarSymbol(s, t) -> CVarSymbol(s, (cType_from_tType symbol_table t))
@@ -575,12 +582,34 @@ let create_initial_cast_decl receiver =
         CId(CIdentifier("_body")))))
 
 let cFunc_from_tFunc symbol_table tFunc = 
+    let generate_n_void_star_params n = 
+        let rec create_dummy_list_with_size n = (match n with
+            1 -> [()]
+          | 0 -> []
+          | _ -> let lst = create_dummy_list_with_size (n - 1) in
+                 [()]@lst)
+        in
+        let rec create_param_list acc dummyList = (match dummyList with
+            [] -> []
+          | [x] ->
+                  let paramName = "capture_" ^ (string_of_int acc) in
+                  [(CPointerType(CType(CPrimitiveType(Cvoid)), 1), CIdentifier(paramName))]
+          | h::t ->
+                  let hparam = create_param_list acc t in
+                  let tparam = create_param_list (acc + 1) t in
+                  hparam@tparam)
+        in
+        let lst = create_dummy_list_with_size n in
+        (create_param_list 0 lst)
+    in
+    let n = number_of_anon_func_parameters_in_tFuncDecl tFunc in
+    let extraParams = generate_n_void_star_params n in
         {
                 creturn_type = cType_from_tType symbol_table
                 (Semant.type_from_declaration_specifiers tFunc.return_type);
 
                 cfunc_params = (List.map (cFuncParam_from_tFuncParam
-                symbol_table) tFunc.params);
+                symbol_table) tFunc.params)@(extraParams);
 
                 cfunc_body = CCompoundStatement([], []);
 
@@ -698,7 +727,27 @@ let rec update_expr texpr tSymbol_table tprogram  = match texpr with
      | StringLiteral(s) -> ((CStringLiteral(s), []), [])
      | Postfix(e1, op) -> (let ((updated_e1, e1_stmts), _) = update_expr e1
                                 tSymbol_table  tprogram in ((CPostfix(updated_e1, op), e1_stmts), []))
-     | AnonFuncDef(anonDef) -> ((CNoexpr, []), [])
+     | AnonFuncDef(anonDef) ->
+             let instanceName = "anon_instance_" ^ anonDef.anon_name in 
+             let structName = "s" ^ anonDef.anon_name in
+             let decls = [CDeclaration(CDeclSpecTypeSpecAny(CType(CStruct(structName))), CInitDeclarator(CDirectDeclarator(CVar(CIdentifier(instanceName)))))] in
+             (*let tFuncParam_from_cSymbol csym = match csym with*)
+                    (*CVarSymbol(name, _) -> FuncParamsDeclared(DeclSpecTypeSpec(Void), DirectDeclarator(Var(Identifier(name))))*)
+                  (*| _ -> raise(Failure("update_expr::AnonFuncDef:: Error - Functions not supported as member variables yet"))*)
+             (*in*)
+             let assignments_from_capture_struct c = 
+                 List.map (fun csym -> 
+                    (match csym with
+                        CVarSymbol(s, _) -> CAsnExpr(CMemAccess(0, CId(CIdentifier(structName)), CIdentifier(s)), Asn, CId(CIdentifier(s)))
+                      | _ -> raise(Failure("update_expr: Invalid CSymbol parameter")))) c.cstruct_members
+             in
+
+             let captures = capture_struct_from_anon_def tprogram anonDef in
+
+             let newAssignments = assignments_from_capture_struct captures in
+             ((CCall(0, CNoexpr, CId(CIdentifier(anonDef.anon_name)), []), []), []) 
+             (*((CCall(0, CNoexpr, CId(CIdentifier(anonDef.anon_name)), []), newAssignments), decls) *)
+             (*((CNoexpr, []), [])*)
      | _ ->
              let expr_type = Astutil.string_of_expr texpr in 
              raise(Failure("not finished for type " ^ expr_type))
@@ -983,7 +1032,7 @@ let update_decl_for_custom_type id decl custom_type tSymbol_table  tprogram =
                                 interface_decl_and_assignments_for_struct 0
                                 struct_ tSymbol_table id in
 
-                        (cstruct_decl@decls, stmts@assigns)
+                        (cstruct_decl@decls, stmts@assigns) 
                         
 
 let update_decl decl tSymbol_table  tprogram  = 
