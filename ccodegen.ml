@@ -60,16 +60,18 @@ let rec gen_cpointer  ptr = match ptr with
     CPointer(npt) -> gen_non_pointer_type  npt
   | CPointerPointer(pptr) -> "*" ^ (gen_cpointer  pptr)
 
-let rec gen_ctype  t = 
+
+let rec gen_n_pointers n =
     let rec create_dummy_list_with_size n = match n with
         1 -> [()]
+      | 0 -> []
       | _ -> let lst = create_dummy_list_with_size (n - 1) in
              [()]@lst
     in
-    let rec gen_n_pointers n =
-        let lst = create_dummy_list_with_size n in
-        List.fold_left (fun s x -> "*" ^ s) "" lst
-    in
+    let lst = create_dummy_list_with_size n in
+    List.fold_left (fun s x -> "*" ^ s) "" lst
+
+let rec gen_ctype  t = 
     match t with
         CType(npt) -> gen_non_pointer_type  npt 
       | CPointerType(ct, n) -> (gen_ctype  ct) ^ (gen_n_pointers n) 
@@ -94,10 +96,12 @@ let rec gen_cexpr  expr = match expr with
    | CStringLiteral(s) -> s
    | CCastExpr(ct, e) -> "(" ^ (gen_ctype  ct) ^ ")" ^ "(" ^ (gen_cexpr  e) ^ ")"
    | CPostfix(e, pfop) -> (gen_cexpr  e) ^ (gen_postfix_op pfop)
-   | CCall(n, s, e, elist) -> if (n > 0) then (gen_cexpr s) ^ "->" ^ (gen_cexpr
-   e) ^ "(" ^ gen_expr_list elist ^ ")" else (if (s <> CNoexpr) then (gen_cexpr
-   s) ^ "." ^ (gen_cexpr e) ^ "(" ^ gen_expr_list
-   elist ^ ")" else (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")")
+   | CCall(n, s, e, elist) ->
+           if (n > 0) then 
+               let asterisks = gen_n_pointers (n - 1) in
+               (gen_cexpr s) ^ "->"^ asterisks ^ (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")"
+           else (if (s <> CNoexpr) then
+               (gen_cexpr s) ^ "." ^ (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")" else (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")")
    | CAlloc(ct, s) -> "malloc(" ^ "sizeof(" ^ s ^")" ^ ")"
    | CCompareExpr(e1, op, e2) -> gen_cexpr e1 ^ gen_logical_op op ^
    gen_cexpr e2
@@ -226,13 +230,8 @@ and print_anon_capture_struct_list cslist = match cslist with
 let test_anon_defs program  = 
         let updated_program = Semant.update_structs_in_program program in
         let anon_defs = Semant.anon_defs_from_tprogram updated_program in
-        let tSymbol_table = Semant.build_symbol_table updated_program in
-        Astutil.print_symbol_table tSymbol_table;
-        let cCaptures = Ctree.capture_struct_list_from_anon_def_list program anon_defs in 
-        print_anon_capture_struct_list cCaptures;
-        let print_list_size l = Printf.printf "Number of anonymous function definitions: %s\n" (string_of_int (List.length l)) in
-        print_list_size anon_defs;
-        Semant.print_anon_defs anon_defs
+        let cCaptures = List.rev (Ctree.capture_struct_list_from_anon_def_list program anon_defs) in 
+        print_anon_capture_struct_list cCaptures
 
 let gen_cprogram cprogram =
     add_header "stdio" ^ "\n" ^ add_header "stdlib" ^ "\n" ^ (String.concat ";\n" (List.map gen_cdeclaration

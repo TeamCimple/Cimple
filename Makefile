@@ -35,7 +35,7 @@ ast:
 .PHONY: anon
 
 anon:
-	cat tests/anon/anonFunction2.cpl | ./cimple -l
+	cat tests/anon/anonFunction.cpl | ./cimple -l
 
 .PHONY: anonbuild
 
