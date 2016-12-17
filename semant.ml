@@ -1185,6 +1185,46 @@ let find_name_for_anon_def tprogram anonDef =
     else
         raise(Failure("find_name_for_anon_def: Error - could not find a matching anonymous function definition"))
 
+let anon_defs_from_expr_list_no_recursion tprogram elist = 
+   List.fold_left (fun acc e ->
+                        (match e with
+                            AnonFuncDef(anonDef) ->
+                                let anonName = find_name_for_anon_def tprogram anonDef in
+                                let namedAnonDef = {
+                                    anon_name = anonName;
+                                    anon_return_type = anonDef.anon_return_type;
+                                    anon_params = anonDef.anon_params;
+                                    anon_body = anonDef.anon_body
+                                }
+                                in
+                                acc@[namedAnonDef]
+                          | _ -> acc)) [] elist
+
+let expr_list_contains_anon_defs_no_recursion elist = 
+    let expr_contains_anon_def_at_this_level truthVal expr  = 
+        if (truthVal = true) then
+            true
+        else
+            (match expr with
+            AnonFuncDef(_) -> true
+          | _ -> false)
+    in
+            List.fold_left expr_contains_anon_def_at_this_level false elist
+
+let rec call_contains_anon_def call = 
+    let rec expr_contains_anon_def_at_this_level truthVal expr  = 
+        if (truthVal = true) then
+            true
+        else
+            match expr with
+            AnonFuncDef(_) -> true
+          | _ -> false
+    in
+    match call with
+        Call(_, _, elist) ->
+            List.fold_left expr_contains_anon_def_at_this_level false elist
+      | _ -> raise(Failure("call_contains_anon_def: Error - do not pass anything other than a call expression to this function"))
+
 let rec symbols_from_outside_scope_for_anon_def tprogram anonDef = 
    let rec expr_contains_anon_def symbols anonDef expr = match expr with 
       |  AnonFuncDef(a) ->

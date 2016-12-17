@@ -704,9 +704,12 @@ let rec update_expr texpr tSymbol_table tprogram  = match texpr with
                             @ e2_stmts), []))))
                    
      | Call(expr, Id(Identifier(s)), expr_list) -> 
-                     let sym = Semant.type_from_expr tSymbol_table expr in 
-                                        cCallExpr_from_tCallExpr expr
-                                        tSymbol_table  tprogram s expr_list                  
+                     let sym = Semant.type_from_expr tSymbol_table expr in                   
+                     (*let hasAnonFuncInExprList = Semant.call_contains_anon_def expr in*)
+                     (*if (hasAnonFuncInExprList = true) then*)
+                         (*expr_list = expr_list@*)
+                     (*else*)
+                         cCallExpr_from_tCallExpr expr tSymbol_table tprogram s expr_list                  
      | MemAccess(expr, Identifier(s)) -> (let typ_ = Semant.type_from_expr
      tSymbol_table expr in match (typ_) with 
                 | CustomType(name) -> ((CMemAccess(0, fst( fst (update_expr expr
@@ -734,20 +737,24 @@ let rec update_expr texpr tSymbol_table tprogram  = match texpr with
              let assignments_from_capture_struct c = 
                  List.map (fun csym -> 
                     (match csym with
-                        CVarSymbol(s, _) -> CAsnExpr(CMemAccess(0, CId(CIdentifier(structName)), CIdentifier(s)), Asn, CId(CIdentifier(s)))
+                        CVarSymbol(s, _) ->
+                            CExpr(CAsnExpr(CMemAccess(0, CId(CIdentifier(structName)), CIdentifier(s)), Asn, CId(CIdentifier(s))))
                       | _ -> raise(Failure("update_expr: Invalid CSymbol parameter")))) c.cstruct_members
              in
 
              let captures = capture_struct_from_anon_def tprogram anonDef in
 
              let newAssignments = assignments_from_capture_struct captures in
-             ((CId(CIdentifier(anon_name)), []), [])
-             (*((CCall(0, CNoexpr, CId(CIdentifier(anonDef.anon_name)), []), []), []) *)
-             (*((CCall(0, CNoexpr, CId(CIdentifier(anonDef.anon_name)), []), newAssignments), decls) *)
-             (*((CNoexpr, []), [])*)
+             (Printf.printf "Updated AnonFuncDef\n\n");
+             ((CId(CIdentifier(anon_name)), newAssignments), decls)
      | _ ->
              let expr_type = Astutil.string_of_expr texpr in 
              raise(Failure("not finished for type " ^ expr_type))
+
+and update_expr_list texpr_list tSymbol_table tprogram = match texpr_list with
+    [] -> []
+  | [e] -> [update_expr e tSymbol_table tprogram]
+  | h::t -> [update_expr h tSymbol_table tprogram]@update_expr_list t tSymbol_table tprogram
 
 and cAllocExpr_from_tMakeExpr tSymbol_table tprogram asn_expr tMakeExpr = 
         let ((updated_e1, updated_stmts), _) = (update_expr asn_expr tSymbol_table tprogram ) in
@@ -780,28 +787,47 @@ and cAllocExpr_from_tMakeExpr tSymbol_table tprogram asn_expr tMakeExpr =
 and cExpr_from_tExpr_in_tCall tSymbol_table  tprogram  tExpr tFuncParam = 
       let expr_type = Semant.type_from_expr
         tSymbol_table tExpr in let param_type = Semant.type_from_func_param
-        tFuncParam in  match (expr_type, param_type) with
-                        |  (CustomType(a), CustomType(b)) -> if (Semant.is_interface
-                        tSymbol_table (Identifier(b))) then CPointify(CMemAccess(0, fst( fst (update_expr tExpr
-                        tSymbol_table  tprogram )),
-                        CIdentifier(interface_field_name_in_struct b a))) else ( if
-                                (Semant.t1_inherits_t2 a b tSymbol_table) then
-                                        CCastExpr(CType(CStruct(cStructName_from_tStruct
-                                        b)), fst (fst (update_expr tExpr
-                                        tSymbol_table  tprogram ))) else fst (fst (update_expr tExpr
-                                        tSymbol_table  tprogram )))
-                        | (PointerType(CustomType(a), 1),
-                        CustomType(b)) ->  CPointify(CMemAccess(1, fst( fst (update_expr tExpr
-                        tSymbol_table  tprogram )),
-                        CIdentifier(interface_field_name_in_struct b a)))
-                        | _ -> fst (fst (update_expr tExpr tSymbol_table tprogram )
-                        )
+        tFuncParam in 
+        match (expr_type, param_type) with
+            |  (CustomType(a), CustomType(b)) -> 
+                    if (Semant.is_interface tSymbol_table (Identifier(b))) then
+                        CPointify(CMemAccess(0, fst( fst (update_expr tExpr tSymbol_table  tprogram )),
+                            CIdentifier(interface_field_name_in_struct b a))) 
+                    else ( if (Semant.t1_inherits_t2 a b tSymbol_table) then
+                        CCastExpr(CType(CStruct(cStructName_from_tStruct b)),
+                                        fst (fst (update_expr tExpr tSymbol_table  tprogram ))) 
+                    else fst (fst (update_expr tExpr tSymbol_table  tprogram )))
+            | (PointerType(CustomType(a), 1),
+            CustomType(b)) ->  CPointify(CMemAccess(1, fst( fst (update_expr tExpr
+            tSymbol_table  tprogram )),
+            CIdentifier(interface_field_name_in_struct b a)))
+            | _ -> fst (fst (update_expr tExpr tSymbol_table tprogram )
+            )
 
 and cCallExpr_from_tCallExpr expr tSym  tprogram func_name expr_list = match expr with
         | Noexpr -> let sym = StringMap.find func_name tSym in 
                     (match sym with
-                        FuncSymbol(_, fdecl) -> ((CCall(0, CNoexpr, CId(CIdentifier(func_name)), (List.map2
-                        (cExpr_from_tExpr_in_tCall tSym  tprogram ) expr_list fdecl.params)), []), [])
+                        FuncSymbol(_, fdecl) -> 
+                            let hasAnonParams = Semant.expr_list_contains_anon_defs_no_recursion expr_list in 
+                            if (hasAnonParams = true) then 
+                                let anonParams = Semant.anon_defs_from_expr_list_no_recursion tprogram expr_list in
+                                let update_anon_def_expr_list anonList = 
+                                    List.fold_left (fun ((e, slist), dlist) def ->
+                                        let ((_, _slist), _dlist) = update_expr (AnonFuncDef(def)) tSym tprogram in
+                                        ((Noexpr, slist@_slist), dlist@_dlist)) ((Noexpr, []), []) anonList
+                                in
+                                let ((updated_expr, updated_slist), updated_dlist) = update_anon_def_expr_list anonParams in
+                                let paramExpressions = (List.map2
+                                    (cExpr_from_tExpr_in_tCall tSym  tprogram ) expr_list fdecl.params) in
+                                let ret =  
+                                ((CCall(0, CNoexpr, CId(CIdentifier(func_name)), (List.map2
+                                    (cExpr_from_tExpr_in_tCall tSym  tprogram ) expr_list fdecl.params)), updated_slist), updated_dlist)
+                                in
+                                Printf.printf "Has anon params\n";
+                                ret;
+                            else
+                                ((CCall(0, CNoexpr, CId(CIdentifier(func_name)), (List.map2
+                                    (cExpr_from_tExpr_in_tCall tSym  tprogram ) expr_list fdecl.params)), []), [])
                       | AnonFuncSymbol(_, AnonFuncType(_, tlist)) ->
                               let rec funcParam_from_tType t = (match t with
                                     _ -> ParamDeclWithType(DeclSpecTypeSpecAny(t)))
@@ -812,6 +838,14 @@ and cCallExpr_from_tCallExpr expr tSym  tprogram func_name expr_list = match exp
                                   | h::t -> [funcParam_from_tType h]@(funcParamList_from_tTypeList t))
                               in
                               let fParamList = funcParamList_from_tTypeList tlist in 
+                              (*let param_expr_list = (List.map2 (cExpr_from_tExpr_in_tCall tSym tprogram fParamList)) in*)
+                              (*let updated_param_expr_list = update_expr_list param_expr_list tSym tprogram in *)
+                              (*let ((acc_updated_expr, acc_updated_stmt), acc_updated_decl) =*)
+                                  (*List.fold_left*)
+                                  (*(fun ((a_e, a_s), a_d) ((e, s, d)) ->*)
+                                      (*((e@a_e, s@a_s), d@a_d)) ((CNoexpr, []), []) updated_param_expr_list*)
+                              (*in*)
+                              (*((CCall(1, CNoexpr, CId(CIdentifier(func_name)), param_expr_list), acc_updated_stmt), acc_updated_decl)) *)
                               ((CCall(1, CNoexpr, CId(CIdentifier(func_name)), (List.map2 (cExpr_from_tExpr_in_tCall tSym tprogram ) expr_list fParamList)), []), []))
 
         | _ -> let expr_type = Semant.type_from_expr tSym expr in (match expr_type with 
@@ -1046,19 +1080,24 @@ let update_decl decl tSymbol_table  tprogram  =
                                      
                                
 let rec update_statement tstmt tSymbol_table  tprogram  =  match tstmt with 
-        | CompoundStatement(decls, stmts) -> let (new_decls, new_stmts) =
-                List.fold_left (fun decl_stmt_acc decl -> let (n_decls, n_stmts)
-                = update_decl decl
-                tSymbol_table  tprogram  in ((fst (decl_stmt_acc)) @ n_decls,
-                (snd (decl_stmt_acc) @ n_stmts))) ([], []) decls in 
-        
+        | CompoundStatement(decls, stmts) ->
+                let (new_decls, new_stmts) = 
+                    List.fold_left (fun decl_stmt_acc decl ->
+                        let (n_decls, n_stmts) = update_decl decl tSymbol_table tprogram in
+                        ((fst (decl_stmt_acc)) @ n_decls, (snd (decl_stmt_acc) @ n_stmts))) ([], []) decls in 
+       
                 let more_new_stmts = 
                     List.fold_left (fun stmt_acc stmt -> 
                                            let ((updated_stmt, additional_stmts), additional_decls) =
                                                update_statement stmt tSymbol_table  tprogram in
                                            stmt_acc @ additional_stmts @ [updated_stmt]) [] stmts in 
+                let more_new_decls = 
+                    List.fold_left (fun decl_acc stmt -> 
+                                           let ((updated_stmt, additional_stmts), additional_decls) =
+                                               update_statement stmt tSymbol_table  tprogram in
+                                           decl_acc @ additional_decls) [] stmts in 
 
-                ((CCompoundStatement(new_decls, new_stmts @ more_new_stmts), []), [])
+                ((CCompoundStatement(new_decls@more_new_decls, new_stmts @ more_new_stmts), []), [])
 
         | EmptyElse -> ((CEmptyElse, []), [])
         | Return(e) -> let ((updated_e, stmts), newDecls) = update_expr e tSymbol_table tprogram 
