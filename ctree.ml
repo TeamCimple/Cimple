@@ -177,9 +177,10 @@ let rec cType_from_tType symbol_table = function
   | AnonFuncType(t, tlist) -> 
           let anonRetType = (cType_from_tType symbol_table t) in 
           let anonParamTypes = List.map (fun x -> (cType_from_tType symbol_table x)) tlist in
+          let captureParam = CPointerType(CType(CPrimitiveType(Cvoid)), 1) in
           CFuncPointer({ 
               func_return_type = anonRetType;
-              func_param_types = anonParamTypes
+              func_param_types = anonParamTypes@[captureParam]
           })
   | _ -> raise(Failure("Haven't filled out yet"))
 
@@ -269,9 +270,8 @@ let cSymbol_from_Implements implements =
         let cstruct_name = cStructName_from_tInterface implements in
         CVarSymbol(cstruct_name, CPointerType(CType(CStruct(cstruct_name)), 1))
 
-let cFuncParam_from_tFuncParam symbol_table tFuncParam = (cType_from_tType
-symbol_table (Semant.type_from_func_param tFuncParam),
-(CIdentifier(Semant.var_name_from_func_param tFuncParam)))
+let cFuncParam_from_tFuncParam symbol_table tFuncParam =
+    (cType_from_tType symbol_table (Semant.type_from_func_param tFuncParam), (CIdentifier(Semant.var_name_from_func_param tFuncParam)))
 
 let create_cfunc_param_for_receiver receiver = 
         (CPointerType(CType(CPrimitiveType(Cvoid)), 1),
@@ -290,7 +290,6 @@ let number_of_anon_func_parameters_in_tFuncDecl fdecl =
                         AnonFuncDecl(_) -> (acc + 1)
                       | _ -> acc)) 0 fdecl.params
 
-(*and cFuncParam = cType * cIdentifier    *)
 let cFunc_from_tFunc symbol_table tFunc =
     {
             creturn_type = cType_from_tType symbol_table
