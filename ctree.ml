@@ -589,10 +589,7 @@ let cFunc_from_tFunc symbol_table tFunc =
         let anonList = 
             List.filter (fun p -> match p with
                 AnonFuncDecl(anonDecl) -> true
-              | _ ->
-
-                      Printf.printf "Mega false %s!\n" (Astutil.string_of_func_param p);
-                      false) tFunc.params
+              | _ -> false) tFunc.params
         in
         let returned_params = 
             List.map (fun p -> match p with
@@ -858,16 +855,11 @@ and cCallExpr_from_tCallExpr expr tSym  tprogram func_name expr_list = match exp
                                   | [x] -> [funcParam_from_tType x]
                                   | h::t -> [funcParam_from_tType h]@(funcParamList_from_tTypeList t))
                               in
-                              let fParamList = funcParamList_from_tTypeList tlist in 
-                              (*let param_expr_list = (List.map2 (cExpr_from_tExpr_in_tCall tSym tprogram fParamList)) in*)
-                              (*let updated_param_expr_list = update_expr_list param_expr_list tSym tprogram in *)
-                              (*let ((acc_updated_expr, acc_updated_stmt), acc_updated_decl) =*)
-                                  (*List.fold_left*)
-                                  (*(fun ((a_e, a_s), a_d) ((e, s, d)) ->*)
-                                      (*((e@a_e, s@a_s), d@a_d)) ((CNoexpr, []), []) updated_param_expr_list*)
-                              (*in*)
-                              (*((CCall(1, CNoexpr, CId(CIdentifier(func_name)), param_expr_list), acc_updated_stmt), acc_updated_decl)) *)
-                              ((CCall(1, CNoexpr, CId(CIdentifier("anon_" ^ func_name)), (List.map2 (cExpr_from_tExpr_in_tCall tSym tprogram ) expr_list fParamList)), []), []))
+                              let fParamList = funcParamList_from_tTypeList tlist in
+                              let fParamExprList = (List.map2 (cExpr_from_tExpr_in_tCall tSym tprogram ) expr_list fParamList) in
+                              let extraParamName = "cap_anon_" ^ func_name in
+                              let extraParamExpr = CId(CIdentifier(extraParamName)) in
+                              ((CCall(1, CNoexpr, CId(CIdentifier("anon_" ^ func_name)), fParamExprList@[extraParamExpr]), []), []))
 
         | _ -> let expr_type = Semant.type_from_expr tSym expr in (match expr_type with 
                 | CustomType(a) -> let fdecl = Semant.get_fdecl_for_receiver a
