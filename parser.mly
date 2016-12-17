@@ -15,7 +15,7 @@
 %token AUTO REGISTER STATIC EXTERN TYPEDEF
 %token VOID CHAR SHORT INT LONG FLOAT DOUBLE SIGNED UNSIGNED STRING FUNC
 %token CONST VOLATILE
-%token STRUCT UNION INTERFACE MAKE
+%token STRUCT UNION INTERFACE MAKE SUPER CLEAN
 %token SWITCH CASE ENUM DEFAULT IF ELSE
 %token LBRACKET RBRACKET LBRACKET_SQUARE RBRACKET_SQUARE LPAREN RPAREN COMMA
 COLON ELLIPSIS ASTERISK PERIOD
@@ -99,6 +99,8 @@ postfix_expr:
   | postfix_expr PLUSPLUS { Postfix($1, PostPlusPlus) }
   | postfix_expr MINUSMINUS { Postfix($1, PostMinusMinus) }
   | postfix_expr LPAREN expr_list RPAREN { Call(Noexpr, $1, $3) }
+  | SUPER LPAREN expr_list RPAREN { Super($3) }
+  | CLEAN primary_expr { Clean($2) }
   | postfix_expr PERIOD  IDENTIFIER LPAREN expr_list RPAREN  { Call($1,
   Id(Identifier($3)), $5) }
   | postfix_expr PERIOD IDENTIFIER %prec NOCALL{ MemAccess($1, Identifier($3)) }
@@ -237,14 +239,15 @@ declaration_list:
 
 struct_declaration:
  STRUCT STRUCT_IDENTIFIER struct_inheritence_opt struct_interface_opt LBRACKET
- declaration_list constructor_opt RBRACKET SEMICOLON { {
+ declaration_list constructor_destructor_opt RBRACKET SEMICOLON { {
          members = (List.rev $6);
          struct_name = $2;
          extends = $3;
          children = [""];
          methods = []; 
          implements = $4;
-         constructor = $7;
+         constructor = (fst $7);
+         destructor = (snd $7);
  }}
 
 struct_inheritence_opt:
@@ -282,15 +285,16 @@ receiver:
         | STRUCT_IDENTIFIER TIMES IDENTIFIER {($1, $3)}
         | {("", "")}
 
-constructor_opt: 
-     STRUCT_IDENTIFIER LPAREN func_params_list RPAREN compound_statement {{
+constructor_destructor_opt: 
+     STRUCT_IDENTIFIER LPAREN func_params_list RPAREN compound_statement NOT
+     STRUCT_IDENTIFIER LPAREN RPAREN compound_statement{({
              constructor_name = $1;
              constructor_params = $3;
              constructor_body = $5; 
-     }}
-     | /* Nothing */ {{constructor_name = ""; constructor_params = [];
+     }, {destructor_name = $1; destructor_body = $10})}
+     | /* Nothing */ {({constructor_name = ""; constructor_params = [];
      constructor_body = CompoundStatement([],
-     [])}}
+     [])}, {destructor_name = ""; destructor_body = CompoundStatement([], [])})}
 
 func_decl:
      declaration_specifiers declarator LPAREN func_params_list RPAREN compound_statement { {

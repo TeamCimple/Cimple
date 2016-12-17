@@ -97,7 +97,10 @@ let is_assignment_declaration decl = match decl with
       | _ -> false
 
 let rec type_from_func_param = function
-     FuncParamsDeclared(t, _) -> type_from_declaration_specifiers t
+     FuncParamsDeclared(t, PointerDirDecl(ptr, _)) ->
+             PointerType(type_from_declaration_specifiers t, get_num_pointers
+             ptr)
+   | FuncParamsDeclared(t, _) -> type_from_declaration_specifiers t
    | ParamDeclWithType(declspecs) -> type_from_declaration_specifiers declspecs
    | AnonFuncDecl(adecl) -> type_from_anon_decl adecl 
    | _ -> raise(Failure("Only supports declared parameters"))
@@ -116,7 +119,9 @@ and type_from_anon_decl d = AnonFuncType(d.anon_decl_return_type, type_list_from
 let type_from_anon_def d = AnonFuncType(d.anon_return_type, type_list_from_func_param_list d.anon_params)
 
 let symbol_from_func_param p = match p with
-   | FuncParamsDeclared(decl_specs, decl) -> VarSymbol(var_name_from_direct_declarator decl, type_from_declaration_specifiers decl_specs)
+   | FuncParamsDeclared(decl_specs, decl) ->
+                   VarSymbol(var_name_from_direct_declarator decl,
+                   type_from_func_param p)
    | AnonFuncDecl(d) -> AnonFuncSymbol(Astutil.string_of_identifier d.anon_decl_name, type_from_anon_decl d) 
    | _ -> raise(Failure("symbol_from_func_param not fully implemented. Cannot handle declarations with parameters as types alone"))
 
@@ -282,7 +287,7 @@ let rec t1_inherits_t2 t1 t2 symbols =
 
 let check_compatible_custom_types symbols t1 t2 =
         let t1_sym = lookup_symbol_by_id symbols t1 in 
-        let t2_sym  = lookup_symbol_by_id symbols t2 in 
+        let t2_sym  = lookup_symbol_by_id symbols t2 in
         match (t1_sym, t2_sym) with 
         | (StructSymbol(t1_name, t1_struct), StructSymbol(t2_name, t2_struct))
         -> if (t1_name = t2_name || (t1_inherits_t2 t1_name t2_name symbols)) then () else
@@ -294,6 +299,27 @@ let check_compatible_custom_types symbols t1 t2 =
                 (t1_implements_t2 t2_name name symbols) then () else
                         raise(Failure("Incompatible types:" ^ t2_name ^ "," ^
                         name)) 
+
+(* This is meant to check assignments of custom type to pointer type
+ * The only case this is valid is if a is pointer and b is interface
+ * which a satisfies *)
+
+let check_pointer_and_custom_types a b symbols =
+     let sym_a = lookup_symbol_by_id symbols (Identifier(a)) in 
+
+     let sym_b = lookup_symbol_by_id symbols (Identifier(b)) in 
+
+     match (sym_a, sym_b) with 
+     | (StructSymbol(_, _), StructSymbol(_, _)) ->
+             raise(Failure("Assigning:" ^ b ^"to" ^a ^ "which
+                               is pointer type"))
+     | (StructSymbol(strct, _), InterfaceSymbol(name, _)) -> if
+                       (t1_implements_t2 strct name symbols) then () else
+                               raise(Failure(strct ^ "does not implement" ^
+                               name))
+     | _ -> raise(Failure("Assigning incompatible custom types,
+               pointer and non pointer"))
+
 
 let rec check_compatible_anon_types symbols t1 t2 =
         let f a b =
@@ -332,9 +358,8 @@ and check_compatible_types symbols t1 t2 = match (t1, t2) with
   with primitive type"))
   | (CustomType(a), CustomType(b)) -> check_compatible_custom_types symbols (Identifier(a))
   (Identifier(b)) 
-  | (PointerType(CustomType(a), 1), CustomType(b)) -> if (t1_implements_t2 a b
-  symbols) then () else raise(Failure("Incompatible types, pointer and custom type: "
-  ^ a ^ " " ^ b))
+  | (PointerType(CustomType(a), 1), CustomType(b)) ->
+                  check_pointer_and_custom_types a b symbols
   | (CustomType(a), PointerType(CustomType(b), 1)) -> if (t1_implements_t2 b a
   symbols) then () else raise(Failure("Incompatible types, pointer and custom type: "
   ^ b ^ " " ^ a))
@@ -386,6 +411,9 @@ let rec type_from_expr symbols expr = match expr with
                         | PointerType(base_type, count) ->
                                         PointerType(base_type, count + 1)
                         | _ -> PointerType(typ_, 1))
+  | Clean(e) -> ignore(let t1 = type_from_expr symbols e in match t1 with 
+                        | PointerType(base_type, count) -> ()
+                        | _ -> raise(Failure("Cannot clean a non pointer"))); PrimitiveType(Void)
   | Call(e, Id(Identifier(id)), _) -> (match e with 
                 | Noexpr -> (
                                 if (StringMap.mem id symbols) then 
@@ -414,9 +442,10 @@ let rec type_from_expr symbols expr = match expr with
                                                  type_from_mem_access typ_ t symbols 
   | Id(id) -> type_from_identifier symbols id
   | AsnExpr(expr, _, _) -> type_from_expr symbols expr
+  | Super(_) -> raise(Failure("Super defined outside of head of constructor"))
   | Deref(e) -> (let typ_ = type_from_expr symbols e in 
                         match typ_ with 
-                        | PointerType(base_type, count) -> 
+                        | PointerType(base_type, count) ->
                                         if (count = 1) then 
                                                  base_type
                                         else
@@ -469,7 +498,6 @@ let check_constructor symbols struct_name params =
                let constructor = struct_.constructor in 
                let param_list = constructor.constructor_params in
         
-
                if List.length param_list != List.length params then
                     if (constructor.constructor_name = "") then 
                         raise(Failure("Parameters for constructor not defined"))
@@ -489,8 +517,8 @@ let rec check_compatible_type_lists symbols tl1 tl2 = match (tl1, tl2) with
                         check_compatible_type_lists symbols t1 t2
   | _ -> raise(Failure("check_compatible_type_lists: type lists are incompatible"))
 
-let validate_call_expr expr expr_list symbols fdecl = 
-        let func_param_types = type_list_from_func_param_list fdecl.params in 
+let validate_call_expr expr_list symbols params = 
+        let func_param_types = type_list_from_func_param_list params in 
         let exprList = List.map (type_from_expr symbols) expr_list in 
         List.iter2 (check_compatible_types symbols) exprList func_param_types
 
@@ -506,18 +534,29 @@ let rec check_expr symbols e = match e with
   | Binop(e1, _, e2) -> let t1 = type_from_expr symbols e1 in
                          let t2 = type_from_expr symbols e2 in 
                          check_compatible_types symbols t1 t2
-   | Pointify(e) -> ()
+   | Pointify(expr) -> ()
 
    | Literal(_) -> ()
    | StringLiteral(_) -> ()
    | FloatLiteral(_) -> ()
+   | Deref(expr) -> (let t1 = type_from_expr symbols expr in
+                        match t1 with
+                        | PointerType(base_type, _) -> ()
+                        | _ -> raise(Failure("Dereferencing non pointer")))
+   | Super(_) -> raise(Failure("Super is not at the head of a constructor"))
+   | Clean(expr) -> (let t1 = type_from_expr symbols expr in
+                        match t1 with 
+                        | PointerType(base_type, num) -> ()
+                        | _ -> raise(Failure("Cleaning a non pointer type"))) 
    | Call(expr, Id(Identifier(id)), expr_list) -> (match expr with 
                 | Noexpr -> (
                                 if (StringMap.mem id symbols) then 
                                         let s =  StringMap.find id symbols in
                                         match s with 
                                              FuncSymbol(_, fdecl) ->
-                                                   validate_call_expr expr expr_list symbols fdecl
+                                                   validate_call_expr
+                                                   expr_list symbols
+                                                   fdecl.params
                                            | AnonFuncSymbol(_, t) ->
                                                    validate_anon_call_expr expr expr_list symbols s
                                  else
@@ -529,11 +568,12 @@ let rec check_expr symbols e = match e with
                            (match(typ_) with 
                            | CustomType(name) -> (let fdecl =
                                    get_fdecl_for_receiver name symbols id in
-                           validate_call_expr expr expr_list symbols fdecl)
+                           validate_call_expr expr_list symbols
+                           fdecl.params)
                            | PointerType(CustomType(name), 1) -> (let fdecl =
                                    get_fdecl_for_receiver name symbols id in 
-                                           validate_call_expr expr expr_list symbols
-                                           fdecl)
+                                           validate_call_expr expr_list symbols
+                                           fdecl.params)
                            | _ -> raise(Failure("Invalid type making method
                            call")))))
    | Unop(e, unop) -> check_expr symbols e;
@@ -576,6 +616,7 @@ let rec check_expr symbols e = match e with
                                | (PrimitiveType(_), CustomType(_)) -> raise(Failure("Cannot assign a struct to a primitive type"))
                                | (CustomType(_), PrimitiveType(_)) -> raise(Failure("Cannot assign a primitive type to a struct"))
                                | _ -> check_compatible_types symbols t2 t1)
+   | Noexpr -> ()
    | _ -> raise(Failure("unmatched expression"))
 
 let symbols_from_decls decls = List.map symbol_from_declaration decls
@@ -594,6 +635,8 @@ let id_from_receiver receiver = match receiver with
 let compare_func_params symbols p1 p2 = 
         let p1_types = List.map type_from_func_param p1 in
         let p2_types = List.map type_from_func_param p2 in
+        if (List.length p1_types <> List.length p2_types) then
+                raise(Failure("Func Param length mismatch")) else
         List.iter2 (check_compatible_types symbols) p1_types p2_types
 
 let compare_func_names n1 n2 = 
@@ -606,7 +649,7 @@ let compare_func_return_types symbols r1 r2 =
        check_compatible_types symbols (type_from_declaration_specifiers r1)
   (type_from_declaration_specifiers r2)
 
-let compare_functions symbols f1 f2 = 
+let compare_functions symbols f1 f2 =
         let _ = compare_func_names f1.func_name f2.func_name in
         let _ = compare_func_params symbols f1.params f2.params in
         compare_func_return_types symbols f1.return_type f2.return_type
@@ -780,6 +823,8 @@ let validate_all_inheritence symbols structs =
                                                 implements = parent_struct.implements;
                                                 children = (parent_struct.children @ list_to_add);
                                                 constructor = parent_struct.constructor;
+                                                destructor =
+                                                        parent_struct.destructor;
                                         } in
                                
                                         let new_symbol = StructSymbol(name,
@@ -854,9 +899,29 @@ let rec get_method_names_for_struct tSymbol_table struct_ =
 let rec get_unique_method_names_for_struct tSymbol_table struct_ = 
         remove_duplicate_strings (get_method_names_for_struct tSymbol_table struct_)
 
+let check_child_methods_against_parent symbols child_methods parent_methods =
+        let parent_method_map = List.fold_left (fun m parent_decl -> let
+        parent_method = var_name_from_direct_declarator parent_decl.func_name in if
+                (StringMap.mem parent_method m) then raise(Failure("Redeclaring
+       method: " ^ parent_method)) else (StringMap.add parent_method parent_decl m))
+        StringMap.empty parent_methods in 
+
+        List.map (fun child_method ->
+                let func_name = 
+                         var_name_from_direct_declarator child_method.func_name in 
+        if (StringMap.mem func_name
+        parent_method_map) then (let parent_method = StringMap.find
+        func_name parent_method_map in
+        try 
+        compare_functions symbols child_method
+        parent_method
+        with 
+        _ -> raise(Failure("Declared child method: " ^ func_name ^ " is
+        incompatible with parent declaration"))
+        ) else ()) child_methods
+
 let update_fields functions symbols structs  = 
-        
-        
+            
         let _ = validate_all_inheritence symbols structs in
 
         let update_field functions symbols strct =
@@ -873,6 +938,7 @@ let update_fields functions symbols structs  =
                                 children = struct_.children;
                                 methods = strct_methods;
                                 constructor = struct_.constructor;
+                                destructor = struct_.destructor;
                                 implements = struct_.implements;
                                 extends = struct_.extends;
                         } in 
@@ -880,20 +946,44 @@ let update_fields functions symbols structs  =
                         (StructSymbol(struct_.struct_name,
                         updated_child_struct)) symbols
                 else 
-                        let parents = get_parents symbols struct_ in 
-                        match parents with 
+
+                        let parents = get_parents symbols struct_ in
+
+                                                match parents with 
 
                         | [] -> symbols
-                        | _ -> List.fold_left (fun sym parent_struct -> 
+                        | _ -> List.fold_left (fun sym parent_struct ->
+
+                                                let parent_methods =
+                                                        List.filter (fun func ->
+                                                                if
+                                                                        (type_from_receiver
+                                                                        func.receiver
+                                                                        =
+                                                                                parent_struct.struct_name)
+                                                                then true else
+                                                                        false)
+                                                        functions in 
+                                               ignore (check_child_methods_against_parent symbols
+                                                        strct_methods parent_methods);
+   
+                                                let StructSymbol(_,
+                                                current_struct)  =
+                                                        StringMap.find
+                                                        strct.struct_name
+                                                        sym in
+
+                                                 
+
                                                 let updated_child_struct = {
                                                         struct_name =
                                                                 struct_.struct_name;
                                                         members =
                                                                 parent_struct.members
                                                                 @
-                                                                struct_.members;
+                                                                current_struct.members;
                                                         children =
-                                                                struct_.children;
+                                                                current_struct.children;
                                                         methods = strct_methods;
                                                         constructor = (if
                                                                 (struct_.constructor.constructor_name
@@ -907,6 +997,8 @@ let update_fields functions symbols structs  =
                                                                 struct_.implements;
                                                         extends =
                                                                 struct_.extends;
+                                                        destructor =
+                                                                struct_.destructor;
                                                 } in 
 
                                                 StringMap.add
@@ -992,38 +1084,75 @@ let check_implements symbol_table struct_ =
        
         )
 
-let convert_constructor_to_fdecl constructor = 
+let convert_constructor_to_fdecl constructor updated_body = 
         {
                 return_type = DeclSpecTypeSpecAny(PrimitiveType(Void));
                 func_name =
                         DirectDeclarator(Var(Identifier(constructor.constructor_name)));
-                body = constructor.constructor_body;
+                body = updated_body;
                 params = constructor.constructor_params;
                 receiver = ("", "");
         }
 
-let check_constructor_definition_in_struct struct_ = 
-        ignore (List.iter (fun decl -> if (is_assignment_declaration decl) then
-                raise(Failure("Cannot have assignment declaration in struct"))
-        else ()) struct_.members);
+let isSuper stmt = match stmt with 
+        | Expr(Super(_)) -> true
+        | _ -> false
 
-        let constructor = struct_.constructor in
-        let symbols =  List.fold_left (fun symbol_table sym -> if
-        (StringMap.mem (get_id_from_symbol sym)
-        symbol_table) then raise(Failure("Struct field: " ^
-        (get_id_from_symbol sym) ^ " was redeclared")) else
-                StringMap.add (get_id_from_symbol sym) sym symbol_table) 
-        StringMap.empty (symbols_from_decls struct_.members @
-        symbols_from_func_params constructor.constructor_params) in 
-
-        let func = convert_constructor_to_fdecl constructor in 
-        if (constructor.constructor_name = "") then () else
-                check_statement func
-        symbols constructor.constructor_body
+let constructor_has_super constructor = match constructor.constructor_body with 
+        | CompoundStatement(d, s) -> (
+                match s with 
+                | [] -> false
+                | [singleton] -> isSuper singleton
+                | h::t -> isSuper h)
 
 
-let get_method_names struct_ = List.map (fun func -> var_name_from_direct_declarator func.func_name) struct_.methods
+let constructor_body_filtered_for_super body = match body with 
+        | CompoundStatement(d, s) -> (
+                match s with
+                | [] -> CompoundStatement(d, s)
+                | [singleton] -> if (isSuper singleton) then
+                        CompoundStatement(d, []) else CompoundStatement(d, s)
+                | h::t -> if (isSuper h) then CompoundStatement(d, t) else
+                        CompoundStatement(d, s)
+        )
+        | _ -> raise(Failure("No other constructor body"))
 
+let getSuperExpr stmt = match stmt with 
+        | Expr(Super(e_list)) -> Expr(Super(e_list))
+        | _ -> Expr(Noexpr)
+
+let get_super_expr body = match body with 
+        | CompoundStatement(_, s) -> (
+                match s with 
+                | [] -> Expr(Noexpr)
+                | [singleton] -> getSuperExpr singleton
+                | h::t -> getSuperExpr h)
+
+let validate_super super_ symbol_table struct_ =
+        let ancestor_constructor = get_ancestors_constructor symbol_table
+        struct_ in
+
+        if (ancestor_constructor.constructor_name =
+                struct_.constructor.constructor_name) then
+                        raise(Failure("Calling super when no parent constructor
+                        is defined"))
+        else
+                match super_ with 
+                | Expr(Super(_)) -> let Expr(Super(elist)) = getSuperExpr super_ in 
+                validate_call_expr elist symbol_table
+                     ancestor_constructor.constructor_params
+
+
+let check_for_super_in_constructor symbols struct_ = match
+struct_.constructor.constructor_body with 
+        | CompoundStatement(decls, stmts) -> (
+                match (stmts) with 
+                | [] -> ()
+                | [h] -> if (isSuper h) then validate_super h symbols
+                struct_ else ()
+                | h::t -> if (isSuper h) then validate_super h symbols
+                struct_ else () 
+        )
 
 let build_symbol_table program =
        let fdecls = program.functions @ [{
@@ -1044,6 +1173,39 @@ let build_symbol_table program =
                          @ symbols_from_fdecls fdecls
                          @ (symbols_from_structs program.structs)
                          @ (symbols_from_interfaces program.interfaces))
+
+let check_constructor_definition_in_struct program struct_ = 
+        ignore (List.iter (fun decl -> if (is_assignment_declaration decl) then
+                raise(Failure("Cannot have assignment declaration in struct"))
+        else ()) struct_.members);
+
+        let symbol_table = build_symbol_table program in 
+        let constructor = struct_.constructor in
+        let symbols =  List.fold_left (fun symbol_table sym -> if
+        (StringMap.mem (get_id_from_symbol sym)
+        symbol_table) then raise(Failure("Struct field: " ^
+        (get_id_from_symbol sym) ^ " was redeclared")) else
+                StringMap.add (get_id_from_symbol sym) sym symbol_table) 
+        symbol_table (symbols_from_decls struct_.members @
+        symbols_from_func_params constructor.constructor_params) in
+
+        if (constructor.constructor_name = "") then () 
+               
+        else
+                ignore(check_for_super_in_constructor symbols struct_);
+                let updated_body = constructor_body_filtered_for_super
+                constructor.constructor_body in
+
+                let func = convert_constructor_to_fdecl constructor
+                updated_body
+                in  
+
+                check_statement func
+        symbols updated_body
+
+
+let get_method_names struct_ = List.map (fun func -> var_name_from_direct_declarator func.func_name) struct_.methods
+
 
 let apply_name_to_anon_def (prefix, count) adef = {
     anon_name =  prefix ^ "_" ^ (string_of_int count);
@@ -1442,9 +1604,10 @@ let check_program program =
                                         " ^ a) (fnames);
 
        let program = update_structs_in_program program 
-                       in ignore(List.map check_struct_fields program.structs);
+                       in ignore(List.map check_struct_fields
+                       program.structs);
 
-        ignore (List.map check_constructor_definition_in_struct
+        ignore (List.map (check_constructor_definition_in_struct program)
         program.structs);
 
        let struct_names = List.map (fun struct_ -> struct_.struct_name)
@@ -1482,6 +1645,8 @@ let check_program program =
        fdecls in
 
        let check_function func =
+                
+               
                 let func_params = List.map var_name_from_func_param func.params
                 in
 
@@ -1513,7 +1678,12 @@ let check_program program =
                          @ ([symbol_from_receiver func.receiver]))
 
                 in
-                
+              
+                ignore(if (func.receiver <> ("", "")) then (if StringMap.mem (fst
+                func.receiver) symbol_table then () else
+                        raise(Failure("receiver: " ^ (fst func.receiver) ^ " is
+                        not defined"))));
+
                 List.iter (check_local_declaration symbol_table)
                 (get_decls_from_compound_stmt func.body);
 

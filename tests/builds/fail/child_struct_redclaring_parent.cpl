@@ -1,0 +1,13 @@
+struct MyStruct {
+	int argc;
+	char **argv;
+	float t;
+};
+
+struct YourStruct extends MyStruct{
+	int c;
+};
+
+int main(int argc, char** argv) {
+	return 0;
+}

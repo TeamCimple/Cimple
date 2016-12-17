@@ -62,6 +62,8 @@ and tExpr =
   | Id of tIdentifier
   | AnonFuncDef of tAnonFuncDef
   | DeclExpr of tDeclaration
+  | Super of tExpr list
+  | Clean of tExpr
   | Noexpr
 
  and tDirectDeclarator = 
@@ -125,6 +127,11 @@ type tConstructor = {
         constructor_body: tStatement
 }
 
+type tDestructor = {
+        destructor_name: string;
+        destructor_body: tStatement;
+}
+
 type tFuncDecl = {
         return_type: tDeclarationSpecifiers;
         func_name: tDeclarator;
@@ -140,7 +147,8 @@ type tStruct = {
         extends: string;
         children: string list; (*Used to validate inheritence tree*)
         implements: string;
-        constructor: tConstructor
+        constructor: tConstructor;
+        destructor: tDestructor;
 }
 
 type tInterface = {

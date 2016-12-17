@@ -18,7 +18,6 @@ let _ =
                         Semant.check_program program;
                        (*(Printf.printf "%s" (Astutil.string_of_func_decl_list*)
                        (*program.functions));*)
-                       Semant.check_program program;
                        
                        let cprogram = Ctree.cProgram_from_tProgram program in
                        Printf.printf "%s\n" (Ccodegen.gen_cprogram cprogram)

@@ -1,0 +1,67 @@
+interface MyInterface {
+	int setA(int);
+	int getA();
+	int getC(int, int);
+};
+
+struct MyStruct extends YourStruct{
+	int e;
+	int f;
+	
+	MyStruct() {
+		e = 1;
+		f = 2;
+	}
+};
+
+struct YourStruct implements MyInterface{
+	int a;
+	int b;
+	int c;
+	int d;
+};
+
+int (YourStruct *e) setA(int w)
+{
+	e.a = w;
+	return 0;
+}
+
+int (YourStruct *e) getA()
+{
+	return e.a;
+}
+
+int (YourStruct *e) getC(int a, int b) {
+	return 0;
+}
+
+int (MyStruct *m) getA()
+{
+	return m.a;
+}
+
+int getA() {
+	return 1;
+}
+
+int main() {
+	int *s;
+	struct MyStruct m;
+	struct YourStruct y;
+	struct MyStruct *n;
+	int a;
+
+	n = make MyStruct();
+	for (a = 1; a < 100; a++) {
+		a = 2;
+	}
+	n.setA(a);
+	return n.getA();
+}
+
+int setA(interface MyInterface m, int val)
+{
+	m.setA(val);
+	return m.getA();
+}

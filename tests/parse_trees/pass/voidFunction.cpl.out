@@ -1,0 +1,2 @@
+(int Var(i),), Struct((int Var(a),), (int Var(b),), , HisStruct, Constructor(Body:
+        CompoundStatement(Declarations:  StatementList: )),, )FuncDecl(Name: Var(main) ReturnType: int Parameters:  Body: CompoundStatement(Declarations:  StatementList: RETURN(Int(0)))) , FuncDecl(Name: Var(x) ReturnType: void Parameters: PARAM(int Var(b)) , PARAM(int Var(a))  Body: CompoundStatement(Declarations:  StatementList: RETURN())) 
