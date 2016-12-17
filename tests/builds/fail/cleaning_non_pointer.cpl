@@ -1,0 +1,10 @@
+struct MyStruct {
+	int a;
+	int b;
+};
+
+int main(int argc, char**argv) {
+	struct MyStruct m;
+	clean m;
+	return 0;
+}

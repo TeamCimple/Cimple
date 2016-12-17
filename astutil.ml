@@ -117,8 +117,10 @@ let rec string_of_expr = function
   | CompareExpr(e1, op, e2) -> "Compare(" ^ string_of_expr e1 ^ "," ^
   string_of_logical_op op ^ "," ^ string_of_expr e2 ^ ")"
   | Noexpr -> ""
+  | Clean(expr) -> "Clean(" ^ string_of_expr expr ^ ")"
   | AsnExpr(e1, asnOp, e) -> string_of_assignment_op asnOp ^ "(" ^
   string_of_expr e1 ^  ", " ^ string_of_expr e ^ ")"
+  | Super(expr_list) -> "Super(" ^ string_of_expr_list expr_list ^ ")"
   | Binop(e1, op, e2) -> string_of_op op ^ "(" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ ")"
   | Unop(e, unOp) -> string_of_unary_op unOp ^ "(" ^ string_of_expr e ^ ")"
   | Call(e, Id(id), exprList) -> "Call(" ^ "Receiver(" ^ string_of_expr e ^")"  ^

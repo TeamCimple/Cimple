@@ -1,0 +1,19 @@
+struct MyStruct {
+	int a;
+};
+
+struct YourStruct extends MyStruct {
+	int b;
+};
+
+int (MyStruct *m) getA() {
+	return m.a;
+}
+
+int (YourStruct *m) getA(int c) {
+	return m.a;
+}
+
+int main(int argc, char**argv) {
+	return 0;
+}

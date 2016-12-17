@@ -1,0 +1,21 @@
+struct MyStruct {
+	int a;
+	int b;
+
+	MyStruct(int e, int f) {
+		a = e;
+		b = f;
+	}
+};
+
+struct YourStruct extends MyStruct {
+	float t;
+	YourStruct(int e1, int f1, float c) {
+		t = c;
+		super(e1, f1);
+	}
+};
+
+int main(int argc, char**argv) {
+	return 0;
+}

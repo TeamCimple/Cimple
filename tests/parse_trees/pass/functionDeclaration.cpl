@@ -10,7 +10,9 @@ int main(int argc)
 {
 	int b = 1;
 	test(b);
+	/*
 	printf(c);
+	*/
 	return b;
 }
 

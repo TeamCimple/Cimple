@@ -165,7 +165,8 @@ and gen_cstatement  stmt = match stmt with
    | CReturn(e) -> "return " ^ (gen_cexpr  e) ^ "; "
    | CCompoundStatement(declList, stmtList) -> "{\n" ^ (gen_cdeclaration_list
    declList) ^ "\n" ^ (gen_cstatement_list  stmtList) ^ "\n}\n"
-   | CIf(e, s1, s2) -> "if(" ^ (gen_cexpr  e) ^ "){\n" ^ (gen_cstatement  s1) ^ (gen_cstatement  s2) ^ "\n}"
+   | CIf(e, s1, s2) -> "if(" ^ (gen_cexpr  e) ^ "){\n" ^ (gen_cstatement  s1) ^
+   (gen_cstatement  s2) ^ "\n}\n"
    | CFor(e1, e2, e3, s) -> let se1 = (gen_cexpr  e1) in 
                             let se2 = (gen_cexpr  e2) in
                             let se3 = (gen_cexpr  e3) in
@@ -173,7 +174,7 @@ and gen_cstatement  stmt = match stmt with
                             "for(" ^ se1 ^ "; " ^ se2 ^ "; " ^ se3 ^ ")" ^ ss
    | CWhile(e, s) -> let se = (gen_cexpr  e) in
                      let ss = (gen_cstatement  s) in
-                     "while(" ^ se ^ "){\n" ^ ss ^ "}"
+                     "while(" ^ se ^ "){\n" ^ ss ^ "}\n"
    | CBreak -> "break;\n" 
   
 and gen_cstatement_list  stmtList = match stmtList with

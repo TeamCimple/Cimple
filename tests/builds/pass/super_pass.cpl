@@ -1,0 +1,36 @@
+struct TheirStruct {
+	float c;
+	string them;
+	int age;
+
+	TheirStruct(float cost, string their, int their_age) {
+		c = cost;
+		them = their;
+		age = their_age;
+	}
+};
+
+struct MyStruct extends TheirStruct {
+	int t;
+	int p;
+
+	MyStruct(int a, int b, float cost, string their, int their_age) {
+		super(cost, their, their_age);
+		t = a;
+		t = b;
+	}
+
+};
+
+struct YourStruct extends MyStruct{
+	int m;
+
+	YourStruct(int v, int k, int s, float cost, string their, int their_age) {
+		super(v, k, cost, their, their_age);
+		m = s;
+	}
+};
+
+int main() {
+	return 0;
+}

@@ -1,0 +1,68 @@
+struct Bicycle {
+	int cadence;
+	int gear;
+	int speed;
+	Bicycle(int start_cadence, int start_speed, int start_gear) {
+		gear = start_gear;
+		cadence = start_cadence;
+		speed = start_speed;
+	}
+
+	~Bicycle() {
+		/* Empty Destructor */
+	}
+};
+
+struct MountainBike extends Bicycle {
+	int seatHeight;
+
+	 MountainBike(int start_height, 
+			int start_cadence, 
+			int start_speed, 
+			int start_gear) {
+		super(start_cadence, start_speed, start_gear);
+		seatHeight = start_height;
+	}
+
+	~MountainBike() {
+		/* Empty Destructor */
+	}
+};
+
+void (Bicycle *b) setCadence(int newValue) {
+	b.cadence = newValue;
+	return;
+}
+
+void (Bicycle *b) setGear(int newValue) {
+	b.gear = newValue;
+	return;
+}
+
+void (Bicycle *b) applyBreak(int decrement) {
+	b.speed = b.speed - decrement;
+	return;
+}
+
+void (Bicycle *b) speedUp(int increment) {
+	b.speed = b.speed + increment;
+	return;
+}
+
+int (Bicycle *b) getGear() {
+	return b.gear;
+}
+
+void (MountainBike *mb) setHeight (int newValue) {
+	mb.seatHeight = newValue;
+	return;
+}
+
+int main(int argc, char**argv) {
+	
+	struct MountainBike *mb;
+
+	mb = make MountainBike(20, 30, 40, 50);
+	mb.setGear(70);
+	return mb.getGear();
+}
