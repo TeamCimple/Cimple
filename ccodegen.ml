@@ -195,7 +195,13 @@ and gen_cstatement_list  stmtList = match stmtList with
    | h::t -> (gen_cstatement  h) ^ (gen_cstatement_list  t)
 
 and gen_csymbol  s = match s with 
-     CVarSymbol(s, t) -> (gen_ctype  t) ^ " " ^ s
+     CVarSymbol(s, t) ->
+         (match t with
+            CFuncPointer(fsig) ->
+                let rtype = (gen_ctype fsig.func_return_type) in 
+                let ptypes = (gen_ctype_list fsig.func_param_types) in
+                (rtype ^ "(*" ^ s ^ ")(" ^ ptypes ^ ")")
+          | _ -> (gen_ctype  t) ^ " " ^ s)
    | CFuncSymbol(name, func) -> (gen_cfunc  func)
    | CStructSymbol(name, strct) -> (gen_cstruct  strct) 
 

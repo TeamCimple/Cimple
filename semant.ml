@@ -369,8 +369,14 @@ and check_compatible_types symbols t1 t2 = match (t1, t2) with
   pointer and primitive"))
   | AnonFuncType(_, _), AnonFuncType(_, _) -> check_compatible_anon_types
   symbols t1 t2
-  | _ -> raise(Failure("check_compatible_types: CompoundType not yet
-  supported"))
+  | (PrimitiveType(_), AnonFuncType(rtype, _)) -> check_compatible_types symbols t1 rtype
+  | _ -> 
+          let t1Str = string_of_type t1 in
+          let t2Str = string_of_type t2 in
+          let errorStr = "check_compatible_types: Error - " ^ t1Str ^ " and " ^ t2Str ^ " not yet supported" in
+          raise(Failure(errorStr))
+  (*| _ -> raise(Failure("check_compatible_types: *)
+  (*[>supported"))<]*)
 
 let rec get_fdecl_for_receiver typ_ tSymbol_table func_name = 
         let object_symbol = (lookup_symbol_by_id tSymbol_table (Identifier(typ_))) in 
@@ -417,9 +423,12 @@ let rec type_from_expr symbols expr = match expr with
   | Call(e, Id(Identifier(id)), _) -> (match e with 
                 | Noexpr -> (
                                 if (StringMap.mem id symbols) then 
-                                        let FuncSymbol(_, fdecl) =
-                                                StringMap.find id symbols in 
-                                        type_from_declaration_specifiers fdecl.return_type 
+                                        let sym = StringMap.find id symbols in 
+                                        match sym with
+                                            FuncSymbol(_, fdecl) ->
+                                                (*StringMap.find id symbols in *)
+                                                type_from_declaration_specifiers fdecl.return_type 
+                                          | AnonFuncSymbol(_, t) -> t
                                  else
                                         raise(Failure("Calling function: " ^ id
                                         ^ "which is undefined"))
@@ -1225,7 +1234,9 @@ let rec anon_defs_from_expr (prefix, count) expr = match expr with
    | Call(_, e, elist) -> 
            let (defs1, count1) = (anon_defs_from_expr (prefix, count) e) in
            let (defs2, count2) = (anon_defs_from_expr_list (prefix, count1) elist) in
-           (defs1@defs2, count2);
+           (defs1@defs2, count2)
+   | Make(_, elist) -> anon_defs_from_expr_list (prefix, count) elist
+
    | _ -> ([], count) (* Other expression types cannot possibly contain anonymous function definitions *) 
 
 and anon_defs_from_expr_list (prefix, count) elist = match elist with  
@@ -1462,7 +1473,8 @@ let rec symbols_from_outside_scope_for_anon_def tprogram anonDef =
 
    and init_declarator_contains_anon_def symbols anonDef initDecl = match initDecl with
         InitDeclaratorAsn(_, _, e) -> expr_contains_anon_def symbols anonDef e
-      | InitDeclList(idlist) -> init_declarator_list_contains_anon_def symbols anonDef idlist 
+      | InitDeclList(idlist) -> init_declarator_list_contains_anon_def symbols anonDef idlist
+      | InitDeclarator(_) -> (false, symbols) 
       | _ -> raise(Failure("init_declarator_contains_anon_def: Error - unexpected init_declarator type"))
 
    and init_declarator_list_contains_anon_def symbols anonDef initDeclList = match initDeclList with

@@ -287,11 +287,18 @@ let create_cfunc_param_for_receiver receiver =
         , Asn, CCastExpr(CPointerType(CType(CStruct(cstruct_name)), 1),
         CId(CIdentifier("_body")))))
 
-let number_of_anon_func_parameters_in_tFuncDecl fdecl = 
+let number_of_anon_func_parameters_in_tFuncParamList plist = 
     List.fold_left (fun acc f ->
                      (match f with
                         AnonFuncDecl(_) -> (acc + 1)
-                      | _ -> acc)) 0 fdecl.params
+                      | _ -> acc)) 0 plist
+
+let number_of_anon_func_parameters_in_tFuncDecl fdecl =
+    number_of_anon_func_parameters_in_tFuncParamList fdecl.params
+    (*List.fold_left (fun acc f ->*)
+                     (*(match f with*)
+                        (*AnonFuncDecl(_) -> (acc + 1)*)
+                      (*| _ -> acc)) 0 fdecl.params*)
 
 let cFunc_from_tFunc symbol_table tFunc =
     {
@@ -711,8 +718,7 @@ let rec update_expr texpr tSymbol_table tprogram  = match texpr with
                    
      | Call(expr, Id(Identifier(s)), expr_list) -> 
                      let sym = Semant.type_from_expr tSymbol_table expr in 
-                                        cCallExpr_from_tCallExpr expr
-                                        tSymbol_table tprogram s expr_list
+                     cCallExpr_from_tCallExpr expr tSymbol_table tprogram s expr_list
      | Super(_) -> ((CNoexpr, []), [])
      | MemAccess(expr, Identifier(s)) -> (let typ_ = Semant.type_from_expr
      tSymbol_table expr in match (typ_) with 
@@ -809,16 +815,24 @@ and cAllocExpr_from_tMakeExpr tSymbol_table tprogram asn_expr tMakeExpr =
                         (* We have a constructor *)
                         let params = tStruct.constructor.constructor_params in 
                         
+                        let more_params_filtered = generate_extra_capture_func_params_from_expr_list tSymbol_table tprogram expr_list in 
                         let updated_expr_list = (List.map2
                         (cExpr_from_tExpr_in_tCall tSymbol_table tprogram) expr_list params) in 
-
+                    
+                        let anonParams = Semant.anon_defs_from_expr_list_no_recursion tprogram expr_list in
+                        let update_anon_def_expr_list anonList = 
+                            List.fold_left (fun ((e, slist), dlist) def ->
+                                let ((_, _slist), _dlist) = update_expr (AnonFuncDef(def)) tSymbol_table tprogram in
+                                ((Noexpr, slist@_slist), dlist@_dlist)) ((Noexpr, []), []) anonList
+                        in 
+                        let ((updated_expr, updated_slist), updated_dlist) = update_anon_def_expr_list anonParams in
                         
                         ((CCall(0, CNoexpr,
                         CId(CIdentifier(constructor_name_from_tStruct
                         tStruct.struct_name)),
                         [CCastExpr(CPointerType(CType(CStruct(cStructName_from_tStruct
                         tStruct.struct_name)), 2), CPointify(updated_e1))] @
-                        updated_expr_list @ [CLiteral(1)]), []), [])
+                        updated_expr_list @ [CLiteral(1)]@more_params_filtered), updated_slist), updated_dlist)
                 ) else (
                        ((CCall(0, CNoexpr,
                         CId(CIdentifier(constructor_name_from_tStruct
@@ -850,37 +864,48 @@ and cExpr_from_tExpr_in_tCall tSymbol_table  tprogram  tExpr tFuncParam =
             | _ -> fst (fst (update_expr tExpr tSymbol_table tprogram )
             )
 
+and generate_extra_capture_func_params_from_expr_list tSym tprogram expr_list = 
+        let anonParams = Semant.anon_defs_from_expr_list_no_recursion tprogram expr_list in
+        let update_anon_def_expr_list anonList = 
+            List.fold_left (fun ((e, slist), dlist) def ->
+                let ((_, _slist), _dlist) = update_expr (AnonFuncDef(def)) tSym tprogram in
+                ((Noexpr, slist@_slist), dlist@_dlist)) ((Noexpr, []), []) anonList
+        in 
+        let capture_struct_instance_name_from_anon_def def = 
+            let capStruct = capture_struct_from_anon_def tprogram def in
+            let subname = String.sub capStruct.cstruct_name 1 ((String.length capStruct.cstruct_name) - 1) in
+            let structname = "s" ^ subname in
+            structname
+        in
+        let capture_params_from_anon_def_list defList = 
+            List.fold_left (fun elist def -> 
+                elist@[CPointify(CId(CIdentifier((capture_struct_instance_name_from_anon_def def))))]
+            ) [CNoexpr] defList
+        in
+        let more_params = capture_params_from_anon_def_list anonParams in
+        let remove_noexpr_from_list elist = 
+            List.filter (fun e ->
+                match e with
+                    CNoexpr -> false
+                  | _ -> true) elist
+        in
+        let more_params_filtered = remove_noexpr_from_list more_params in 
+        more_params_filtered
+
 and cCallExpr_from_tCallExpr expr tSym  tprogram func_name expr_list = match expr with
         | Noexpr -> let sym = StringMap.find func_name tSym in 
                     (match sym with
                         FuncSymbol(_, fdecl) -> 
                             let hasAnonParams = Semant.expr_list_contains_anon_defs_no_recursion expr_list in 
                             if (hasAnonParams = true) then 
-                                let anonParams = Semant.anon_defs_from_expr_list_no_recursion tprogram expr_list in
                                 let update_anon_def_expr_list anonList = 
                                     List.fold_left (fun ((e, slist), dlist) def ->
                                         let ((_, _slist), _dlist) = update_expr (AnonFuncDef(def)) tSym tprogram in
                                         ((Noexpr, slist@_slist), dlist@_dlist)) ((Noexpr, []), []) anonList
                                 in 
-                                let capture_struct_instance_name_from_anon_def def = 
-                                    let capStruct = capture_struct_from_anon_def tprogram def in
-                                    let subname = String.sub capStruct.cstruct_name 1 ((String.length capStruct.cstruct_name) - 1) in
-                                    let structname = "s" ^ subname in
-                                    structname
-                                in
-                                let capture_params_from_anon_def_list defList = 
-                                    List.fold_left (fun elist def -> 
-                                        elist@[CPointify(CId(CIdentifier((capture_struct_instance_name_from_anon_def def))))]
-                                    ) [CNoexpr] defList
-                                in
-                                let more_params = capture_params_from_anon_def_list anonParams in
-                                let remove_noexpr_from_list elist = 
-                                    List.filter (fun e ->
-                                        match e with
-                                            CNoexpr -> false
-                                          | _ -> true) elist
-                                in
-                                let more_params_filtered = remove_noexpr_from_list more_params in 
+                                Printf.printf "Has normal anon params\n";
+                                let more_params_filtered = generate_extra_capture_func_params_from_expr_list tSym tprogram expr_list in 
+                                let anonParams = Semant.anon_defs_from_expr_list_no_recursion tprogram expr_list in
                                 let ((updated_expr, updated_slist), updated_dlist) = update_anon_def_expr_list anonParams in
                                 let paramExpressions = (List.map2
                                     (cExpr_from_tExpr_in_tCall tSym  tprogram ) expr_list fdecl.params) in
@@ -924,6 +949,16 @@ and cCallExpr_from_tCallExpr expr tSym  tprogram func_name expr_list = match exp
                                 CId(CIdentifier(func_name)), cexpr_list), []),
                                 [])
                         else
+                            let hasAnonParams = Semant.expr_list_contains_anon_defs_no_recursion expr_list in 
+                            if (hasAnonParams = true) then 
+                                let update_anon_def_expr_list anonList = 
+                                    List.fold_left (fun ((e, slist), dlist) def ->
+                                        let ((_, _slist), _dlist) = update_expr (AnonFuncDef(def)) tSym tprogram in
+                                        ((Noexpr, slist@_slist), dlist@_dlist)) ((Noexpr, []), []) anonList
+                                in 
+                                let extra_params = generate_extra_capture_func_params_from_expr_list tSym tprogram expr_list in 
+                                let anonParams = Semant.anon_defs_from_expr_list_no_recursion tprogram expr_list in
+                                let ((updated_expr, updated_slist), updated_dlist) = update_anon_def_expr_list anonParams in
                                 let first_arg =
                                         CCastExpr(CPointerType(CType(CPrimitiveType(Cvoid)),
                                         1), CPointify(fst(fst (update_expr expr
@@ -934,7 +969,19 @@ and cCallExpr_from_tCallExpr expr tSym  tprogram func_name expr_list = match exp
                                 CId(CIdentifier(
                                 func_name)), [first_arg] @ (List.map2
                                 (cExpr_from_tExpr_in_tCall tSym  tprogram ) expr_list
-                                fdecl.params)), []), [])
+                                fdecl.params)@extra_params), updated_slist), updated_dlist)
+                            else
+                                let first_arg =
+                                        CCastExpr(CPointerType(CType(CPrimitiveType(Cvoid)),
+                                        1), CPointify(fst(fst (update_expr expr
+                                        tSym tprogram
+                                        )))) in 
+                                ((CCall(1, CMemAccess(0, fst (fst( (update_expr expr
+                                tSym tprogram))), CIdentifier("_virtual")), 
+                                CId(CIdentifier(
+                                func_name)), [first_arg] @ (List.map2
+                                (cExpr_from_tExpr_in_tCall tSym  tprogram ) expr_list
+                                fdecl.params)),[]), [])
                | PointerType(CustomType(a), 1) -> let fdecl =
                        Semant.get_fdecl_for_receiver a tSym func_name in
                                 let first_arg =
@@ -942,6 +989,8 @@ and cCallExpr_from_tCallExpr expr tSym  tprogram func_name expr_list = match exp
                                         1), fst (fst (update_expr expr tSym
                                         tprogram
                                         ))) in 
+                                let extra_params = generate_extra_capture_func_params_from_expr_list tSym tprogram expr_list in 
+
                                 ((CCall(1, CMemAccess(1,
                                 fst (fst(update_expr expr tSym tprogram)),
                                 CIdentifier("_virtual")), 
@@ -1233,7 +1282,23 @@ let cFunc_from_tConstructor symbol_table  tprogram constructor tStruct =
                    tdecl_id tdecl tdecl_type in cdecls @ cdecl
         ) [] tStruct.members in 
 
-        
+        let generate_void_star_params = 
+            let anonList = 
+                List.filter (fun p -> match p with
+                    AnonFuncDecl(anonDecl) -> true
+                  | _ -> false) constructor.constructor_params
+            in
+            let returned_params = 
+                List.map (fun p -> match p with
+                    AnonFuncDecl(anonDecl) ->
+                        (match anonDecl.anon_decl_name with
+                            Identifier(s) -> 
+                                let paramName = "cap_anon_" ^ s in 
+                                (CPointerType(CType(CPrimitiveType(Cvoid)), 1), CIdentifier(paramName)))) anonList
+            in
+            returned_params
+        in
+        let extraParams = generate_void_star_params in 
 
         {
                 creturn_type = CType(CPrimitiveType(Cvoid));
@@ -1242,7 +1307,7 @@ let cFunc_from_tConstructor symbol_table  tprogram constructor tStruct =
                                                 (cFuncParam_from_tFuncParam
                                                 symbol_table)
                                                 constructor.constructor_params)
-                @ [last_param];
+                @ [last_param]@extraParams;
 
                 cfunc_body = CCompoundStatement(augmented_decls,
                 []);
