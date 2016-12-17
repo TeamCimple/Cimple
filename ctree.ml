@@ -745,7 +745,6 @@ let rec update_expr texpr tSymbol_table tprogram  = match texpr with
              let captures = capture_struct_from_anon_def tprogram anonDef in
 
              let newAssignments = assignments_from_capture_struct captures in
-             (Printf.printf "Updated AnonFuncDef\n\n");
              ((CId(CIdentifier(anon_name)), newAssignments), decls)
      | _ ->
              let expr_type = Astutil.string_of_expr texpr in 
@@ -815,15 +814,33 @@ and cCallExpr_from_tCallExpr expr tSym  tprogram func_name expr_list = match exp
                                     List.fold_left (fun ((e, slist), dlist) def ->
                                         let ((_, _slist), _dlist) = update_expr (AnonFuncDef(def)) tSym tprogram in
                                         ((Noexpr, slist@_slist), dlist@_dlist)) ((Noexpr, []), []) anonList
+                                in 
+                                let capture_struct_instance_name_from_anon_def def = 
+                                    let capStruct = capture_struct_from_anon_def tprogram def in
+                                    let subname = String.sub capStruct.cstruct_name 1 ((String.length capStruct.cstruct_name) - 1) in
+                                    let structname = "s" ^ subname in
+                                    structname
                                 in
+                                let capture_params_from_anon_def_list defList = 
+                                    List.fold_left (fun elist def -> 
+                                        elist@[CPointify(CId(CIdentifier((capture_struct_instance_name_from_anon_def def))))]
+                                    ) [CNoexpr] defList
+                                in
+                                let more_params = capture_params_from_anon_def_list anonParams in
+                                let remove_noexpr_from_list elist = 
+                                    List.filter (fun e ->
+                                        match e with
+                                            CNoexpr -> false
+                                          | _ -> true) elist
+                                in
+                                let more_params_filtered = remove_noexpr_from_list more_params in 
                                 let ((updated_expr, updated_slist), updated_dlist) = update_anon_def_expr_list anonParams in
                                 let paramExpressions = (List.map2
                                     (cExpr_from_tExpr_in_tCall tSym  tprogram ) expr_list fdecl.params) in
-                                let ret =  
-                                ((CCall(0, CNoexpr, CId(CIdentifier(func_name)), (List.map2
-                                    (cExpr_from_tExpr_in_tCall tSym  tprogram ) expr_list fdecl.params)), updated_slist), updated_dlist)
+                               
+                                let ret =   
+                                ((CCall(0, CNoexpr, CId(CIdentifier(func_name)), paramExpressions@more_params_filtered) , updated_slist), updated_dlist)
                                 in
-                                Printf.printf "Has anon params\n";
                                 ret;
                             else
                                 ((CCall(0, CNoexpr, CId(CIdentifier(func_name)), (List.map2
