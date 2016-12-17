@@ -60,16 +60,18 @@ let rec gen_cpointer  ptr = match ptr with
     CPointer(npt) -> gen_non_pointer_type  npt
   | CPointerPointer(pptr) -> "*" ^ (gen_cpointer  pptr)
 
-let rec gen_ctype  t = 
+
+let rec gen_n_pointers n =
     let rec create_dummy_list_with_size n = match n with
         1 -> [()]
+      | 0 -> []
       | _ -> let lst = create_dummy_list_with_size (n - 1) in
              [()]@lst
     in
-    let rec gen_n_pointers n =
-        let lst = create_dummy_list_with_size n in
-        List.fold_left (fun s x -> "*" ^ s) "" lst
-    in
+    let lst = create_dummy_list_with_size n in
+    List.fold_left (fun s x -> "*" ^ s) "" lst
+
+let rec gen_ctype  t = 
     match t with
         CType(npt) -> gen_non_pointer_type  npt 
       | CPointerType(ct, n) -> (gen_ctype  ct) ^ (gen_n_pointers n) 
@@ -96,7 +98,8 @@ let rec gen_cexpr  expr = match expr with
    | CPostfix(e, pfop) -> (gen_cexpr  e) ^ (gen_postfix_op pfop)
    | CCall(n, s, e, elist) ->
            if (n > 0) then 
-               (gen_cexpr s)(* ^ "->"*) ^ (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")"
+               let asterisks = gen_n_pointers (n - 1) in
+               (gen_cexpr s)(* ^ "->"*)^ asterisks ^ (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")"
            else (if (s <> CNoexpr) then
                (gen_cexpr s) ^ "." ^ (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")" else (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")")
    | CAlloc(ct, s) -> "malloc(" ^ "sizeof(" ^ s ^")" ^ ")"
