@@ -43,6 +43,7 @@ let var_name_from_direct_declarator = function
    | PointerDirDecl(_, Var(Identifier(s))) -> s
    | _ -> raise(Failure("Pointers not yet supported"))
 
+     
 let var_name_from_declaration = function 
      Declaration(_ , InitDeclarator(dd)) -> var_name_from_direct_declarator dd 
    | Declaration(_, InitDeclaratorAsn(dd, _, _)) -> var_name_from_direct_declarator dd
@@ -467,11 +468,11 @@ and type_from_expr symbols expr = match expr with
                         | _ -> raise(Failure("Cannot clean a non pointer"))); PrimitiveType(Void)
   | Call(e, Id(Identifier(id)), _) -> (match e with 
                 | Noexpr -> (
+
                                 if (StringMap.mem id symbols) then 
                                         let sym = StringMap.find id symbols in 
                                         match sym with
                                             FuncSymbol(_, fdecl) ->
-                                                (*StringMap.find id symbols in *)
                                                 type_from_declaration_specifiers fdecl.return_type 
                                           | AnonFuncSymbol(_, t) -> t
                                  else
@@ -583,10 +584,58 @@ let validate_call_expr expr_list symbols params =
         List.iter2 (check_compatible_types symbols) exprList func_param_types
 
 (* TODO: validate this *)
-let validate_anon_call_expr expr expr_list symbols anonSym = match anonSym with
-    _ -> ()
+let rec validate_anon_call_expr expr expr_list symbols anonSym = match anonSym with
+      AnonFuncSymbol(name, _) -> 
+          Printf.printf "AnonFuncSymbol name is %s\n" name;
+          ()
+    | _ -> ()
 
-let rec check_expr symbols e = match e with
+and check_format_string_with_expr_list symbols fmtStr elist =
+    let type_from_fmtSpec fmtSpec = match fmtSpec with
+          "%s" -> PrimitiveType(String)
+        | "%d" -> PrimitiveType(Int)
+        | "%f" -> PrimitiveType(Float)
+        | "%c" -> PrimitiveType(Char)
+        | _ -> raise(Failure("check_format_string_with_expr_list: Error - Invalid format string"))
+    in
+    let rec get_fmtSpec_list_from_string str =
+        try 
+            let firstOccurrence = String.index str '%' in 
+            let substr = String.sub str firstOccurrence 2 in
+            let remainderStr = String.sub str (firstOccurrence + 1) ((String.length str) - (firstOccurrence + 1))  in
+            [substr]@(get_fmtSpec_list_from_string remainderStr)
+        with Not_found ->
+            []
+    in
+    let rec type_list_from_fmtSpec_list specList = match specList with 
+          [] -> []
+        | [s] -> [type_from_fmtSpec s]
+        | h::t -> [type_from_fmtSpec h]@(type_list_from_fmtSpec_list t)
+    in
+    let fmtSpecList = get_fmtSpec_list_from_string fmtStr in
+    let argTypeList = type_list_from_expr_list symbols elist in
+    let fmtTypeList = type_list_from_fmtSpec_list fmtSpecList in
+    try
+        List.iter2 (fun t1 t2 -> (check_compatible_types symbols t1 t2)) argTypeList fmtTypeList
+    with
+        Invalid_argument(_) -> raise(Failure("check_format_string_with_expr_list: Error - Number of format specifiers in format string does not match number of arguments"))
+      | _ -> raise(Failure("check_format_string_with_expr_list: Unspecified error"))
+
+and check_call_to_printf symbols exprList = match exprList with
+      [e] -> if ((type_from_expr symbols e) <> PrimitiveType(String)) then 
+                 raise(Failure("check_call_to_printf: Error - If only 1 argument, must be string!"))
+             else
+                 Printf.printf "Successfully checked call to printf!\n";
+                 ()
+    | h::t ->
+            if ((type_from_expr symbols h) <> PrimitiveType(String)) then 
+                 raise(Failure("check_call_to_printf: Error - If only 1 argument, must be string!"))
+             else (match h with 
+                 StringLiteral(s) ->
+                     Printf.printf "Successfully checked call to printf!\n";
+                     check_format_string_with_expr_list symbols s t)
+
+and check_expr symbols e = match e with
      Id(Identifier(name)) -> if (StringMap.mem name symbols) == false then
                                 raise(Failure("Undeclared identifier"))
                              else ()
@@ -610,20 +659,26 @@ let rec check_expr symbols e = match e with
                         | PointerType(base_type, num) -> ()
                         | _ -> raise(Failure("Cleaning a non pointer type"))) 
    | Call(expr, Id(Identifier(id)), expr_list) -> (match expr with 
-                | Noexpr -> (
-                                if (StringMap.mem id symbols) then 
-                                        let s =  StringMap.find id symbols in
-                                        match s with 
-                                             FuncSymbol(_, fdecl) ->
-                                                   validate_call_expr
-                                                   expr_list symbols
-                                                   fdecl.params
-                                           | AnonFuncSymbol(_, t) ->
-                                                   validate_anon_call_expr expr expr_list symbols s
-                                 else
-                                        raise(Failure("Calling function: " ^ id
-                                        ^ "which is undefined"))
-                            )
+                | Noexpr ->
+                        (if (StringMap.mem id symbols) then 
+                            let s =  StringMap.find id symbols in
+                            match s with 
+                                 FuncSymbol(_, fdecl) ->
+                                     Printf.printf "id is %s\n" id;
+                                     (*let fname = var_name_from_direct_declarator fdecl.func_name in*)
+                                     if (id = "printf") then
+                                         check_call_to_printf symbols expr_list
+                                     else
+                                         Printf.printf "No printf :(\n";
+                                       validate_call_expr
+                                       expr_list symbols
+                                       fdecl.params
+                               | AnonFuncSymbol(name, t) ->
+                                       validate_anon_call_expr expr expr_list symbols s
+                         else
+                            raise(Failure("Calling function: " ^ id
+                            ^ "which is undefined"))
+                        )
                 | _ ->  (
                            let typ_ = type_from_expr symbols expr in
                            (match(typ_) with 
@@ -683,51 +738,51 @@ let rec check_expr symbols e = match e with
    | Noexpr -> ()
    | _ -> raise(Failure("unmatched expression"))
 
-let symbols_from_decls decls = List.map symbol_from_declaration decls
+and symbols_from_decls decls = List.map symbol_from_declaration decls
 
-let symbols_from_func_params func_params = List.map symbol_from_func_param func_params
+and symbols_from_func_params func_params = List.map symbol_from_func_param func_params
 
-let symbol_from_receiver receiver = match receiver with
+and symbol_from_receiver receiver = match receiver with
      | (type_, id) -> VarSymbol(id, PointerType(CustomType(type_), 1))
 
-let type_from_receiver receiver = match receiver with 
+and type_from_receiver receiver = match receiver with 
      | (typ_, _) -> typ_
 
-let id_from_receiver receiver = match receiver with 
+and id_from_receiver receiver = match receiver with 
      | (_, id) -> id
 
-let compare_func_params symbols p1 p2 = 
+and compare_func_params symbols p1 p2 = 
         let p1_types = List.map type_from_func_param p1 in
         let p2_types = List.map type_from_func_param p2 in
         if (List.length p1_types <> List.length p2_types) then
                 raise(Failure("Func Param length mismatch")) else
         List.iter2 (check_compatible_types symbols) p1_types p2_types
 
-let compare_func_names n1 n2 = 
+and compare_func_names n1 n2 = 
         let n1_name = var_name_from_direct_declarator n1 in
         let n2_name = var_name_from_direct_declarator n2 in
         if (n1_name = n2_name) then () else raise(Failure("Function
         Names do not match"))
 
-let compare_func_return_types symbols r1 r2 = 
+and compare_func_return_types symbols r1 r2 = 
        check_compatible_types symbols (type_from_declaration_specifiers r1)
   (type_from_declaration_specifiers r2)
 
-let compare_functions symbols f1 f2 =
+and compare_functions symbols f1 f2 =
         let _ = compare_func_names f1.func_name f2.func_name in
         let _ = compare_func_params symbols f1.params f2.params in
         compare_func_return_types symbols f1.return_type f2.return_type
 
-let symbols_from_fdecls fdecls = List.map symbol_from_fdecl fdecls
+and symbols_from_fdecls fdecls = List.map symbol_from_fdecl fdecls
 
-let get_id_from_symbol = function
+and get_id_from_symbol = function
      VarSymbol(id, _) -> id
    | FuncSymbol(id, _) -> id
    | StructSymbol(id, _) -> id
    | InterfaceSymbol(id, _) -> id
    | AnonFuncSymbol(id, t) -> id
 
-let symtable_from_symlist symlist =
+and symtable_from_symlist symlist =
       List.fold_left (fun m symbol -> 
           if (StringMap.mem (get_id_from_symbol symbol) m) then
               raise(Failure("symlist_to_symtable: Error - redefining variable"))
@@ -740,7 +795,7 @@ let symtable_from_symlist symlist =
     (*let bodySymbols = symbols_from_s anonDef.anon_body in*)
     (*symtable_from_symlist (paramSymbols@bodySymbols)*)
 
-let merge_symtables s1 s2 = 
+and merge_symtables s1 s2 = 
     StringMap.merge (fun key v1 v2 ->
         (match v2, v2 with
            x, y -> if x != y then 
@@ -749,15 +804,15 @@ let merge_symtables s1 s2 =
         | None, y -> y
         | x, None -> x)) s1 s2
 
-let get_decls_from_compound_stmt stmt = match stmt with 
+and get_decls_from_compound_stmt stmt = match stmt with 
         CompoundStatement(x, y) -> x
    | _ -> []
 
-let get_stmts_from_compound_stmt stmt = match stmt with 
+and get_stmts_from_compound_stmt stmt = match stmt with 
         CompoundStatement(x, y) -> y
    | _ -> []
 
-let check_local_declaration symbols decl = match decl with
+and check_local_declaration symbols decl = match decl with
      Declaration(declspec, InitDeclList([InitDeclaratorAsn(declarator, asnOp,
      expr)])) ->
 
@@ -773,17 +828,17 @@ type_from_declaration_specifiers func.return_type in let
     | _ -> raise(Failure("check_local_declaration not supported"))
 
 
-let check_bool_expr symbols expr = check_compatible_types symbols (type_from_expr symbols
+and check_bool_expr symbols expr = check_compatible_types symbols (type_from_expr symbols
 expr) (PrimitiveType(Int))
 
-let add_to_symbol_table tbl decls = 
+and add_to_symbol_table tbl decls = 
     List.fold_left (fun m symbol -> 
         if StringMap.mem (get_id_from_symbol symbol) m then
             raise(Failure("redefining variable: " ^ get_id_from_symbol symbol))
         else StringMap.add (get_id_from_symbol symbol) symbol m)
     tbl (symbols_from_decls decls)
 
-let rec add_symbol_to_symbol_table tbl sym =
+and add_symbol_to_symbol_table tbl sym =
     if (StringMap.mem (Astutil.string_of_symbol_simple sym) tbl) then 
        raise(Failure("redefining variable: " ^ get_id_from_symbol sym)) 
     else 
@@ -795,7 +850,7 @@ and add_symbol_list_to_symbol_table tbl symlist = match symlist with
     | h::t -> let htbl = add_symbol_to_symbol_table tbl h in
               add_symbol_list_to_symbol_table htbl t 
 
-let rec check_statement func symbol_table stmt = match stmt with
+and check_statement func symbol_table stmt = match stmt with
      Expr(e) -> (match e with 
                         | Make(_, _) -> raise(Failure("Cannot have stand
                         alone make.")) 
@@ -825,7 +880,7 @@ let rec check_statement func symbol_table stmt = match stmt with
   (*| h::t -> check_statement func symbol_table h;*)
             (*check_statement_list func symbol_table t*)
 
-let func_decl_from_anon_func_def anonDef = {
+and func_decl_from_anon_func_def anonDef = {
     return_type = DeclSpecTypeSpecAny(anonDef.anon_return_type);
     func_name = DirectDeclarator(Var(Identifier("")));
     receiver = ("", "");
@@ -833,14 +888,14 @@ let func_decl_from_anon_func_def anonDef = {
     body = anonDef.anon_body
 }
 
-let rec check_anon_func_def symbol_table anonDef =  
+and check_anon_func_def symbol_table anonDef =  
     check_statement (func_decl_from_anon_func_def anonDef) symbol_table anonDef.anon_body
 
 (* This function checks 1) Is there a cycle in the inheritence tree and 2)
  * checks that all extensions are valid i.e. no extending oneself or a non
  * existenct struct *)
 
-let validate_all_inheritence symbols structs =  
+and validate_all_inheritence symbols structs =  
         let validate_inheritence symbols strct =
                 (* It could be that the struct inside of the symbols map is
                  * different from the struct we pass into this function is not
@@ -908,7 +963,7 @@ let validate_all_inheritence symbols structs =
 (* Assumes that the symbol table has been validated for 
  * inheritence rules and duplicate entries *)
 
-let rec get_parents symbols struct_ = 
+and get_parents symbols struct_ = 
         if (struct_.extends <> "")
         
         then 
@@ -920,7 +975,7 @@ let rec get_parents symbols struct_ =
                 []
 (* This function gets the constructor of the closest
  * ancestor of struct_.  *)
-let rec get_ancestors_constructor symbols struct_ =
+and get_ancestors_constructor symbols struct_ =
         if (struct_.extends = "")
         
         then struct_.constructor
@@ -932,7 +987,7 @@ let rec get_ancestors_constructor symbols struct_ =
                         else 
                                 parent_struct.constructor
 
-let check_void_decl decl = match decl with 
+and check_void_decl decl = match decl with 
         | Declaration(decl_spec, _) -> 
                         if (type_from_declaration_specifiers decl_spec =
                                 PrimitiveType(Void)) then
@@ -943,13 +998,13 @@ void"))
                                 ()
         | _ -> raise(Failure("Unhandled Declaration"))
 
-let remove_duplicate_strings string_list = 
+and remove_duplicate_strings string_list = 
         let str_map = List.fold_left (fun acc str_ -> StringMap.add str_ 1 acc)
         StringMap.empty string_list in 
 
         StringMap.fold (fun str _ acc -> acc @ [str]) str_map []
 
-let rec get_method_names_for_struct tSymbol_table struct_ =
+and get_method_names_for_struct tSymbol_table struct_ =
        if (struct_.extends = "") then List.map (fun fdecl ->
                var_name_from_direct_declarator fdecl.func_name) struct_.methods 
        else (
@@ -960,10 +1015,10 @@ let rec get_method_names_for_struct tSymbol_table struct_ =
               tSymbol_table
               parent_struct)))
 
-let rec get_unique_method_names_for_struct tSymbol_table struct_ = 
+and get_unique_method_names_for_struct tSymbol_table struct_ = 
         remove_duplicate_strings (get_method_names_for_struct tSymbol_table struct_)
 
-let check_child_methods_against_parent symbols child_methods parent_methods =
+and check_child_methods_against_parent symbols child_methods parent_methods =
         let parent_method_map = List.fold_left (fun m parent_decl -> let
         parent_method = var_name_from_direct_declarator parent_decl.func_name in if
                 (StringMap.mem parent_method m) then raise(Failure("Redeclaring
@@ -984,7 +1039,7 @@ let check_child_methods_against_parent symbols child_methods parent_methods =
         incompatible with parent declaration"))
         ) else ()) child_methods
 
-let update_fields functions symbols structs  = 
+and update_fields functions symbols structs  = 
             
         let _ = validate_all_inheritence symbols structs in
 
@@ -1075,7 +1130,7 @@ let update_fields functions symbols structs  =
                symbols struct_)) symbols structs
 
 (* Updates structs in the program object with the ones populated in symbol table *)
-let update_structs_in_program program  =
+and update_structs_in_program program  =
         let fdecls = program.functions @ [{
                return_type = DeclSpecTypeSpec(Int); 
                func_name = DirectDeclarator(Var(Identifier("printf")));
@@ -1114,7 +1169,7 @@ let update_structs_in_program program  =
                 functions = program.functions;
         }
 
-let check_struct_fields struct_ = 
+and check_struct_fields struct_ = 
          ignore (List.map check_void_decl struct_.members);
 
          List.fold_left (fun sym decl -> if
@@ -1124,7 +1179,7 @@ let check_struct_fields struct_ =
                 StringMap.add (var_name_from_declaration decl) decl sym)
         StringMap.empty struct_.members 
 
-let struct_implements_method struct_ symbol_table interface_method =
+and struct_implements_method struct_ symbol_table interface_method =
         let interface_method_name = var_name_from_direct_declarator
         interface_method.func_name in
         let fdecl = get_fdecl_for_receiver struct_.struct_name
@@ -1132,7 +1187,7 @@ let struct_implements_method struct_ symbol_table interface_method =
         
         compare_functions symbol_table fdecl interface_method
 
-let check_implements symbol_table struct_ = 
+and check_implements symbol_table struct_ = 
         if (struct_.implements = "") then () else (
                 let impl = struct_.implements in 
 
@@ -1148,7 +1203,7 @@ let check_implements symbol_table struct_ =
        
         )
 
-let convert_constructor_to_fdecl constructor updated_body = 
+and convert_constructor_to_fdecl constructor updated_body = 
         {
                 return_type = DeclSpecTypeSpecAny(PrimitiveType(Void));
                 func_name =
@@ -1158,7 +1213,7 @@ let convert_constructor_to_fdecl constructor updated_body =
                 receiver = ("", "");
         }
 
-let convert_destructor_to_fdecl destructor = 
+and convert_destructor_to_fdecl destructor = 
         {
                 return_type = DeclSpecTypeSpecAny(PrimitiveType(Void));
                 func_name =
@@ -1168,11 +1223,11 @@ let convert_destructor_to_fdecl destructor =
                 receiver = ("", "");
         }
 
-let isSuper stmt = match stmt with 
+and isSuper stmt = match stmt with 
         | Expr(Super(_)) -> true
         | _ -> false
 
-let constructor_has_super constructor = match constructor.constructor_body with 
+and constructor_has_super constructor = match constructor.constructor_body with 
         | CompoundStatement(d, s) -> (
                 match s with 
                 | [] -> false
@@ -1180,7 +1235,7 @@ let constructor_has_super constructor = match constructor.constructor_body with
                 | h::t -> isSuper h)
 
 
-let constructor_body_filtered_for_super body = match body with 
+and constructor_body_filtered_for_super body = match body with 
         | CompoundStatement(d, s) -> (
                 match s with
                 | [] -> CompoundStatement(d, s)
@@ -1191,18 +1246,18 @@ let constructor_body_filtered_for_super body = match body with
         )
         | _ -> raise(Failure("No other constructor body"))
 
-let getSuperExpr stmt = match stmt with 
+and getSuperExpr stmt = match stmt with 
         | Expr(Super(e_list)) -> Expr(Super(e_list))
         | _ -> Expr(Noexpr)
 
-let get_super_expr body = match body with 
+and get_super_expr body = match body with 
         | CompoundStatement(_, s) -> (
                 match s with 
                 | [] -> Expr(Noexpr)
                 | [singleton] -> getSuperExpr singleton
                 | h::t -> getSuperExpr h)
 
-let validate_super super_ symbol_table struct_ =
+and validate_super super_ symbol_table struct_ =
         let ancestor_constructor = get_ancestors_constructor symbol_table
         struct_ in
 
@@ -1217,7 +1272,7 @@ let validate_super super_ symbol_table struct_ =
                      ancestor_constructor.constructor_params
 
 
-let check_for_super_in_constructor symbols struct_ = match
+and check_for_super_in_constructor symbols struct_ = match
 struct_.constructor.constructor_body with 
         | CompoundStatement(decls, stmts) -> (
                 match (stmts) with 
@@ -1228,7 +1283,7 @@ struct_.constructor.constructor_body with
                 struct_ else () 
         )
 
-let build_symbol_table program =
+and build_symbol_table program =
        let fdecls = program.functions @ [{
                        return_type = DeclSpecTypeSpec(Int);
                        func_name = DirectDeclarator(Var(Identifier("printf")));
@@ -1248,7 +1303,7 @@ let build_symbol_table program =
                          @ (symbols_from_structs program.structs)
                          @ (symbols_from_interfaces program.interfaces))
 
-let check_constructor_definition_in_struct program struct_ = 
+and check_constructor_definition_in_struct program struct_ = 
         ignore (List.iter (fun decl -> if (is_assignment_declaration decl) then
                 raise(Failure("Cannot have assignment declaration in struct"))
         else ()) struct_.members);
@@ -1277,7 +1332,7 @@ let check_constructor_definition_in_struct program struct_ =
                 check_statement func
         symbols updated_body
 
-let check_destructor_definition program struct_ =
+and check_destructor_definition program struct_ =
         let symbol_table = build_symbol_table program in 
         let destructor = struct_.destructor in 
         let symbols = List.fold_left (fun symbol_table sym -> if (StringMap.mem
@@ -1293,17 +1348,17 @@ let check_destructor_definition program struct_ =
 
                 check_statement func symbols destructor.destructor_body
 
-let get_method_names struct_ = List.map (fun func -> var_name_from_direct_declarator func.func_name) struct_.methods
+and get_method_names struct_ = List.map (fun func -> var_name_from_direct_declarator func.func_name) struct_.methods
 
 
-let apply_name_to_anon_def (prefix, count) adef = {
+and apply_name_to_anon_def (prefix, count) adef = {
     anon_name =  prefix ^ "_" ^ (string_of_int count);
     anon_return_type = adef.anon_return_type;
     anon_params = adef.anon_params;
     anon_body = adef.anon_body;
 }
 
-let rec anon_defs_from_expr (prefix, count) expr = match expr with
+and anon_defs_from_expr (prefix, count) expr = match expr with
      AnonFuncDef(anonDef) ->([(apply_name_to_anon_def (prefix, count) anonDef)], (count + 1))
    | Binop(e1, op, e2) -> 
            let (defs1, count1) = (anon_defs_from_expr (prefix, count) e1) in
@@ -1328,7 +1383,7 @@ and anon_defs_from_expr_list (prefix, count) elist = match elist with
            (defs1@defs2, (count2))
 
 
-let rec anon_defs_from_declaration (prefix, count) decl = match decl with
+and  anon_defs_from_declaration (prefix, count) decl = match decl with
      Declaration(declSpecs, initDecl) -> anon_defs_from_init_declarator (prefix, count) initDecl
 
 and anon_defs_from_declaration_list (prefix, count) declList = match declList with
@@ -1352,7 +1407,7 @@ and anon_defs_from_init_declarator_list (prefix, count) ideclList = match ideclL
            let (defs2, count2) = (anon_defs_from_init_declarator_list (prefix, count1) t) in
            (defs1@defs2, (count2))
 
-let rec anon_defs_from_statement (prefix, count) stmt = match stmt with
+and  anon_defs_from_statement (prefix, count) stmt = match stmt with
      Expr(e) -> anon_defs_from_expr (prefix, count) e
    | Return(e) -> anon_defs_from_expr (prefix, count) e
    | If(e, s1, s2) -> 
@@ -1384,7 +1439,7 @@ and anon_defs_from_statement_list (prefix, count) stmtList = match stmtList with
            (defs1@defs2, count2) 
 
 
-let rec anon_defs_from_func_decl (prefix, count) fdecl = 
+and anon_defs_from_func_decl (prefix, count) fdecl = 
     let newPrefix = 
         (match fdecl.func_name with
               DirectDeclarator(Var(Identifier(s))) -> "a_" ^ s
@@ -1400,11 +1455,37 @@ and anon_defs_from_func_decl_list (prefix, count) fdlist = match fdlist with
            let (defs2, count2) = (anon_defs_from_func_decl_list (prefix, count1) t) in
            (defs1@defs2, count2)
 
-let anon_defs_from_tprogram tprog =
+and anon_defs_from_tprogram tprog =
     let (defs, _) = (anon_defs_from_func_decl_list ("_", 0) (List.rev tprog.functions)) in
     List.rev defs
-   
-let compare_anon_defs_ignore_name a1 a2 =
+
+and anon_def_from_tsymbol tprogram tsym =
+    match tsym with 
+        AnonFuncSymbol(s, _) ->
+            let anonDefs = anon_defs_from_tprogram tprogram in
+            let dummyDef = {
+                anon_name = "PLACEHOLDER_ANON_DEF";
+                anon_return_type = PrimitiveType(Void);
+                anon_params = [];
+                anon_body = CompoundStatement([], [])
+            }
+            in
+            let (found, anonDef) = (List.fold_left
+                (fun (isFound, foundDef) def ->
+                    (match isFound with
+                          true -> (isFound, foundDef)
+                        | false -> 
+                            if (def.anon_name = s) then
+                                (true, def)
+                            else
+                                (false, foundDef))) (false, dummyDef) anonDefs)
+            in
+            if (found = true) then
+                anonDef
+            else
+                raise(Failure("anon_def_from_tsymbol: Error - no anonDef with that name"))
+                            
+and compare_anon_defs_ignore_name a1 a2 =
    let b1 = {
        anon_name = "";
        anon_return_type = a1.anon_return_type;
@@ -1421,7 +1502,7 @@ let compare_anon_defs_ignore_name a1 a2 =
    in
    (b1 = b2)
 
-let find_name_for_anon_def tprogram anonDef = 
+and find_name_for_anon_def tprogram anonDef = 
     let anonDefs = anon_defs_from_tprogram tprogram in 
     let find_match (isFound, targetDef) def = 
         if (isFound = true) then 
@@ -1438,11 +1519,11 @@ let find_name_for_anon_def tprogram anonDef =
     else
         raise(Failure("find_name_for_anon_def: Error - could not find a matching anonymous function definition"))
 
-let find_struct_name_for_anon_def tprogram anonDef = 
+and find_struct_name_for_anon_def tprogram anonDef = 
     let name = find_name_for_anon_def tprogram anonDef in
     "S" ^ name
 
-let anon_defs_from_expr_list_no_recursion tprogram elist = 
+and anon_defs_from_expr_list_no_recursion tprogram elist = 
    List.fold_left (fun acc e ->
                         (match e with
                             AnonFuncDef(anonDef) ->
@@ -1457,7 +1538,7 @@ let anon_defs_from_expr_list_no_recursion tprogram elist =
                                 acc@[namedAnonDef]
                           | _ -> acc)) [] elist
 
-let expr_list_contains_anon_defs_no_recursion elist = 
+and expr_list_contains_anon_defs_no_recursion elist = 
     let expr_contains_anon_def_at_this_level truthVal expr  = 
         if (truthVal = true) then
             true
@@ -1468,7 +1549,7 @@ let expr_list_contains_anon_defs_no_recursion elist =
     in
             List.fold_left expr_contains_anon_def_at_this_level false elist
 
-let rec call_contains_anon_def call = 
+and call_contains_anon_def call = 
     let rec expr_contains_anon_def_at_this_level truthVal expr  = 
         if (truthVal = true) then
             true
@@ -1482,7 +1563,7 @@ let rec call_contains_anon_def call =
             List.fold_left expr_contains_anon_def_at_this_level false elist
       | _ -> raise(Failure("call_contains_anon_def: Error - do not pass anything other than a call expression to this function"))
 
-let rec symbols_from_outside_scope_for_anon_def tprogram anonDef = 
+and symbols_from_outside_scope_for_anon_def tprogram anonDef = 
    let rec expr_contains_anon_def symbols anonDef expr = match expr with 
       |  AnonFuncDef(a) ->
             if (compare_anon_defs_ignore_name a anonDef) then 
@@ -1664,38 +1745,6 @@ let rec symbols_from_outside_scope_for_anon_def tprogram anonDef =
        raise(Failure("Error: program does not contain anonDef"))
    else
        symlist
-
-and check_format_string_with_expr_list symbols fmtStr elist =
-    let type_from_fmtSpec fmtSpec = match fmtSpec with
-          "%s" -> PrimitiveType(String)
-        | "%d" -> PrimitiveType(Int)
-        | "%f" -> PrimitiveType(Float)
-        | "%c" -> PrimitiveType(Char)
-        | _ -> raise(Failure("check_format_string_with_expr_list: Error - Invalid format string"))
-    in
-    let rec get_fmtSpec_list_from_string str =
-        try 
-            let firstOccurrence = String.index str '%' in 
-            let substr = String.sub str firstOccurrence 2 in
-            let remainderStr = String.sub str (firstOccurrence + 1) ((String.length str) - (firstOccurrence + 1))  in
-            [substr]@(get_fmtSpec_list_from_string remainderStr)
-        with Not_found ->
-            []
-    in
-    let rec type_list_from_fmtSpec_list specList = match specList with 
-          [] -> []
-        | [s] -> [type_from_fmtSpec s]
-        | h::t -> [type_from_fmtSpec h]@(type_list_from_fmtSpec_list t)
-    in
-    let fmtSpecList = get_fmtSpec_list_from_string fmtStr in
-    let argTypeList = type_list_from_expr_list symbols elist in
-    let fmtTypeList = type_list_from_fmtSpec_list fmtSpecList in
-    try
-        List.iter2 (fun t1 t2 -> (check_compatible_types symbols t1 t2)) argTypeList fmtTypeList
-    with
-        Invalid_argument(_) -> raise(Failure("check_format_string_with_expr_list: Error - Number of format specifiers in format string does not match number of arguments"))
-      | _ -> raise(Failure("check_format_string_with_expr_list: Unspecified error"))
-
 
 and print_anon_def anonDef = 
     Printf.printf "\n%s\n" (Astutil.string_of_anon_def anonDef)
