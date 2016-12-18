@@ -40,7 +40,13 @@ anon:
 .PHONY: anonbuild
 
 anonbuild:
-	cat tests/anon/anonFunction.cpl | ./cimple -c
+	@(cat tests/anon/anonFunction.cpl | ./cimple -c > anonbuild.c && gcc -o anonbuild anonbuild.c)||:
+
+.PHONY: anonclass
+
+anonclass:
+	#@(cat tests/anon/anonClass.cpl | ./cimple -c > anonclass.c && gcc -o anonclass anonclass.c)||:
+	(cat tests/anon/anonClass.cpl | ./cimple -c > anonclass.c && gcc -o anonclass anonclass.c)
 
 .PHONY: anonparse
 

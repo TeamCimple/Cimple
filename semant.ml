@@ -370,8 +370,14 @@ and check_compatible_types symbols t1 t2 = match (t1, t2) with
   pointer and primitive"))
   | AnonFuncType(_, _), AnonFuncType(_, _) -> check_compatible_anon_types
   symbols t1 t2
-  | _ -> raise(Failure("check_compatible_types: CompoundType not yet
-  supported"))
+  | (PrimitiveType(_), AnonFuncType(rtype, _)) -> check_compatible_types symbols t1 rtype
+  | _ -> 
+          let t1Str = string_of_type t1 in
+          let t2Str = string_of_type t2 in
+          let errorStr = "check_compatible_types: Error - " ^ t1Str ^ " and " ^ t2Str ^ " not yet supported" in
+          raise(Failure(errorStr))
+  (*| _ -> raise(Failure("check_compatible_types: *)
+  (*[>supported"))<]*)
 
 let rec get_fdecl_for_receiver typ_ tSymbol_table func_name = 
         let object_symbol = (lookup_symbol_by_id tSymbol_table (Identifier(typ_))) in 
@@ -462,9 +468,12 @@ and type_from_expr symbols expr = match expr with
   | Call(e, Id(Identifier(id)), _) -> (match e with 
                 | Noexpr -> (
                                 if (StringMap.mem id symbols) then 
-                                        let FuncSymbol(_, fdecl) =
-                                                StringMap.find id symbols in 
-                                        type_from_declaration_specifiers fdecl.return_type 
+                                        let sym = StringMap.find id symbols in 
+                                        match sym with
+                                            FuncSymbol(_, fdecl) ->
+                                                (*StringMap.find id symbols in *)
+                                                type_from_declaration_specifiers fdecl.return_type 
+                                          | AnonFuncSymbol(_, t) -> t
                                  else
                                         raise(Failure("Calling function: " ^ id
                                         ^ "which is undefined"))
@@ -1300,7 +1309,9 @@ let rec anon_defs_from_expr (prefix, count) expr = match expr with
    | Call(_, e, elist) -> 
            let (defs1, count1) = (anon_defs_from_expr (prefix, count) e) in
            let (defs2, count2) = (anon_defs_from_expr_list (prefix, count1) elist) in
-           (defs1@defs2, count2);
+           (defs1@defs2, count2)
+   | Make(_, elist) -> anon_defs_from_expr_list (prefix, count) elist
+
    | _ -> ([], count) (* Other expression types cannot possibly contain anonymous function definitions *) 
 
 and anon_defs_from_expr_list (prefix, count) elist = match elist with  
@@ -1387,25 +1398,82 @@ and anon_defs_from_func_decl_list (prefix, count) fdlist = match fdlist with
 let anon_defs_from_tprogram tprog =
     let (defs, _) = (anon_defs_from_func_decl_list ("_", 0) (List.rev tprog.functions)) in
     List.rev defs
+   
+let compare_anon_defs_ignore_name a1 a2 =
+   let b1 = {
+       anon_name = "";
+       anon_return_type = a1.anon_return_type;
+       anon_params = a1.anon_params;
+       anon_body = a1.anon_body
+   }
+   in
+   let b2 = {
+       anon_name = "";
+       anon_return_type = a2.anon_return_type;
+       anon_params = a2.anon_params;
+       anon_body = a2.anon_body
+   }
+   in
+   (b1 = b2)
+
+let find_name_for_anon_def tprogram anonDef = 
+    let anonDefs = anon_defs_from_tprogram tprogram in 
+    let find_match (isFound, targetDef) def = 
+        if (isFound = true) then 
+            (isFound, targetDef) (* Leave alone *)
+        else
+            if ((compare_anon_defs_ignore_name targetDef def) = true) then
+                (true, def)
+            else
+                (false, targetDef)
+    in
+    let (found, def) = List.fold_left find_match (false, anonDef) anonDefs in
+    if (found = true) then
+        def.anon_name
+    else
+        raise(Failure("find_name_for_anon_def: Error - could not find a matching anonymous function definition"))
+
+let anon_defs_from_expr_list_no_recursion tprogram elist = 
+   List.fold_left (fun acc e ->
+                        (match e with
+                            AnonFuncDef(anonDef) ->
+                                let anonName = find_name_for_anon_def tprogram anonDef in
+                                let namedAnonDef = {
+                                    anon_name = anonName;
+                                    anon_return_type = anonDef.anon_return_type;
+                                    anon_params = anonDef.anon_params;
+                                    anon_body = anonDef.anon_body
+                                }
+                                in
+                                acc@[namedAnonDef]
+                          | _ -> acc)) [] elist
+
+let expr_list_contains_anon_defs_no_recursion elist = 
+    let expr_contains_anon_def_at_this_level truthVal expr  = 
+        if (truthVal = true) then
+            true
+        else
+            (match expr with
+            AnonFuncDef(_) -> true
+          | _ -> false)
+    in
+            List.fold_left expr_contains_anon_def_at_this_level false elist
+
+let rec call_contains_anon_def call = 
+    let rec expr_contains_anon_def_at_this_level truthVal expr  = 
+        if (truthVal = true) then
+            true
+        else
+            match expr with
+            AnonFuncDef(_) -> true
+          | _ -> false
+    in
+    match call with
+        Call(_, _, elist) ->
+            List.fold_left expr_contains_anon_def_at_this_level false elist
+      | _ -> raise(Failure("call_contains_anon_def: Error - do not pass anything other than a call expression to this function"))
 
 let rec symbols_from_outside_scope_for_anon_def tprogram anonDef = 
-   let compare_anon_defs_ignore_name a1 a2 =
-       let b1 = {
-           anon_name = "";
-           anon_return_type = a1.anon_return_type;
-           anon_params = a1.anon_params;
-           anon_body = a1.anon_body
-       }
-       in
-       let b2 = {
-           anon_name = "";
-           anon_return_type = a2.anon_return_type;
-           anon_params = a2.anon_params;
-           anon_body = a2.anon_body
-       }
-       in
-       (b1 = b2)
-   in
    let rec expr_contains_anon_def symbols anonDef expr = match expr with 
       |  AnonFuncDef(a) ->
             if (compare_anon_defs_ignore_name a anonDef) then 
@@ -1480,7 +1548,8 @@ let rec symbols_from_outside_scope_for_anon_def tprogram anonDef =
 
    and init_declarator_contains_anon_def symbols anonDef initDecl = match initDecl with
         InitDeclaratorAsn(_, _, e) -> expr_contains_anon_def symbols anonDef e
-      | InitDeclList(idlist) -> init_declarator_list_contains_anon_def symbols anonDef idlist 
+      | InitDeclList(idlist) -> init_declarator_list_contains_anon_def symbols anonDef idlist
+      | InitDeclarator(_) -> (false, symbols) 
       | _ -> raise(Failure("init_declarator_contains_anon_def: Error - unexpected init_declarator type"))
 
    and init_declarator_list_contains_anon_def symbols anonDef initDeclList = match initDeclList with

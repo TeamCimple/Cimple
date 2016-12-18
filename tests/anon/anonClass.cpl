@@ -1,0 +1,27 @@
+
+struct Person {
+	string name;
+        
+	Person(func(string)()nameSetter) {
+		name = nameSetter();
+	}
+
+	~Person() { 
+
+	}
+};
+
+
+string (Person *p) getName() {
+	return p.name;
+}
+
+
+int main() {
+	struct Person *graham;
+	string grahamsName = "Graham Barab";
+	
+	graham = make Person(func(string)() {
+		return grahamsName;
+	});
+}

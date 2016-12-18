@@ -97,18 +97,26 @@ let rec gen_cexpr  expr = match expr with
    | CStringLiteral(s) -> s
    | CCastExpr(ct, e) -> "(" ^ (gen_ctype  ct) ^ ")" ^ "(" ^ (gen_cexpr  e) ^ ")"
    | CPostfix(e, pfop) -> (gen_cexpr  e) ^ (gen_postfix_op pfop)
-   | CCall(n, s, e, elist) ->
-           if (n > 0) then 
-               let asterisks = gen_n_pointers (n - 1) in
-               (gen_cexpr s) ^ "->"^ asterisks ^ (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")"
-           else (if (s <> CNoexpr) then
-               (gen_cexpr s) ^ "." ^ (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")" else (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")")
    | CAlloc(ct, s) -> (match s with 
                         | CBinop(e1, Mul, e2) -> "malloc(" ^ (gen_cexpr e1) ^
                                                 (gen_op Mul) ^ "sizeof(" ^
                                                 (gen_cexpr e2) ^ ")" ^ ")"
                         | CId(CIdentifier(s)) -> "malloc(" ^ "sizeof(" ^ s ^ ")"
                         ^ ")" )
+   | CCall(n, s, e, elist) ->
+          if (s <> CNoexpr) then
+               if (n > 0) then 
+                   let asterisks = gen_n_pointers (n - 1) in
+                   (gen_cexpr s) ^ "->"^ asterisks ^ (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")"
+               else (if (s <> CNoexpr) then
+                   (gen_cexpr s) ^ "." ^ (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")" else (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")")
+           else
+               if (n > 0) then 
+                   let asterisks = gen_n_pointers (n - 1) in
+                   (gen_cexpr s) ^ asterisks ^ (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")"
+               else (if (s <> CNoexpr) then
+                   (gen_cexpr s) ^ "." ^ (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")" else (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")")
+
    | CCompareExpr(e1, op, e2) -> gen_cexpr e1 ^ gen_logical_op op ^
    gen_cexpr e2
    | CPointify(e) -> "&(" ^ (gen_cexpr  e) ^ ")"
@@ -193,7 +201,13 @@ and gen_cstatement_list  stmtList = match stmtList with
    | h::t -> (gen_cstatement  h) ^ (gen_cstatement_list  t)
 
 and gen_csymbol  s = match s with 
-     CVarSymbol(s, t) -> (gen_ctype  t) ^ " " ^ s
+     CVarSymbol(s, t) ->
+         (match t with
+            CFuncPointer(fsig) ->
+                let rtype = (gen_ctype fsig.func_return_type) in 
+                let ptypes = (gen_ctype_list fsig.func_param_types) in
+                (rtype ^ "(*" ^ s ^ ")(" ^ ptypes ^ ")")
+          | _ -> (gen_ctype  t) ^ " " ^ s)
    | CFuncSymbol(name, func) -> (gen_cfunc  func)
    | CStructSymbol(name, strct) -> (gen_cstruct  strct) 
 
