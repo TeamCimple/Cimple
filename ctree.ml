@@ -125,19 +125,6 @@ let virtual_table_name_from_tStruct name =
 let constructor_name_from_tStruct name = 
         String.concat "_" ["_constructor";name]
 
-(*let cNullFunction = {*)
-    (*cfunc_name = "$NULL_FUNCTION";*)
-    (*cfunc_body = CCompoundStatement([], []);*)
-    (*cfunc_params = [];*)
-    (*creturn_type = CType(CPrimitiveType(Cvoid))*)
-(*}*)
-
-(*let cNullStruct = {*)
-    (*struct_name = "$NULL_STRUCT";*)
-    (*struct_members = [];*)
-    (*method_to_functions = StringMap.empty*)
-(*}*)
-
 let cType_from_tTypeSpec = function
     Void -> CType(CPrimitiveType(Cvoid))  
   | Char -> CType(CPrimitiveType(Cchar))
@@ -299,10 +286,6 @@ let number_of_anon_func_parameters_in_tFuncParamList plist =
 
 let number_of_anon_func_parameters_in_tFuncDecl fdecl =
     number_of_anon_func_parameters_in_tFuncParamList fdecl.params
-    (*List.fold_left (fun acc f ->*)
-                     (*(match f with*)
-                        (*AnonFuncDecl(_) -> (acc + 1)*)
-                      (*| _ -> acc)) 0 fdecl.params*)
 
 let cFunc_from_tFunc symbol_table tFunc =
     {
@@ -1367,10 +1350,6 @@ let cStruct_from_tStruct symbol_table tprogram tStruct =
                 CVarSymbol("_virtual",
                 CPointerType(CType(CStruct(virtual_table_name)), 1)) in 
 
-        (*let methodMemberSymbols = List.map (cDeclaration_from_tFdecl
-                        symbol_table)
-                        all_methods_for_struct in*)
-        
         let defaultStructMemberSymbols = [virtual_table_symbol] @ fieldSymbols in
 
         (* If there is an interface then add a struct member corresponding to
@@ -1655,22 +1634,6 @@ let update_cConstructor tSymbol_table tprogram cFunc tStruct =
                 cfunc_params = cFunc.cfunc_params;
         }
 
-(*and cStatement = *)
-    (*CExpr of cExpr*)
-    (*| CEmptyElse*)
-    (*| CReturn of cExpr*)
-    (*| CCompoundStatement of cDeclaration list * cStatement list*)
-    (*| CIf of cExpr * cStatement * cStatement*)
-    (*| CFor of cExpr * cExpr * cExpr * cStatement*)
-    (*| CWhile of cExpr * cStatement*)
-    (*| CBreak*)
-
-(*let fix_out_of_scope_references_for_cFunc_from_anon_def tSymbol_table tprogram cfunc anonDef =*)
-    (*match anonDef.anon_body with*)
-        (*CompoundStatement(decls, _) ->*)
-            (*let local_scope = Semant.symbols_from_decls decls in*)
-            (*let stmtList = *)
-
 let rec cFunc_from_anonDef symbol_table tprogram anonDef =
     let rec convert_anon_params symbol_table params =
         (match params with
@@ -1753,7 +1716,6 @@ let cProgram_from_tProgram program =
                 update_cFunc_from_anonDef tSymbol_table program f anonDef) cFuncsTranslatedFromAnonDefs
         in
         let cFuncs = cConstructors @ cUpdatedDeclaredMethodsAndFuncs @ cUpdatedFuncsTranslatedFromAnonDefs
-        (*let cFuncs = cConstructors @ cUpdatedDeclaredMethodsAndFuncs @ cFuncsTranslatedFromAnonDefs*)
         in
         {
                 cstructs = cStructs@capture_structs;

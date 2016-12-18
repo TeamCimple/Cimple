@@ -19,9 +19,15 @@ string (Person *p) getName() {
 
 int main() {
 	struct Person *graham;
-	string grahamsName = "Graham Barab";
+	string grahamsName = "Graham Barab\n";
+    string personsName;
 	
 	graham = make Person(func(string)() {
 		return grahamsName;
 	});
+
+    personsName = graham.getName();
+    printf(personsName);
+    
+    return 0;
 }
