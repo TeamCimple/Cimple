@@ -1029,7 +1029,7 @@ let c_init_decl_from_string_asn str op cExpr =
        CInitDeclaratorAsn(CDirectDeclarator(CVar(CIdentifier(str))), op, cExpr) 
         
 
-let generate_decls_and_stmts_from_id tSymbol_table  tprogram id decl typ_ = 
+let generate_decls_and_stmts_from_id tSymbol_table tprogram id decl typ_ = 
        match decl with 
        | Declaration(_, InitDeclList([InitDeclarator(_)])) ->
                        let ctype = cType_from_tType tSymbol_table typ_ in 
@@ -1428,20 +1428,159 @@ let update_cFunc tSymbol_table tprogram cFunc tFunc  =
         }
 
 let update_cFunc_from_anonDef tSymbol_table tprogram cFunc anonDef =
+        let globals = Semant.symbols_from_decls tprogram.globals in
+        let builtinDecls = [{
+                              return_type = DeclSpecTypeSpec(Int);
+                              func_name = DirectDeclarator(Var(Identifier("printf")));
+                              params = [FuncParamsDeclared(DeclSpecTypeSpec(String),
+                              DirectDeclarator(Var(Identifier("x"))))];
+                              receiver = ("", "");
+                              body = CompoundStatement([], [])}] in
+        let builtinSyms = Semant.symbols_from_fdecls builtinDecls in
+        let localDecls = Semant.get_decls_from_compound_stmt anonDef.anon_body in
+        let localSyms = Semant.symbols_from_decls localDecls in 
+        let paramSyms = Semant.symbols_from_func_params anonDef.anon_params in
+        let exceptSyms = Semant.symtable_from_symlist (globals@builtinSyms@paramSyms@localSyms) in 
+        let id_exists_in_symtable table id =
+            try
+                (fun x -> true)(StringMap.find id table)
+            with _ ->
+                false
+        in
+        
+        let rec fix_expr locals instance_name expr = match expr with
+            CBinop(e1, op, e2) ->
+                    let fe1 = fix_expr locals instance_name e1 in
+                    let fe2 = fix_expr locals instance_name e2 in
+                    CBinop(fe1, op, fe2)
+           | CAsnExpr(e1, aop, e2) ->
+                    let fe1 = fix_expr locals instance_name e1 in
+                    let fe2 = fix_expr locals instance_name e2 in
+                    CAsnExpr(fe1, aop, fe2)
+           | CCastExpr(t, e) -> 
+                   let fe = fix_expr locals instance_name e in
+                   CCastExpr(t, fe)
+           | CPostfix(e, pop) ->
+                   let fe = fix_expr locals instance_name e in
+                   CPostfix(fe, pop)
+           | CCall(i, e1, e2, elist) ->
+                   let fe1 = fix_expr locals instance_name e1 in
+                   let fe2 = fix_expr locals instance_name e2 in
+                   let felist = fix_expr_list locals instance_name elist in
+                   CCall(i, fe1, fe2, felist)
+           | CDeref(e) -> 
+                   let fe = fix_expr locals instance_name e in
+                   CDeref(fe)
+           | CCompareExpr(e1, lop, e2) ->
+                   let fe1 = fix_expr locals instance_name e1 in
+                   let fe2 = fix_expr locals instance_name e2 in
+                   CCompareExpr(fe1, lop, fe2)
+           | CPointify(e) ->
+                   let fe = fix_expr locals instance_name e in
+                   CPointify(fe)
+           | CMemAccess(i, e, id) ->
+                   let fe = fix_expr locals instance_name e in
+                   let CId(fid) = fix_expr locals instance_name (CId(id)) in
+                   CMemAccess(i, fe, fid)
+           | CId(CIdentifier(s)) ->
+                   if (id_exists_in_symtable tSymbol_table s) then
+                        expr
+                   else if (id_exists_in_symtable exceptSyms s) then 
+                        expr
+                   else
+                       CMemAccess(1, CId(CIdentifier(instance_name)), CIdentifier(s))
+           | CDeclExpr(CDeclaration(declSpecs, initDecl)) -> 
+                   let fInitDecl = fix_init_declarator locals instance_name initDecl in
+                   CDeclExpr(CDeclaration(declSpecs, fInitDecl))
+           | _ -> expr
+        
+       and fix_expr_list locals instance_name elist = match elist with
+            [] -> []
+          | [e] -> [fix_expr locals instance_name e]
+          | h::t -> [fix_expr locals instance_name h]@(fix_expr_list locals instance_name t)
+   
+       (*and fix_identifier locals instance_name ident = match ident with*)
+            (*s -> if ((id_exists_in_symtable s) = false) then *)
+                    
+       (*and fix_direct_declarator locals instance_name ddeclt = match ddecl with*)
+           (*CVar(CIdentifier(s)) ->  *)
+       (*and fix_declarator locals instance_name declt = match declt with*)
+            (*CDirectDeclarator(dd) ->*)
+       and fix_init_declarator locals instance_name initDecl = match initDecl with
+            (*CInitDeclarator(CDirectDeclarator(CVar(id))) ->*)
+                (*let CId(fid) = fix_expr locals instance_name (CId(id)) in *)
+                (*CInitDeclarator(CDirectDeclarator(CVar(fid)))*)
+          | CInitDeclaratorAsn(dd, aop, e) ->
+                  let CInitDeclarator(fdd) = fix_init_declarator locals instance_name (CInitDeclarator(dd)) in
+                  let fe = fix_expr locals instance_name e in
+                  CInitDeclaratorAsn(fdd, aop, fe)
+          | _ -> initDecl 
+                  (*let errorStr = "fix_init_declarator: Error - " ^ (Astutil.string_of_init_declarator initDecl) in*)
+                  (*raise(Failure(errorStr))*)
+
+       and fix_declaration locals instance_name decl = match decl with
+            CDeclaration(declSpecs, initDecl) ->
+                let fidecl = fix_init_declarator locals instance_name initDecl in
+                CDeclaration(declSpecs, fidecl)
+
+       and fix_declaration_list locals instance_name declList = match declList with
+            [] -> []
+          | [d] -> [fix_declaration locals instance_name d]
+          | h::t -> [fix_declaration locals instance_name h]@(fix_declaration_list locals instance_name t)
+
+       and fix_statement locals instance_name stmt = match stmt with 
+            CExpr(e) -> 
+                let fe = fix_expr locals instance_name e in 
+                CExpr(fe)
+          | CReturn(e) -> 
+                let fe = fix_expr locals instance_name e in 
+                CReturn(fe)
+          | CCompoundStatement(declList, stmtList) ->
+                let fdl = fix_declaration_list locals instance_name declList in 
+                let fsl = fix_statement_list locals instance_name stmtList in
+                CCompoundStatement(fdl, fsl)
+          | CIf(e, s1, s2) -> 
+                let fe = fix_expr locals instance_name e in 
+                let fs1 = fix_statement locals instance_name s1 in
+                let fs2 = fix_statement locals instance_name s2 in
+                CIf(fe, fs1, fs2)
+          | CFor(e1, e2, e3, s) ->
+                let fe1 = fix_expr locals instance_name e1 in 
+                let fe2 = fix_expr locals instance_name e2 in 
+                let fe3 = fix_expr locals instance_name e3 in 
+                let fs = fix_statement locals instance_name s in
+                CFor(fe1, fe2, fe3, fs)
+          | CWhile(e, s) ->
+                let fe = fix_expr locals instance_name e in 
+                let fs = fix_statement locals instance_name s in
+                CWhile(fe, fs)
+          | _ -> stmt
+
+       and fix_statement_list locals instance_name stmtList = match stmtList with
+            [] -> []
+          | [s] -> [fix_statement locals instance_name s] 
+          | h::t -> [fix_statement locals instance_name h]@(fix_statement_list locals instance_name t)
+                  
+        in
         let updated_symbol_table = List.fold_left (fun m symbol -> StringMap.add
         (Semant.get_id_from_symbol symbol) symbol m) tSymbol_table ((Semant.symbols_from_decls
         (Semant.get_decls_from_compound_stmt anonDef.anon_body)) @ (Semant.symbols_from_func_params
-        anonDef.anon_params)) in 
+        anonDef.anon_params) @ (Semant.symbols_from_outside_scope_for_anon_def tprogram anonDef) ) in 
         let anon_name = Semant.find_name_for_anon_def tprogram anonDef in
         let instanceName = "s" ^ anon_name in 
         let structName = "S" ^ anon_name in
         let newDecls = [CDeclaration(CDeclSpecTypeSpecAny(CPointerType(CType(CStruct(structName)), 1)), 
         CInitDeclaratorAsn(CDirectDeclarator(CVar(CIdentifier(instanceName))), Asn, CCastExpr(CPointerType(CType(CStruct(structName)), 1), CId(CIdentifier("capture_struct")))))]
         in
-
-        (*let decls = [CDeclaration(CDeclSpecTypeSpecAny(CType(CStruct(structName))), CInitDeclarator(CDirectDeclarator(CVar(CIdentifier(instanceName)))))] in*)
+    
+       
+        let CompoundStatement(decls, _) = anonDef.anon_body in
+        let locals = Semant.symbols_from_decls decls in
         let CCompoundStatement(decls, stmts) = cFunc.cfunc_body in 
-        let CCompoundStatement(updated_decls, updated_stmts) = fst (fst (update_statement anonDef.anon_body updated_symbol_table tprogram )) in
+        (*let CCompoundStatement(updated_decls, updated_stmts) = fst (fst (update_statement anonDef.anon_body tSymbol_table tprogram )) in*)
+        (*let CCompoundStatement(updated_decls, updated_stmts) = fst (fst (update_statement anonDef.anon_body updated_symbol_table tprogram )) in*)
+        let cmpstmt = fst (fst (update_statement anonDef.anon_body updated_symbol_table tprogram )) in
+        let CCompoundStatement(updated_decls, updated_stmts) = fix_statement locals instanceName cmpstmt in 
         {
                 cfunc_name = cFunc.cfunc_name;
                 creturn_type = cFunc.creturn_type;
@@ -1540,14 +1679,11 @@ let rec cFunc_from_anonDef symbol_table tprogram anonDef =
                     let ttype = (convert_anon_params symbol_table t) in
                     [htype]@ttype)
     in
-    let temp_cFunc = {
+    {
     cfunc_name = anonDef.anon_name;
     cfunc_body = CCompoundStatement([], []);    
     cfunc_params = (convert_anon_params symbol_table anonDef.anon_params);
     creturn_type = cType_from_tType symbol_table anonDef.anon_return_type }
-    in
-    let final_cFunc = update_cFunc_from_anonDef symbol_table tprogram temp_cFunc anonDef in 
-    final_cFunc
 
 and cFunc_list_from_anonDef_list symbol_table tprogram adlist = match adlist with
     [] -> []
@@ -1602,13 +1738,22 @@ let cProgram_from_tProgram program =
                 acc @ [update_cConstructor tSymbol_table program cConst tStruct]) []
                 cconstructors in
 
-        (*let cUpdatedFuncsTranslatedFromAnonDefs =*)
-            (*List.fold_left (fun acc cFunc ->*)
-                (*let sym_ = StringMap.find*)
-        let cFuncs = cConstructors @ cUpdatedDeclaredMethodsAndFuncs @ cFuncsTranslatedFromAnonDefs
+        let anon_def_for_function fn = 
+            List.find (fun af ->
+                if (af.anon_name = fn.cfunc_name) then
+                    true
+                else
+                    false) tAnonDefs
         in
 
-
+        let cUpdatedFuncsTranslatedFromAnonDefs =
+            List.map (fun f -> 
+                let anonDef = anon_def_for_function f in
+                update_cFunc_from_anonDef tSymbol_table program f anonDef) cFuncsTranslatedFromAnonDefs
+        in
+        let cFuncs = cConstructors @ cUpdatedDeclaredMethodsAndFuncs @ cUpdatedFuncsTranslatedFromAnonDefs
+        (*let cFuncs = cConstructors @ cUpdatedDeclaredMethodsAndFuncs @ cFuncsTranslatedFromAnonDefs*)
+        in
         {
                 cstructs = cStructs@capture_structs;
                 cglobals = [];
