@@ -524,6 +524,11 @@ and type_from_expr symbols expr = match expr with
   | AnonFuncDef(adef) -> type_from_anon_def adef
   | Noexpr -> PrimitiveType(Void)                                               
 
+let rec type_list_from_expr_list symbols elist = match elist with
+      [] -> []
+    | [e] -> [type_from_expr symbols e] 
+    | h::t -> [type_from_expr symbols h]@(type_list_from_expr_list symbols t)
+
 let receiver_has_func typ_ symbols func =
         let object_symbol = (lookup_symbol_by_id symbols (Identifier(typ_))) in
         let rec has_func symbol func = match symbol with
@@ -1659,6 +1664,37 @@ let rec symbols_from_outside_scope_for_anon_def tprogram anonDef =
        raise(Failure("Error: program does not contain anonDef"))
    else
        symlist
+
+and check_format_string_with_expr_list symbols fmtStr elist =
+    let type_from_fmtSpec fmtSpec = match fmtSpec with
+          "%s" -> PrimitiveType(String)
+        | "%d" -> PrimitiveType(Int)
+        | "%f" -> PrimitiveType(Float)
+        | "%c" -> PrimitiveType(Char)
+        | _ -> raise(Failure("check_format_string_with_expr_list: Error - Invalid format string"))
+    in
+    let rec get_fmtSpec_list_from_string str =
+        try 
+            let firstOccurrence = String.index str '%' in 
+            let substr = String.sub str firstOccurrence 2 in
+            let remainderStr = String.sub str (firstOccurrence + 1) ((String.length str) - (firstOccurrence + 1))  in
+            [substr]@(get_fmtSpec_list_from_string remainderStr)
+        with Not_found ->
+            []
+    in
+    let rec type_list_from_fmtSpec_list specList = match specList with 
+          [] -> []
+        | [s] -> [type_from_fmtSpec s]
+        | h::t -> [type_from_fmtSpec h]@(type_list_from_fmtSpec_list t)
+    in
+    let fmtSpecList = get_fmtSpec_list_from_string fmtStr in
+    let argTypeList = type_list_from_expr_list symbols elist in
+    let fmtTypeList = type_list_from_fmtSpec_list fmtSpecList in
+    try
+        List.iter2 (fun t1 t2 -> (check_compatible_types symbols t1 t2)) argTypeList fmtTypeList
+    with
+        Invalid_argument(_) -> raise(Failure("check_format_string_with_expr_list: Error - Number of format specifiers in format string does not match number of arguments"))
+      | _ -> raise(Failure("check_format_string_with_expr_list: Unspecified error"))
 
 
 and print_anon_def anonDef = 
