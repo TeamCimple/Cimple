@@ -59,9 +59,16 @@ let string_of_type_spec = function
       | Unsigned -> "unsigned"
       | String -> "string"
 
+let rec string_of_ptr = function
+      PtrType(x, y) -> "Pointer(" ^ string_of_ptr x ^
+      string_of_ptr y ^ ")"
+      | Pointer -> "Pointer"
+      | NoPointer -> ""
+
 let rec string_of_type = function
       PrimitiveType(t) -> string_of_type_spec t
     | PointerType(t, d) -> string_of_type t ^ " depth: " ^ string_of_int d
+    | ArrayType(t, ptr, expr) -> "[" ^ string_of_type t ^ string_of_ptr ptr ^"]" 
     | CustomType(t) -> t
 
 let string_of_storage_class_spec = function
@@ -73,11 +80,6 @@ let string_of_storage_class_spec = function
 
 let string_of_identifier = function
         Identifier(s) -> s
-
-let rec string_of_ptr = function
-      PtrType(x, y) -> "Pointer(" ^ string_of_ptr x ^
-      string_of_ptr y ^ ")"
-      | Pointer -> "Pointer"
 
 let rec string_of_declaration_specifiers = function
         DeclSpecTypeSpec(tspec) -> "DeclSpecTypeSpec(" ^ string_of_type_spec tspec ^ ")"
@@ -116,6 +118,8 @@ let rec string_of_expr = function
   (string_of_postfix_op op) ^ ")" 
   | CompareExpr(e1, op, e2) -> "Compare(" ^ string_of_expr e1 ^ "," ^
   string_of_logical_op op ^ "," ^ string_of_expr e2 ^ ")"
+  | ArrayAccess(e1, e2) -> "ArrayAccess" ^ string_of_expr e1 ^ "[" ^
+  string_of_expr e2 ^ "]" 
   | Noexpr -> ""
   | Clean(expr) -> "Clean(" ^ string_of_expr expr ^ ")"
   | AsnExpr(e1, asnOp, e) -> string_of_assignment_op asnOp ^ "(" ^

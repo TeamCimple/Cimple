@@ -27,7 +27,7 @@ and tType =
  | CustomType of string
  | AnonFuncType of tType * tType list
  | PointerType of tType * int (* Type + number of pointers *)
- | ArrayType of tType * int  (* Type + number of elements *)
+ | ArrayType of tType * tPointer * tExpr  (* Type + number of elements *)
 
 and tIdentifier =
    Identifier of string
@@ -40,6 +40,7 @@ and tInitializer =
 and tPointer = 
    PtrType of tPointer * tPointer
  | Pointer
+ | NoPointer
 
 and tStorageClassSpec = Auto | Register | Static | Extern | Typedef
 
@@ -59,6 +60,7 @@ and tExpr =
   | Pointify of tExpr
   | Deref of tExpr
   | MemAccess of tExpr * tIdentifier
+  | ArrayAccess of tExpr * tExpr
   | Id of tIdentifier
   | AnonFuncDef of tAnonFuncDef
   | DeclExpr of tDeclaration

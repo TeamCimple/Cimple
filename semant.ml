@@ -68,6 +68,7 @@ let rec type_from_declaration_specifiers = function
 let rec get_num_pointers ptrs = match ptrs with 
     | PtrType(ptr1, ptr2) -> (get_num_pointers ptr1) + (get_num_pointers ptr2)
     | Pointer -> 1
+    | NoPointer -> 0
 
 let get_func_name fdecl = var_name_from_direct_declarator fdecl.func_name
 
@@ -290,7 +291,7 @@ let check_compatible_custom_types symbols t1 t2 =
         let t2_sym  = lookup_symbol_by_id symbols t2 in
         match (t1_sym, t2_sym) with 
         | (StructSymbol(t1_name, t1_struct), StructSymbol(t2_name, t2_struct))
-        -> if (t1_name = t2_name || (t1_inherits_t2 t1_name t2_name symbols)) then () else
+        -> if (t1_name = t2_name || (t1_inherits_t2 t2_name t1_name symbols)) then () else
                 raise(Failure("Incompatible types:" ^ t1_name ^ "," ^ t2_name))
         | (StructSymbol(t1_name, t1_struct), InterfaceSymbol(name, _)) ->
                         raise(Failure("Incompatible types:" ^ t1_name ^ "," ^
@@ -404,16 +405,60 @@ let rec get_fdecl_for_receiver typ_ tSymbol_table func_name =
                                         function"))) in 
         find_func object_symbol func_name
 
-let rec type_from_expr symbols expr = match expr with
+let type_of_array_type symbols = function
+        | ArrayType(type_of_array, pointer, expr) ->
+                                                 
+                        let num_pointers = get_num_pointers pointer in 
+                        PointerType(type_of_array, num_pointers + 1) 
+        | _ -> raise(Failure("type_of_array_type should not be called on non
+        array_type"))
+
+let rec get_array_access_depth depth expr = match expr with 
+        | ArrayAccess(expr, _) -> 1 + (get_array_access_depth 1 expr)
+        | _ -> 1
+
+let rec type_from_array_access symbols expr = match expr with 
+  | ArrayAccess(e1, e2) -> type_from_array_access symbols e1
+  | _ -> type_from_expr symbols expr 
+
+and type_from_expr symbols expr = match expr with
    Literal(_) -> PrimitiveType(Int)
   | FloatLiteral(_) -> PrimitiveType(Float)
   | StringLiteral(_) -> PrimitiveType(String)
   | Unop(e, _) -> type_from_expr symbols e
+  | ArrayAccess(e1, e2) -> (ignore(let t2 = type_from_expr symbols e2 in match t2 with
+                                  | PrimitiveType(Int) -> ()
+                                  | _ -> raise(Failure("Index for array must be
+                                  int primitive")));
+
+                                  let t1 = type_from_array_access symbols expr in 
+                                  let depth = (get_array_access_depth 1 e1) in
+                                  match (t1) with 
+                                  | PointerType(base, num) ->
+                                          if (num < depth) then
+                                          ( raise(Failure("Too deep array
+                                          access"))) else ( if (depth = num)
+                                          then (base) else (PointerType(base,
+                                          num - depth)))
+
+                                               
+                                  | _ -> raise(Failure("Attempting array access
+                                  for non pointer type")))       
   | Binop(e1, _, e2) -> let t1 = type_from_expr symbols e1 in 
                         let t2 = type_from_expr symbols e2 in 
                         ignore (check_compatible_types symbols t1 t2);
                         type_from_expr symbols e1
   | Make(typ_, _) -> (match typ_ with 
+                        | ArrayType(type_of_array, pointer, expr) -> (
+                               ignore(let type_of_expr = type_from_expr symbols expr in (
+                                match type_of_expr with 
+                                | PrimitiveType(Int) -> ()
+                                | _ -> raise(Failure("Attempting to  allocate memory of
+                                non integral size"))
+                                ));
+                               
+                                type_of_array_type symbols typ_
+                         )
                         | PointerType(base_type, count) ->
                                         PointerType(base_type, count + 1)
                         | _ -> PointerType(typ_, 1))
@@ -517,7 +562,8 @@ let check_constructor symbols struct_name params =
 
   
        | _ -> raise(Failure("not handled\n"))
-                
+          
+      
                
 let rec check_compatible_type_lists symbols tl1 tl2 = match (tl1, tl2) with
     ([], []) -> ()
@@ -548,6 +594,7 @@ let rec check_expr symbols e = match e with
    | Literal(_) -> ()
    | StringLiteral(_) -> ()
    | FloatLiteral(_) -> ()
+   | ArrayAccess(e1, e2) -> ignore(type_from_expr symbols e1);
    | Deref(expr) -> (let t1 = type_from_expr symbols expr in
                         match t1 with
                         | PointerType(base_type, _) -> ()
@@ -615,6 +662,9 @@ let rec check_expr symbols e = match e with
                                                symbols);
    | Make(typ_, expr_list) -> (match (typ_, expr_list)  with
                          | (PrimitiveType(s), [a]) -> ()
+                         | (ArrayType(array_time, ptr, expr), []) ->
+                                         ignore(type_from_expr symbols
+                                         (Make(typ_, expr_list))); 
                          | (CustomType(s), e) -> (check_constructor symbols s e)
                          | _ -> raise(Failure("Invalid make")))
    | AsnExpr(expr, asnOp, e) -> 
@@ -1103,6 +1153,16 @@ let convert_constructor_to_fdecl constructor updated_body =
                 receiver = ("", "");
         }
 
+let convert_destructor_to_fdecl destructor = 
+        {
+                return_type = DeclSpecTypeSpecAny(PrimitiveType(Void));
+                func_name =
+                        DirectDeclarator(Var(Identifier(destructor.destructor_name)));
+                body = destructor.destructor_body;
+                params = [];
+                receiver = ("", "");
+        }
+
 let isSuper stmt = match stmt with 
         | Expr(Super(_)) -> true
         | _ -> false
@@ -1212,6 +1272,21 @@ let check_constructor_definition_in_struct program struct_ =
                 check_statement func
         symbols updated_body
 
+let check_destructor_definition program struct_ =
+        let symbol_table = build_symbol_table program in 
+        let destructor = struct_.destructor in 
+        let symbols = List.fold_left (fun symbol_table sym -> if (StringMap.mem
+        (get_id_from_symbol sym) symbol_table) then raise(Failure("Struct field: " ^
+        (get_id_from_symbol sym) ^ "was redeclared")) else StringMap.add
+        (get_id_from_symbol sym) sym symbol_table) symbol_table
+        (symbols_from_decls struct_.members) in 
+
+        if (destructor.destructor_name = "") then ()
+
+        else
+                let func = convert_destructor_to_fdecl destructor in 
+
+                check_statement func symbols destructor.destructor_body
 
 let get_method_names struct_ = List.map (fun func -> var_name_from_direct_declarator func.func_name) struct_.methods
 
@@ -1623,8 +1698,11 @@ let check_program program =
                        in ignore(List.map check_struct_fields
                        program.structs);
 
-        ignore (List.map (check_constructor_definition_in_struct program)
+       ignore (List.map (check_constructor_definition_in_struct program)
         program.structs);
+
+       ignore (List.map (check_destructor_definition program)
+       program.structs);
 
        let struct_names = List.map (fun struct_ -> struct_.struct_name)
        program.structs in 
