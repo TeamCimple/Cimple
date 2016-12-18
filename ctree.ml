@@ -1221,8 +1221,7 @@ let update_decl decl tSymbol_table  tprogram  =
                                
 let rec update_statement tstmt tSymbol_table  tprogram  =  match tstmt with 
         | CompoundStatement(decls, stmts) ->
-                let updated_symbol_table = Semant.add_to_symbol_table
-                tSymbol_table decls in  
+                let updated_symbol_table = Semant.add_to_symbol_table tSymbol_table decls in  
                 let (new_decls, new_stmts) = 
                     List.fold_left (fun decl_stmt_acc decl ->
                         let (n_decls, n_stmts) = update_decl decl
@@ -1548,10 +1547,13 @@ let update_cFunc_from_anonDef tSymbol_table tprogram cFunc anonDef =
           | h::t -> [fix_statement locals instance_name h]@(fix_statement_list locals instance_name t)
                   
         in
-        let updated_symbol_table = List.fold_left (fun m symbol -> StringMap.add
-        (Semant.get_id_from_symbol symbol) symbol m) tSymbol_table ((Semant.symbols_from_decls
-        (Semant.get_decls_from_compound_stmt anonDef.anon_body)) @ (Semant.symbols_from_func_params
-        anonDef.anon_params) @ (Semant.symbols_from_outside_scope_for_anon_def tprogram anonDef) ) in 
+        let updated_symbol_list = 
+            ((Semant.symbols_from_func_params anonDef.anon_params) @ (Semant.symbols_from_outside_scope_for_anon_def tprogram anonDef) )
+        in
+        let updated_symbol_table = 
+            List.fold_left (fun m symbol -> 
+                StringMap.add (Semant.get_id_from_symbol symbol) symbol m)
+                    tSymbol_table updated_symbol_list in 
         let anon_name = Semant.find_name_for_anon_def tprogram anonDef in
         let instanceName = "s" ^ anon_name in 
         let structName = "S" ^ anon_name in

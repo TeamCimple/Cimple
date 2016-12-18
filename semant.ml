@@ -584,10 +584,10 @@ let validate_call_expr expr_list symbols params =
         List.iter2 (check_compatible_types symbols) exprList func_param_types
 
 (* TODO: validate this *)
-let rec validate_anon_call_expr expr expr_list symbols anonSym = match anonSym with
+let rec validate_anon_call_expr expr expr_list symbols program anonSym = match anonSym with
       AnonFuncSymbol(name, _) -> 
-          Printf.printf "AnonFuncSymbol name is %s\n" name;
-          ()
+          let anonDef = anon_def_from_tsymbol program anonSym in
+          check_anon_body anonDef symbols program anonDef.anon_body 
     | _ -> ()
 
 and check_format_string_with_expr_list symbols fmtStr elist =
@@ -625,17 +625,15 @@ and check_call_to_printf symbols exprList = match exprList with
       [e] -> if ((type_from_expr symbols e) <> PrimitiveType(String)) then 
                  raise(Failure("check_call_to_printf: Error - If only 1 argument, must be string!"))
              else
-                 Printf.printf "Successfully checked call to printf!\n";
                  ()
     | h::t ->
             if ((type_from_expr symbols h) <> PrimitiveType(String)) then 
                  raise(Failure("check_call_to_printf: Error - If only 1 argument, must be string!"))
              else (match h with 
                  StringLiteral(s) ->
-                     Printf.printf "Successfully checked call to printf!\n";
                      check_format_string_with_expr_list symbols s t)
 
-and check_expr symbols e = match e with
+and check_expr symbols program e = match e with
      Id(Identifier(name)) -> if (StringMap.mem name symbols) == false then
                                 raise(Failure("Undeclared identifier"))
                              else ()
@@ -664,17 +662,15 @@ and check_expr symbols e = match e with
                             let s =  StringMap.find id symbols in
                             match s with 
                                  FuncSymbol(_, fdecl) ->
-                                     Printf.printf "id is %s\n" id;
-                                     (*let fname = var_name_from_direct_declarator fdecl.func_name in*)
                                      if (id = "printf") then
                                          check_call_to_printf symbols expr_list
                                      else
-                                         Printf.printf "No printf :(\n";
                                        validate_call_expr
                                        expr_list symbols
                                        fdecl.params
                                | AnonFuncSymbol(name, t) ->
-                                       validate_anon_call_expr expr expr_list symbols s
+                                        ()
+                                       (*validate_anon_call_expr expr expr_list symbols program s*)
                          else
                             raise(Failure("Calling function: " ^ id
                             ^ "which is undefined"))
@@ -692,7 +688,7 @@ and check_expr symbols e = match e with
                                            fdecl.params)
                            | _ -> raise(Failure("Invalid type making method
                            call")))))
-   | Unop(e, unop) -> check_expr symbols e;
+   | Unop(e, unop) -> check_expr symbols program e;
                       let te = type_from_expr symbols e in 
                       (match (te, unop) with
                           (PrimitiveType(Void), _) -> raise(Failure("Cannot apply unary operator to void type"))
@@ -706,10 +702,10 @@ and check_expr symbols e = match e with
                                                     compare custom types"))
                                     | (_, CustomType(s)) -> raise(Failure("Cannot
                                     compare custom types"))
-                                    | _ -> check_compatible_types symbols
+                                    | _ -> check_compatible_types symbols 
                                     (type_from_expr symbols e1) (type_from_expr
                                     symbols e2))
-   | Postfix(e1, op) -> check_expr symbols e1;
+   | Postfix(e1, op) -> check_expr symbols program e1;
                       let te = type_from_expr symbols e1 in 
                       (match (te, op) with
                           (PrimitiveType(Void), _) -> raise(Failure("Cannot
@@ -850,15 +846,15 @@ and add_symbol_list_to_symbol_table tbl symlist = match symlist with
     | h::t -> let htbl = add_symbol_to_symbol_table tbl h in
               add_symbol_list_to_symbol_table htbl t 
 
-and check_statement func symbol_table stmt = match stmt with
+and check_statement func symbol_table program stmt = match stmt with
      Expr(e) -> (match e with 
                         | Make(_, _) -> raise(Failure("Cannot have stand
                         alone make.")) 
-                        | _ -> check_expr symbol_table e)
-  | Return(e) -> check_expr symbol_table e; check_compatible_types symbol_table (type_from_expr symbol_table e)
+                        | _ -> check_expr symbol_table program e)
+  | Return(e) -> check_expr symbol_table program e; check_compatible_types symbol_table (type_from_expr symbol_table e)
   (type_from_declaration_specifiers func.return_type)
   | If(e, s1, s2) -> check_bool_expr symbol_table e; check_statement
-  func symbol_table s1;  check_statement func symbol_table s2
+  func symbol_table program s1;  check_statement func symbol_table program s2
   | EmptyElse -> ()
   | For(e1, e2, e3, st) -> ( (match (e1, e3) with 
                                 | (Make(_, _), _) -> raise(Failure("Cannot have
@@ -866,19 +862,43 @@ and check_statement func symbol_table stmt = match stmt with
                                 | (_, Make(_, _)) -> raise(Failure("Cannot have
                                 stand alone make"))
                                 | _ -> ());
-                                check_expr symbol_table e2; check_bool_expr symbol_table e2; check_statement
-                                func symbol_table st)
-  | While(e, s) -> check_bool_expr symbol_table e; check_statement func symbol_table
-  s
+                                check_expr symbol_table program e2; check_bool_expr symbol_table e2; check_statement
+                                func symbol_table program st)
+  | While(e, s) -> check_bool_expr symbol_table e; check_statement func symbol_table program  s
   | CompoundStatement(dl, sl) -> let tbl = add_to_symbol_table symbol_table dl
-  in List.iter (check_local_declaration tbl) dl; List.iter (check_statement func tbl) sl
+  in List.iter (check_local_declaration tbl) dl; List.iter (check_statement func tbl program ) sl
   | Break -> ()
 
-(*let rec check_statement_list func symbol_table stmtList = match stmtList with *)
-    (*[] -> ()*)
-  (*| [x] -> check_statement func symbol_table x*)
-  (*| h::t -> check_statement func symbol_table h;*)
-            (*check_statement_list func symbol_table t*)
+and check_anon_body anonDef symbol_table program stmt = match stmt with
+     Expr(e) -> (match e with 
+                        | Make(_, _) -> raise(Failure("Cannot have stand
+                        alone make.")) 
+                        | _ -> check_expr symbol_table program e)
+  | Return(e) -> 
+        check_expr symbol_table program e; 
+        check_compatible_types symbol_table (type_from_expr symbol_table e) anonDef.anon_return_type
+  | If(e, s1, s2) -> 
+        check_bool_expr symbol_table e; 
+        check_anon_body anonDef symbol_table program s1;
+        check_anon_body anonDef symbol_table program s2
+  | EmptyElse -> ()
+  | For(e1, e2, e3, st) -> ( (match (e1, e3) with 
+                                | (Make(_, _), _) -> raise(Failure("Cannot have
+                                stand alone make"))
+                                | (_, Make(_, _)) -> raise(Failure("Cannot have
+                                stand alone make"))
+                                | _ -> ());
+                                check_expr symbol_table program e2;
+                                check_bool_expr symbol_table e2;
+                                check_anon_body anonDef symbol_table program st)
+  | While(e, s) -> 
+        check_bool_expr symbol_table e;
+        check_anon_body anonDef symbol_table program  s
+  | CompoundStatement(dl, sl) ->
+        let tbl = add_to_symbol_table symbol_table dl in 
+        List.iter (check_local_declaration tbl) dl; 
+        List.iter (check_anon_body anonDef tbl program ) sl
+  | Break -> ()
 
 and func_decl_from_anon_func_def anonDef = {
     return_type = DeclSpecTypeSpecAny(anonDef.anon_return_type);
@@ -888,8 +908,8 @@ and func_decl_from_anon_func_def anonDef = {
     body = anonDef.anon_body
 }
 
-and check_anon_func_def symbol_table anonDef =  
-    check_statement (func_decl_from_anon_func_def anonDef) symbol_table anonDef.anon_body
+and check_anon_func_def symbol_table program anonDef =  
+    check_statement (func_decl_from_anon_func_def anonDef) symbol_table program anonDef.anon_body
 
 (* This function checks 1) Is there a cycle in the inheritence tree and 2)
  * checks that all extensions are valid i.e. no extending oneself or a non
@@ -1330,7 +1350,7 @@ and check_constructor_definition_in_struct program struct_ =
                 in  
 
                 check_statement func
-        symbols updated_body
+        symbols program updated_body
 
 and check_destructor_definition program struct_ =
         let symbol_table = build_symbol_table program in 
@@ -1346,7 +1366,7 @@ and check_destructor_definition program struct_ =
         else
                 let func = convert_destructor_to_fdecl destructor in 
 
-                check_statement func symbols destructor.destructor_body
+                check_statement func symbols program destructor.destructor_body
 
 and get_method_names struct_ = List.map (fun func -> var_name_from_direct_declarator func.func_name) struct_.methods
 
@@ -1483,7 +1503,8 @@ and anon_def_from_tsymbol tprogram tsym =
             if (found = true) then
                 anonDef
             else
-                raise(Failure("anon_def_from_tsymbol: Error - no anonDef with that name"))
+                let errorStr = "anon_def_from_tsymbol: Error - no anonDef with name " ^ s in
+                raise(Failure(errorStr))
                             
 and compare_anon_defs_ignore_name a1 a2 =
    let b1 = {
@@ -1866,7 +1887,7 @@ let check_program program =
                 List.iter (check_local_declaration symbol_table)
                 (get_decls_from_compound_stmt func.body);
 
-                List.iter (check_statement func symbol_table)
+                List.iter (check_statement func symbol_table program )
                 (get_stmts_from_compound_stmt func.body); 
                         
         in List.iter check_function program.functions;
