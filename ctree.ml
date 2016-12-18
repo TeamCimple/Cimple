@@ -1499,24 +1499,12 @@ let update_cFunc_from_anonDef tSymbol_table tprogram cFunc anonDef =
           | [e] -> [fix_expr locals instance_name e]
           | h::t -> [fix_expr locals instance_name h]@(fix_expr_list locals instance_name t)
    
-       (*and fix_identifier locals instance_name ident = match ident with*)
-            (*s -> if ((id_exists_in_symtable s) = false) then *)
-                    
-       (*and fix_direct_declarator locals instance_name ddeclt = match ddecl with*)
-           (*CVar(CIdentifier(s)) ->  *)
-       (*and fix_declarator locals instance_name declt = match declt with*)
-            (*CDirectDeclarator(dd) ->*)
        and fix_init_declarator locals instance_name initDecl = match initDecl with
-            (*CInitDeclarator(CDirectDeclarator(CVar(id))) ->*)
-                (*let CId(fid) = fix_expr locals instance_name (CId(id)) in *)
-                (*CInitDeclarator(CDirectDeclarator(CVar(fid)))*)
           | CInitDeclaratorAsn(dd, aop, e) ->
                   let CInitDeclarator(fdd) = fix_init_declarator locals instance_name (CInitDeclarator(dd)) in
                   let fe = fix_expr locals instance_name e in
                   CInitDeclaratorAsn(fdd, aop, fe)
           | _ -> initDecl 
-                  (*let errorStr = "fix_init_declarator: Error - " ^ (Astutil.string_of_init_declarator initDecl) in*)
-                  (*raise(Failure(errorStr))*)
 
        and fix_declaration locals instance_name decl = match decl with
             CDeclaration(declSpecs, initDecl) ->
@@ -1577,8 +1565,6 @@ let update_cFunc_from_anonDef tSymbol_table tprogram cFunc anonDef =
         let CompoundStatement(decls, _) = anonDef.anon_body in
         let locals = Semant.symbols_from_decls decls in
         let CCompoundStatement(decls, stmts) = cFunc.cfunc_body in 
-        (*let CCompoundStatement(updated_decls, updated_stmts) = fst (fst (update_statement anonDef.anon_body tSymbol_table tprogram )) in*)
-        (*let CCompoundStatement(updated_decls, updated_stmts) = fst (fst (update_statement anonDef.anon_body updated_symbol_table tprogram )) in*)
         let cmpstmt = fst (fst (update_statement anonDef.anon_body updated_symbol_table tprogram )) in
         let CCompoundStatement(updated_decls, updated_stmts) = fix_statement locals instanceName cmpstmt in 
         {
