@@ -1427,6 +1427,29 @@ let update_cFunc tSymbol_table tprogram cFunc tFunc  =
                 cfunc_params = cFunc.cfunc_params; 
         }
 
+let update_cFunc_from_anonDef tSymbol_table tprogram cFunc anonDef =
+        let updated_symbol_table = List.fold_left (fun m symbol -> StringMap.add
+        (Semant.get_id_from_symbol symbol) symbol m) tSymbol_table ((Semant.symbols_from_decls
+        (Semant.get_decls_from_compound_stmt anonDef.anon_body)) @ (Semant.symbols_from_func_params
+        anonDef.anon_params)) in 
+        let anon_name = Semant.find_name_for_anon_def tprogram anonDef in
+        let instanceName = "s" ^ anon_name in 
+        let structName = "S" ^ anon_name in
+        let newDecls = [CDeclaration(CDeclSpecTypeSpecAny(CPointerType(CType(CStruct(structName)), 1)), 
+        CInitDeclaratorAsn(CDirectDeclarator(CVar(CIdentifier(instanceName))), Asn, CCastExpr(CPointerType(CType(CStruct(structName)), 1), CId(CIdentifier("capture_struct")))))]
+        in
+
+        (*let decls = [CDeclaration(CDeclSpecTypeSpecAny(CType(CStruct(structName))), CInitDeclarator(CDirectDeclarator(CVar(CIdentifier(instanceName)))))] in*)
+        let CCompoundStatement(decls, stmts) = cFunc.cfunc_body in 
+        let CCompoundStatement(updated_decls, updated_stmts) = fst (fst (update_statement anonDef.anon_body updated_symbol_table tprogram )) in
+        {
+                cfunc_name = cFunc.cfunc_name;
+                creturn_type = cFunc.creturn_type;
+                cfunc_body = CCompoundStatement(decls @ updated_decls @ newDecls,
+                updated_stmts);
+                cfunc_params = cFunc.cfunc_params; 
+        }
+
 let update_cConstructor tSymbol_table tprogram cFunc tStruct = 
         let updated_symbol_table = List.fold_left (fun m symbol -> StringMap.add
         (Semant.get_id_from_symbol symbol) symbol m) tSymbol_table ((Semant.symbols_from_decls
@@ -1492,7 +1515,23 @@ let update_cConstructor tSymbol_table tprogram cFunc tStruct =
                 cfunc_params = cFunc.cfunc_params;
         }
 
-let rec cFunc_from_anonDef symbol_table anonDef =
+(*and cStatement = *)
+    (*CExpr of cExpr*)
+    (*| CEmptyElse*)
+    (*| CReturn of cExpr*)
+    (*| CCompoundStatement of cDeclaration list * cStatement list*)
+    (*| CIf of cExpr * cStatement * cStatement*)
+    (*| CFor of cExpr * cExpr * cExpr * cStatement*)
+    (*| CWhile of cExpr * cStatement*)
+    (*| CBreak*)
+
+(*let fix_out_of_scope_references_for_cFunc_from_anon_def tSymbol_table tprogram cfunc anonDef =*)
+    (*match anonDef.anon_body with*)
+        (*CompoundStatement(decls, _) ->*)
+            (*let local_scope = Semant.symbols_from_decls decls in*)
+            (*let stmtList = *)
+
+let rec cFunc_from_anonDef symbol_table tprogram anonDef =
     let rec convert_anon_params symbol_table params =
         (match params with
             [] -> [(CPointerType(CType(CPrimitiveType(Cvoid)), 1), CIdentifier("capture_struct"))]
@@ -1500,18 +1539,21 @@ let rec cFunc_from_anonDef symbol_table anonDef =
           | h::t -> let htype = (cFuncParam_from_tFuncParam symbol_table h) in
                     let ttype = (convert_anon_params symbol_table t) in
                     [htype]@ttype)
-    in {
+    in
+    let temp_cFunc = {
     cfunc_name = anonDef.anon_name;
     cfunc_body = CCompoundStatement([], []);    
     cfunc_params = (convert_anon_params symbol_table anonDef.anon_params);
-    creturn_type = cType_from_tType symbol_table anonDef.anon_return_type
-}
+    creturn_type = cType_from_tType symbol_table anonDef.anon_return_type }
+    in
+    let final_cFunc = update_cFunc_from_anonDef symbol_table tprogram temp_cFunc anonDef in 
+    final_cFunc
 
-and cFunc_list_from_anonDef_list symbol_table adlist = match adlist with
+and cFunc_list_from_anonDef_list symbol_table tprogram adlist = match adlist with
     [] -> []
-  | [x] -> [cFunc_from_anonDef symbol_table x]
-  | h::t -> let hfuncs = [(cFunc_from_anonDef symbol_table h)] in
-            let tfuncs = (cFunc_list_from_anonDef_list symbol_table t) in
+  | [x] -> [cFunc_from_anonDef symbol_table tprogram x]
+  | h::t -> let hfuncs = [(cFunc_from_anonDef symbol_table tprogram h)] in
+            let tfuncs = (cFunc_list_from_anonDef_list symbol_table tprogram t) in
             hfuncs@tfuncs
 
         
@@ -1538,7 +1580,7 @@ let cProgram_from_tProgram program =
         tSymbol_table) program.interfaces) @ cstructs in
 
         let tAnonDefs = Semant.anon_defs_from_tprogram program in 
-        let cFuncsTranslatedFromAnonDefs = cFunc_list_from_anonDef_list tSymbol_table tAnonDefs in
+        let cFuncsTranslatedFromAnonDefs = cFunc_list_from_anonDef_list tSymbol_table program tAnonDefs in
         let capture_structs = capture_struct_list_from_anon_def_list program tAnonDefs in 
         let updated_cstructs = cstructs@capture_structs in 
         (* The function bodies have not been filled out yet. Just the parameters
@@ -1559,7 +1601,10 @@ let cProgram_from_tProgram program =
         let cConstructors = List.fold_left (fun acc (tStruct, cConst) ->
                 acc @ [update_cConstructor tSymbol_table program cConst tStruct]) []
                 cconstructors in
-       
+
+        (*let cUpdatedFuncsTranslatedFromAnonDefs =*)
+            (*List.fold_left (fun acc cFunc ->*)
+                (*let sym_ = StringMap.find*)
         let cFuncs = cConstructors @ cUpdatedDeclaredMethodsAndFuncs @ cFuncsTranslatedFromAnonDefs
         in
 

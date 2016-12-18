@@ -1358,6 +1358,10 @@ let find_name_for_anon_def tprogram anonDef =
     else
         raise(Failure("find_name_for_anon_def: Error - could not find a matching anonymous function definition"))
 
+let find_struct_name_for_anon_def tprogram anonDef = 
+    let name = find_name_for_anon_def tprogram anonDef in
+    "S" ^ name
+
 let anon_defs_from_expr_list_no_recursion tprogram elist = 
    List.fold_left (fun acc e ->
                         (match e with
