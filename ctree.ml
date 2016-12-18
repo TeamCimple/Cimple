@@ -66,8 +66,9 @@ and cExpr =
    | CPostfix of cExpr * tPostfixOperator
    | CCall of int * cExpr * cExpr * cExpr list (* The int field is a flag to
    indiciate it is a pointer dereference *)
-   | CAlloc of cType * string
+   | CAlloc of cType * cExpr
    | CDeref of cExpr
+   | CArrayAccess of cExpr * cExpr
    | CCompareExpr of cExpr * tLogicalOperator * cExpr
    | CPointify of cExpr
    | CMemAccess of int * cExpr * cIdentifier (* The int field is a flag to
@@ -169,6 +170,9 @@ let rec cType_from_tType symbol_table = function
     PrimitiveType(typeSpec) -> cType_from_tTypeSpec typeSpec
   | PointerType(base_type, num) -> CPointerType(cType_from_tType symbol_table base_type,
   num)
+  | ArrayType(array_type, ptr, e) -> (let t1 = Semant.type_of_array_type
+  symbol_table (ArrayType(array_type, ptr, e)) in cType_from_tType symbol_table
+  t1)
   | CustomType(s) -> (let sym = StringMap.find s symbol_table in 
                                         match sym with 
                                         | StructSymbol(name, _) ->
@@ -657,7 +661,7 @@ let rec update_expr texpr tSymbol_table tprogram  = match texpr with
                         let ((updated_e2, e2_stmts), _) = update_expr e2
                         tSymbol_table  tprogram in 
 
-                        ((CBinop(updated_e1, op, updated_e1), (e1_stmts@e2_stmts)), []))
+                        ((CBinop(updated_e1, op, updated_e2), (e1_stmts@e2_stmts)), []))
         | CompareExpr(e1, op, e2) ->
                 ( 
                 let ((updated_e1, e1_stmts), _) = update_expr e1 tSymbol_table tprogram in 
@@ -714,6 +718,8 @@ let rec update_expr texpr tSymbol_table tprogram  = match texpr with
                                         cCallExpr_from_tCallExpr expr
                                         tSymbol_table tprogram s expr_list
      | Super(_) -> ((CNoexpr, []), [])
+     | ArrayAccess(e1, e2) -> ((CArrayAccess(fst(fst(update_expr e1 tSymbol_table
+     tprogram)), fst(fst(update_expr e2 tSymbol_table tprogram))), []), []) 
      | MemAccess(expr, Identifier(s)) -> (let typ_ = Semant.type_from_expr
      tSymbol_table expr in match (typ_) with 
                 | CustomType(name) -> ((CMemAccess(0, fst( fst (update_expr expr
@@ -726,9 +732,10 @@ let rec update_expr texpr tSymbol_table tprogram  = match texpr with
      | Literal(d) -> ((CLiteral(d), []), [])
      | Make(typ_, expr_list) -> (let ctype = cType_from_tType tSymbol_table typ_
                   in match typ_ with 
-                 | PrimitiveType(s) -> ((CAlloc(ctype, (sizeof_string tSymbol_table ctype)), []), [])
-                | CustomType(s) -> ((CAlloc(ctype, (sizeof_string tSymbol_table
-                ctype)), []), []))
+                 | PrimitiveType(s) -> ((CAlloc(ctype,
+                 CId(CIdentifier((sizeof_string tSymbol_table ctype)))), []), [])
+                | CustomType(s) -> ((CAlloc(ctype, CId(CIdentifier(sizeof_string tSymbol_table
+                ctype))), []), []))
      | FloatLiteral(d) -> ((CFloatLiteral(d), []), [])
      | StringLiteral(s) -> ((CStringLiteral(s), []), [])
      | Postfix(e1, op) -> (let ((updated_e1, e1_stmts), _) = update_expr e1
@@ -825,8 +832,16 @@ and cAllocExpr_from_tMakeExpr tSymbol_table tprogram asn_expr tMakeExpr =
                         [CCastExpr(CPointerType(CType(CStruct(cStructName_from_tStruct
                         tStruct.struct_name)), 2), CPointify(updated_e1))] @
                         [CLiteral(1)]), []), [])
-               )
-        )
+               ))
+       | (ArrayType(array_type, ptr, e)) -> (let updated_e = fst(fst(update_expr
+                        e tSymbol_table tprogram)) in let pointer_type = Semant.type_of_array_type
+       tSymbol_table typ_ in let cpointer_type = cType_from_tType tSymbol_table
+       pointer_type in (match cpointer_type with 
+       | CPointerType(base, num) ->let ctype_to_malloc = if (num = 1) then base
+       else CPointerType(base, num-1) in ((CAsnExpr(updated_e1, Asn,
+       CAlloc(base, CBinop(updated_e, Mul,
+       (CId(CIdentifier(sizeof_string tSymbol_table ctype_to_malloc)))))), []),
+       [])))
             
    
 and cExpr_from_tExpr_in_tCall tSymbol_table  tprogram  tExpr tFuncParam = 
@@ -1333,17 +1348,17 @@ let update_cConstructor tSymbol_table tprogram cFunc tStruct =
 
 
         let virtual_table_type =
-                CPointerType(CType(CStruct(virtual_table_name)), 1) in 
+                CType(CStruct(virtual_table_name)) in 
         
         let alloc_virtual_table =
                 CExpr(CAsnExpr(CMemAccess(1, CDeref(CId(CIdentifier("_this"))),
                 CIdentifier("_virtual")),
-        Asn, CAlloc(virtual_table_type, (sizeof_string tSymbol_table
-        virtual_table_type)))) in 
+        Asn, CAlloc(virtual_table_type, CId(CIdentifier(sizeof_string tSymbol_table
+        virtual_table_type))))) in 
 
         let alloc_this = CIf(CId(CIdentifier("_needs_malloc")), CExpr(CAsnExpr(CDeref(CId(CIdentifier("_this"))),
-                   Asn, CAlloc(ctype, (sizeof_string tSymbol_table
-                   ctype)))), CExpr(CNoexpr)) in
+                   Asn, CAlloc(ctype, CId(CIdentifier((sizeof_string tSymbol_table
+                   ctype)))))), CExpr(CNoexpr)) in
 
         let virt_table_assignments = generate_virtual_table_assignments 1 tStruct tSymbol_table
         "(*_this)->_virtual" in 

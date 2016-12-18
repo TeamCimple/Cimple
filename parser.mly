@@ -99,6 +99,7 @@ postfix_expr:
   | postfix_expr PLUSPLUS { Postfix($1, PostPlusPlus) }
   | postfix_expr MINUSMINUS { Postfix($1, PostMinusMinus) }
   | postfix_expr LPAREN expr_list RPAREN { Call(Noexpr, $1, $3) }
+  | postfix_expr LBRACKET_SQUARE postfix_expr RBRACKET_SQUARE { ArrayAccess($1, $3) } 
   | SUPER LPAREN expr_list RPAREN { Super($3) }
   | CLEAN primary_expr { Clean($2) }
   | postfix_expr PERIOD  IDENTIFIER LPAREN expr_list RPAREN  { Call($1,
@@ -108,10 +109,10 @@ postfix_expr:
 make_expr:
         MAKE STRUCT_IDENTIFIER LPAREN expr_list RPAREN { Make(CustomType($2),
         $4)}
-   | MAKE type_specifier LBRACKET_SQUARE RBRACKET_SQUARE INT_LITERAL {
-           Make(ArrayType(PrimitiveType($2), $5), []) }
-   | MAKE STRUCT_IDENTIFIER LBRACKET_SQUARE RBRACKET_SQUARE INT_LITERAL {
-           Make(ArrayType(CustomType($2), $5), []) }
+   | MAKE type_ LBRACKET_SQUARE primary_expr RBRACKET_SQUARE  {
+           Make(ArrayType($2, NoPointer, $4), []) }
+   | MAKE type_ pointer LBRACKET_SQUARE primary_expr RBRACKET_SQUARE {
+           Make(ArrayType($2, $3, $5), [])}
 
 expr_list:
   /* Nothing */ { [] }

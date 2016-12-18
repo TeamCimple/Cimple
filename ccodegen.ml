@@ -93,6 +93,7 @@ let rec gen_cexpr  expr = match expr with
    | CAsnExpr(e1, aop, e2) ->  (gen_cexpr  e1) ^ (gen_assn_op aop) ^ (gen_cexpr  e2)
    | CLiteral(x) -> string_of_int x
    | CFloatLiteral(x) -> string_of_float x
+   | CArrayAccess(e1, e2) -> (gen_cexpr e1) ^ "[" ^ (gen_cexpr e2) ^ "]"
    | CStringLiteral(s) -> s
    | CCastExpr(ct, e) -> "(" ^ (gen_ctype  ct) ^ ")" ^ "(" ^ (gen_cexpr  e) ^ ")"
    | CPostfix(e, pfop) -> (gen_cexpr  e) ^ (gen_postfix_op pfop)
@@ -102,7 +103,12 @@ let rec gen_cexpr  expr = match expr with
                (gen_cexpr s) ^ "->"^ asterisks ^ (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")"
            else (if (s <> CNoexpr) then
                (gen_cexpr s) ^ "." ^ (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")" else (gen_cexpr e) ^ "(" ^ gen_expr_list elist ^ ")")
-   | CAlloc(ct, s) -> "malloc(" ^ "sizeof(" ^ s ^")" ^ ")"
+   | CAlloc(ct, s) -> (match s with 
+                        | CBinop(e1, Mul, e2) -> "malloc(" ^ (gen_cexpr e1) ^
+                                                (gen_op Mul) ^ "sizeof(" ^
+                                                (gen_cexpr e2) ^ ")" ^ ")"
+                        | CId(CIdentifier(s)) -> "malloc(" ^ "sizeof(" ^ s ^ ")"
+                        ^ ")" )
    | CCompareExpr(e1, op, e2) -> gen_cexpr e1 ^ gen_logical_op op ^
    gen_cexpr e2
    | CPointify(e) -> "&(" ^ (gen_cexpr  e) ^ ")"

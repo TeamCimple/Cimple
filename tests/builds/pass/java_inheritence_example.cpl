@@ -38,6 +38,11 @@ struct Bicycle {
  	b.gear = newValue;
  	return;
  }
+
+void (MountainBike *mb) setGear(int newValue) {
+	mb.gear = 2*newValue;
+	return;
+}
  
  void (Bicycle *b) applyBreak(int decrement) {
  	b.speed = b.speed - decrement;
@@ -61,8 +66,19 @@ struct Bicycle {
  int main(int argc, char** argv) {
  	
  	struct MountainBike *mb;
- 
- 	mb = make MountainBike(20, 30, 40, 50);
- 	mb.setGear(70);
- 	return mb.getGear();
+ 	struct Bicycle **b;
+	int j;
+	int k;
+
+	b = make struct Bicycle*[10];
+	for(j = 0; j < 5; j++) {
+		b[j] = make Bicycle(10, 10, 10);
+	}
+	for(j = 5; j < 10; j++) {
+		b[j] = make MountainBike(10, 10, 10, 20);
+	}
+	for(k = 0; k < 10; k++) {
+		b[k].getGear(); 
+	}
+ 	return 0;
  }
