@@ -1221,20 +1221,25 @@ let update_decl decl tSymbol_table  tprogram  =
                                
 let rec update_statement tstmt tSymbol_table  tprogram  =  match tstmt with 
         | CompoundStatement(decls, stmts) ->
+                let updated_symbol_table = Semant.add_to_symbol_table
+                tSymbol_table decls in  
                 let (new_decls, new_stmts) = 
                     List.fold_left (fun decl_stmt_acc decl ->
-                        let (n_decls, n_stmts) = update_decl decl tSymbol_table tprogram in
+                        let (n_decls, n_stmts) = update_decl decl
+                        updated_symbol_table tprogram in
                         ((fst (decl_stmt_acc)) @ n_decls, (snd (decl_stmt_acc) @ n_stmts))) ([], []) decls in 
        
                 let more_new_stmts = 
                     List.fold_left (fun stmt_acc stmt -> 
                                            let ((updated_stmt, additional_stmts), additional_decls) =
-                                               update_statement stmt tSymbol_table  tprogram in
+                                               update_statement stmt
+                                               updated_symbol_table  tprogram in
                                            stmt_acc @ additional_stmts @ [updated_stmt]) [] stmts in 
                 let more_new_decls = 
                     List.fold_left (fun decl_acc stmt -> 
                                            let ((updated_stmt, additional_stmts), additional_decls) =
-                                               update_statement stmt tSymbol_table  tprogram in
+                                               update_statement stmt
+                                               updated_symbol_table  tprogram in
                                            decl_acc @ additional_decls) [] stmts in 
 
                 ((CCompoundStatement(new_decls@more_new_decls, new_stmts @ more_new_stmts), []), [])
@@ -1407,8 +1412,7 @@ let cStruct_from_tStruct symbol_table tprogram tStruct =
       
 let update_cFunc tSymbol_table tprogram cFunc tFunc  =
         let updated_symbol_table = List.fold_left (fun m symbol -> StringMap.add
-        (Semant.get_id_from_symbol symbol) symbol m) tSymbol_table ((Semant.symbols_from_decls
-        (Semant.get_decls_from_compound_stmt tFunc.body)) @ (Semant.symbols_from_func_params
+        (Semant.get_id_from_symbol symbol) symbol m) tSymbol_table ((Semant.symbols_from_func_params
         tFunc.params) @ ([Semant.symbol_from_receiver tFunc.receiver])) in 
 
         let CCompoundStatement(decls, stmts) = cFunc.cfunc_body in 
