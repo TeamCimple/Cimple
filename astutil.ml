@@ -114,6 +114,7 @@ let rec string_of_expr = function
   | Id (x) -> "Identifier(" ^ string_of_identifier x ^ ")"
   | Deref(e) -> "Deref(" ^ string_of_expr e ^ ")"
   | Pointify(e) -> "Pointify(" ^ string_of_expr e ^ ")"
+  | Neg(e) -> "-" ^ string_of_expr e
   | Postfix(e1, op) -> "Postfix(" ^ string_of_expr e1 ^ "," ^
   (string_of_postfix_op op) ^ ")" 
   | CompareExpr(e1, op, e2) -> "Compare(" ^ string_of_expr e1 ^ "," ^
@@ -121,6 +122,7 @@ let rec string_of_expr = function
   | ArrayAccess(e1, e2) -> "ArrayAccess" ^ string_of_expr e1 ^ "[" ^
   string_of_expr e2 ^ "]" 
   | Noexpr -> ""
+  | Nil -> "NIL"
   | Clean(expr) -> "Clean(" ^ string_of_expr expr ^ ")"
   | AsnExpr(e1, asnOp, e) -> string_of_assignment_op asnOp ^ "(" ^
   string_of_expr e1 ^  ", " ^ string_of_expr e ^ ")"

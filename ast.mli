@@ -58,6 +58,7 @@ and tExpr =
   | Postfix of tExpr * tPostfixOperator
   | Call of tExpr * tExpr * tExpr list
   | Make of tType * tExpr list
+  | Neg of tExpr
   | Pointify of tExpr
   | Deref of tExpr
   | MemAccess of tExpr * tIdentifier

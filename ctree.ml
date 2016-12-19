@@ -67,6 +67,7 @@ and cExpr =
    | CCall of int * cExpr * cExpr * cExpr list (* The int field is a flag to
    indiciate it is a pointer dereference *)
    | CAlloc of cType * cExpr
+   | CNeg of cExpr
    | CDeref of cExpr
    | CArrayAccess of cExpr * cExpr
    | CCompareExpr of cExpr * tLogicalOperator * cExpr
@@ -647,6 +648,8 @@ and cFunction_from_tMethod object_type method_ tSymbol_table =
  * more declarations.
  *)
 let rec update_expr texpr tSymbol_table tprogram  = match texpr with
+        | Neg(e) -> (let ((updated_e1, e1_stmts), decls) = update_expr e
+                        tSymbol_table tprogram in ((CNeg(updated_e1), e1_stmts), decls))
         | Binop(e1, op, e2) -> (let ((updated_e1, e1_stmts), _) = update_expr e1
                                 tSymbol_table tprogram in 
                         let ((updated_e2, e2_stmts), _) = update_expr e2

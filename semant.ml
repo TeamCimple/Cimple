@@ -428,6 +428,11 @@ and type_from_expr symbols expr = match expr with
   | FloatLiteral(_) -> PrimitiveType(Float)
   | StringLiteral(_) -> PrimitiveType(String)
   | Nil -> NilType
+  | Neg(e) -> (let t = type_from_expr symbols e in match t with 
+                        | PrimitiveType(Int) -> PrimitiveType(Int)
+                        | PrimitiveType(Float) -> PrimitiveType(Float)
+                        | _ -> raise(Failure("Cannot take negative of type other
+                        than int or float")))
   | Unop(e, _) -> type_from_expr symbols e
   | ArrayAccess(e1, e2) -> (ignore(let t2 = type_from_expr symbols e2 in match t2 with
                                   | PrimitiveType(Int) -> ()
@@ -650,6 +655,7 @@ and check_expr symbols program e = match e with
                          let t2 = type_from_expr symbols e2 in 
                          check_compatible_types symbols t1 t2
    | Pointify(expr) -> ()
+   | Neg(expr) -> ignore(type_from_expr symbols expr);
 
    | Literal(_) -> ()
    | StringLiteral(_) -> ()

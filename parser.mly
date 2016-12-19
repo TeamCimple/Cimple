@@ -95,6 +95,10 @@ relational_expression:
   | relational_expression GREATER_THAN_EQUALS add_expr { CompareExpr($1,
   GreaterEql, $3) } 
 
+unary_expr:
+  | postfix_expr { $1 }
+  | MINUS postfix_expr { Neg($2) }
+
 postfix_expr:
     primary_expr { $1 }
   | postfix_expr PLUSPLUS { Postfix($1, PostPlusPlus) }
@@ -157,10 +161,10 @@ add_expr:
  | mult_expr  { $1 }
 
 mult_expr:
-   mult_expr TIMES postfix_expr { Binop($1, Mul, $3) }
- | mult_expr DIVIDE postfix_expr { Binop($1, Div, $3) }
- | mult_expr MOD postfix_expr { Binop($1, Mod, $3) }
- | postfix_expr             { $1 }
+   mult_expr TIMES unary_expr { Binop($1, Mul, $3) }
+ | mult_expr DIVIDE unary_expr { Binop($1, Div, $3) }
+ | mult_expr MOD unary_expr { Binop($1, Mod, $3) }
+ | unary_expr             { $1 }
 
 primary_expr:
  LPAREN expr RPAREN         { $2 }

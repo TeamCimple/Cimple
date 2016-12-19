@@ -98,12 +98,14 @@ let rec gen_cexpr  expr = match expr with
    | CNull -> "NULL"
    | CCastExpr(ct, e) -> "(" ^ (gen_ctype  ct) ^ ")" ^ "(" ^ (gen_cexpr  e) ^ ")"
    | CPostfix(e, pfop) -> (gen_cexpr  e) ^ (gen_postfix_op pfop)
+   | CNeg(e) -> "-"^(gen_cexpr e) 
    | CAlloc(ct, s) -> (match s with 
                         | CBinop(e1, Mul, e2) -> "malloc(" ^ (gen_cexpr e1) ^
                                                 (gen_op Mul) ^ "sizeof(" ^
                                                 (gen_cexpr e2) ^ ")" ^ ")"
                         | CId(CIdentifier(s)) -> "malloc(" ^ "sizeof(" ^ s ^ ")"
-                        ^ ")" )
+                        ^ ")" 
+                        | _ -> "")
    | CCall(n, s, e, elist) ->
           if (s <> CNoexpr) then
                if (n > 0) then 
@@ -182,6 +184,7 @@ and gen_cdeclaration_list  dlist = match dlist with
 and gen_cstatement  stmt = match stmt with
      CExpr(e) -> gen_cexpr  e ^ ";\n"
    | CReturn(e) -> "return " ^ (gen_cexpr  e) ^ "; "
+   | CEmptyElse -> ""
    | CCompoundStatement(declList, stmtList) -> "{\n" ^ (gen_cdeclaration_list
    declList) ^ "\n" ^ (gen_cstatement_list  stmtList) ^ "\n}\n"
    | CIf(e, s1, s2) -> (match (s1, s2) with 
