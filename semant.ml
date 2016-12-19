@@ -402,8 +402,6 @@ and check_compatible_types symbols t1 t2 = match (t1, t2) with
           let t2Str = string_of_type t2 in
           let errorStr = "check_compatible_types: Error - " ^ t1Str ^ " and " ^ t2Str ^ " not yet supported" in
           raise(Failure(errorStr))
-  (*| _ -> raise(Failure("check_compatible_types: *)
-  (*[>supported"))<]*)
 
 let rec get_fdecl_for_receiver typ_ tSymbol_table func_name = 
         let object_symbol = (lookup_symbol_by_id tSymbol_table (Identifier(typ_))) in 

@@ -242,12 +242,26 @@ let cDeclaration_from_tFdecl symbol_table fdecl =
         let first_argument = [CPointerType(CType(CPrimitiveType(Cvoid)), 1)] in
         let cfunc_param_types = first_argument @ List.map (cType_from_tType symbol_table)
                                      (Semant.type_list_from_func_param_list fdecl.params) in 
+        let generate_void_star_param_types = 
+            let anonList = 
+                List.filter (fun p -> match p with
+                    AnonFuncDecl(anonDecl) -> true
+                  | _ -> false)fdecl.params
+            in
+            let returned_param_types = 
+                List.map (fun p -> match p with
+                    AnonFuncDecl(anonDecl) ->
+                        CPointerType(CType(CPrimitiveType(Cvoid)), 1)) anonList
+            in
+            returned_param_types
+        in
+        let extraParamTypes = generate_void_star_param_types in
         let cfunc_return_type =
                 cType_from_tType symbol_table (Semant.type_from_declaration_specifiers
                 fdecl.return_type) in
         let func_signature = {
                                  func_return_type = cfunc_return_type;
-                                 func_param_types = cfunc_param_types;
+                                 func_param_types = cfunc_param_types@extraParamTypes;
                                 } in
          
         CVarSymbol((Semant.var_name_from_direct_declarator fdecl.func_name), CFuncPointer(func_signature))
@@ -537,12 +551,26 @@ let cDeclaration_from_tFdecl symbol_table fdecl =
         let first_argument = [CPointerType(CType(CPrimitiveType(Cvoid)), 1)] in
         let cfunc_param_types = first_argument @ List.map (cType_from_tType symbol_table)
                                      (Semant.type_list_from_func_param_list fdecl.params) in 
+        let generate_void_star_param_types = 
+            let anonList = 
+                List.filter (fun p -> match p with
+                    AnonFuncDecl(anonDecl) -> true
+                  | _ -> false)fdecl.params
+            in
+            let returned_param_types = 
+                List.map (fun p -> match p with
+                    AnonFuncDecl(anonDecl) ->
+                        CPointerType(CType(CPrimitiveType(Cvoid)), 1)) anonList
+            in
+            returned_param_types
+        in
+        let extraParamTypes = generate_void_star_param_types in
         let cfunc_return_type =
                 cType_from_tType symbol_table (Semant.type_from_declaration_specifiers
                 fdecl.return_type) in
         let func_signature = {
                                  func_return_type = cfunc_return_type;
-                                 func_param_types = cfunc_param_types;
+                                 func_param_types = cfunc_param_types@extraParamTypes;
                                 } in
          
         CVarSymbol((Semant.var_name_from_direct_declarator fdecl.func_name), CFuncPointer(func_signature))
@@ -1045,22 +1073,50 @@ and cCallExpr_from_tCallExpr expr tSym  tprogram func_name expr_list =
                                 func_name)), [first_arg] @ (List.map2
                                 (cExpr_from_tExpr_in_tCall tSym  tprogram ) expr_list
                                 fdecl.params)),[]), [])
-               | PointerType(CustomType(a), 1) -> let fdecl =
-                       Semant.get_fdecl_for_receiver a tSym func_name in
-                                let first_arg =
-                                        CCastExpr(CPointerType(CType(CPrimitiveType(Cvoid)),
-                                        1), fst (fst (update_expr expr tSym
-                                        tprogram
-                                        ))) in 
-                                let extra_params = generate_extra_capture_func_params_from_expr_list tSym tprogram expr_list in 
+               | PointerType(CustomType(a), 1) ->
+                       (*Printf.printf "Pointer Type expr list is %s\n" (Astutil.string_of_expr_list expr_list);*)
+                       let hasAnonParams = Semant.expr_list_contains_anon_defs_no_recursion expr_list in 
+                       if (hasAnonParams = true) then 
+                           let fdecl =
+                           Semant.get_fdecl_for_receiver a tSym func_name in
+                                    let first_arg =
+                                            CCastExpr(CPointerType(CType(CPrimitiveType(Cvoid)),
+                                            1), fst (fst (update_expr expr tSym
+                                            tprogram
+                                            ))) in 
+                           let update_anon_def_expr_list anonList = 
+                               List.fold_left (fun ((e, slist), dlist) def ->
+                                   let ((_, _slist), _dlist) = update_expr (AnonFuncDef(def)) tSym tprogram in
+                                   ((Noexpr, slist@_slist), dlist@_dlist)) ((Noexpr, []), []) anonList
+                           in 
+                           let extra_params = generate_extra_capture_func_params_from_expr_list tSym tprogram expr_list in 
+                           let anonParams = Semant.anon_defs_from_expr_list_no_recursion tprogram expr_list in
+                           let ((updated_expr, updated_slist), updated_dlist) = update_anon_def_expr_list anonParams in
+                            ((CCall(1, CMemAccess(1,
+                            fst (fst(update_expr expr tSym tprogram)),
+                            CIdentifier("_virtual")), 
+                           CId(CIdentifier(
+                            func_name)), [first_arg] @ (List.map2
+                            (cExpr_from_tExpr_in_tCall tSym  tprogram ) expr_list
+                            fdecl.params@extra_params)), updated_slist), updated_dlist)
+                       else 
+                           let fdecl =
+                           Semant.get_fdecl_for_receiver a tSym func_name in
+                                (*Printf.printf "We have interface!\n";*)
+                                    let first_arg =
+                                            CCastExpr(CPointerType(CType(CPrimitiveType(Cvoid)),
+                                            1), fst (fst (update_expr expr tSym
+                                            tprogram
+                                            ))) in 
+                                    let extra_params = generate_extra_capture_func_params_from_expr_list tSym tprogram expr_list in 
 
-                                ((CCall(1, CMemAccess(1,
-                                fst (fst(update_expr expr tSym tprogram)),
-                                CIdentifier("_virtual")), 
-                               CId(CIdentifier(
-                                func_name)), [first_arg] @ (List.map2
-                                (cExpr_from_tExpr_in_tCall tSym  tprogram ) expr_list
-                                fdecl.params)), []), [])
+                                    ((CCall(1, CMemAccess(1,
+                                    fst (fst(update_expr expr tSym tprogram)),
+                                    CIdentifier("_virtual")), 
+                                   CId(CIdentifier(
+                                    func_name)), [first_arg] @ (List.map2
+                                    (cExpr_from_tExpr_in_tCall tSym  tprogram ) expr_list
+                                    fdecl.params)), []), [])
                | _ -> raise(Failure("No other functions can call methods")))
 
 let generate_virtual_table_assignments isPointer tStruct tSymbol_table id= 
@@ -1416,6 +1472,12 @@ let virtual_table_struct_for_tStruct symbol_table tStruct =
         tStruct.struct_name symbol_table)
         (Semant.get_unique_method_names_for_struct symbol_table tStruct)) in 
 
+        let print_all_methods_for_struct mthdlist= 
+            List.iter (fun fdecl -> 
+                Printf.printf "Method name is %s\n" (Astutil.string_of_func fdecl);
+            ) mthdlist
+        in
+        (*(print_all_methods_for_struct all_methods_for_struct);*)
         let methodMemberSymbols = List.map (cDeclaration_from_tFdecl
         symbol_table) all_methods_for_struct in 
         
@@ -1458,17 +1520,35 @@ let cStruct_from_tStruct symbol_table tprogram tStruct =
                 defaultStructMemberSymbols else defaultStructMemberSymbols in
 
                let (methods_to_cfunctions, cfuncs) = (List.fold_left (fun (sym, cfunc_list) method_ -> 
-                                            (let tfunc_name =
-                                                    Semant.var_name_from_direct_declarator
-                                               method_.func_name in
+                                           (let tfunc_name =
+                                                   Semant.var_name_from_direct_declarator
+                                              method_.func_name in
                                             
-                                           let initial_void_param = 
-                                                        create_cfunc_param_for_receiver
-                                                        method_.receiver in
+                                            let initial_void_param = 
+                                                         create_cfunc_param_for_receiver
+                                                         method_.receiver in
 
-                                           let init_cast_decl =
-                                                   create_initial_cast_decl
-                                                   method_.receiver in
+                                            let init_cast_decl =
+                                                    create_initial_cast_decl
+                                                    method_.receiver in
+                                           
+                                            let generate_void_star_params = 
+                                                let anonList = 
+                                                    List.filter (fun p -> match p with
+                                                        AnonFuncDecl(anonDecl) -> true
+                                                      | _ -> false) method_.params
+                                                in
+                                                let returned_params = 
+                                                    List.map (fun p -> match p with
+                                                        AnonFuncDecl(anonDecl) ->
+                                                            (match anonDecl.anon_decl_name with
+                                                                Identifier(s) -> 
+                                                                    let paramName = "cap_anon_" ^ s in 
+                                                                    (CPointerType(CType(CPrimitiveType(Cvoid)), 1), CIdentifier(paramName)))) anonList
+                                                in
+                                                returned_params
+                                            in
+                                            let extraParams = generate_void_star_params in 
 
  
                                             let cfunc = {
@@ -1480,7 +1560,7 @@ let cStruct_from_tStruct symbol_table tprogram tStruct =
                                                 cfunc_params =
                                                         [initial_void_param] @ (List.map
                                                 (cFuncParam_from_tFuncParam
-                                                symbol_table) method_.params);
+                                                symbol_table) method_.params)@extraParams;
 
                                                 cfunc_body =
                                                         CCompoundStatement([init_cast_decl],
