@@ -1262,7 +1262,7 @@ let update_decl_for_custom_type id decl custom_type tSymbol_table  tprogram =
                         stmts@assigns@assignments)
                        
 
-let update_decl decl tSymbol_table  tprogram  = 
+let update_decl tSymbol_table  tprogram decl  = 
                 let id = Semant.var_name_from_declaration decl in 
                    let tType = Semant.type_from_identifier tSymbol_table (Identifier(id))
                    in 
@@ -1280,8 +1280,8 @@ let rec update_statement tstmt tSymbol_table  tprogram  =  match tstmt with
                 let updated_symbol_table = Semant.add_to_symbol_table tSymbol_table decls in  
                 let (new_decls, new_stmts) = 
                     List.fold_left (fun decl_stmt_acc decl ->
-                        let (n_decls, n_stmts) = update_decl decl
-                        updated_symbol_table tprogram in
+                        let (n_decls, n_stmts) = update_decl
+                        updated_symbol_table tprogram decl in
                         ((fst (decl_stmt_acc)) @ n_decls, (snd (decl_stmt_acc) @ n_stmts))) ([], []) decls in 
        
                 let more_new_stmts = 
@@ -1829,6 +1829,10 @@ let cProgram_from_tProgram program =
         (List.filter (fun(_, _, (_, _, destr)) -> if (destr.cfunc_name = "") then false
         else true) cstructs_and_functions) in
 
+        let cglobals = List.fold_left (fun acc (decls, _) -> acc @
+        decls) [] (List.map (update_decl tSymbol_table updated_program)
+        updated_program.globals) in 
+
 
         let cStructs = virt_table_structs @ (List.map (cStruct_from_tInterface
         tSymbol_table) program.interfaces) @ cstructs in
@@ -1878,6 +1882,6 @@ let cProgram_from_tProgram program =
         in
         {
                 cstructs = cStructs@capture_structs;
-                cglobals = [];
+                cglobals = cglobals;
                 cfunctions = cFuncs;
         }
