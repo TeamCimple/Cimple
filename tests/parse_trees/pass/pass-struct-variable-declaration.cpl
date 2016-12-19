@@ -1,0 +1,9 @@
+struct MyStruct {
+	int a;
+};
+
+int main() {
+	struct MyStruct m;
+
+	return 0;
+}

@@ -1,0 +1,1 @@
+FuncDecl(Name: Var(main) ReturnType: int Parameters:  Body: CompoundStatement(Declarations: (int Pointer(Var(a)),),  StatementList: Statement(EQUALS(Identifier(a), Make([int]))), Statement(EQUALS(ArrayAccessIdentifier(a)[Int(0)], Int(1))), RETURN(ArrayAccessIdentifier(a)[Int(0)]))) 

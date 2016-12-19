@@ -1,0 +1,7 @@
+void myFunc() {
+	return;
+}
+
+int main() {
+	return 0;
+}

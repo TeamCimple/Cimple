@@ -1,0 +1,8 @@
+interface MyInterface {
+	int getA();
+	int getB();
+};
+
+int main() {
+	return 0;
+}

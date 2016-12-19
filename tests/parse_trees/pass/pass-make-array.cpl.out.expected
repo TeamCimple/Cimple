@@ -1,0 +1,1 @@
+FuncDecl(Name: Var(main) ReturnType: int Parameters:  Body: CompoundStatement(Declarations: (int Pointer(Var(arg)),),  StatementList: Statement(EQUALS(Identifier(arg), Make([int]))), Statement(Clean(Identifier(arg))), RETURN(Int(0)))) 

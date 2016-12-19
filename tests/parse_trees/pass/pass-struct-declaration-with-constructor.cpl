@@ -1,0 +1,19 @@
+struct MyStruct {
+	int a;
+	float b;
+	string c;
+	
+	MyStruct(int new_a, float new_b, string new_c) {
+		a = new_a;
+		b = new_b;
+		c = new_c;
+	}
+
+	~MyStruct() {
+
+	}
+};
+
+int main() {
+	return 0;
+}

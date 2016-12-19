@@ -1,0 +1,4 @@
+FuncDecl(Name: Var(main) ReturnType: int Parameters:  Body: CompoundStatement(Declarations: (int Var(i),),  StatementList: Statement(EQUALS(Identifier(i), Int(1))), IF EQUALS(Identifier(i), Int(1)) CompoundStatement(Declarations:  StatementList: Statement(Call(Receiver()FunctionName: printf Params: String("Hello"))))
+ IF EQUALS(Identifier(i), Int(2)) CompoundStatement(Declarations:  StatementList: Statement(Call(Receiver()FunctionName: printf Params: String("Hello Again"))))
+ IF EQUALS(Identifier(i), Int(3)) CompoundStatement(Declarations:  StatementList: Statement(Call(Receiver()FunctionName: printf Params: String("Hello Hello Again"))))
+ CompoundStatement(Declarations:  StatementList: Statement(Call(Receiver()FunctionName: printf Params: String("Bye")))), RETURN(Identifier(i)))) 
