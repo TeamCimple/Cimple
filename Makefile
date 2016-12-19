@@ -32,11 +32,6 @@ test: cimple
 ast:
 	cat $(SRC) | ./cimple -a
 
-.PHONY: anon
-
-anon:
-	cat tests/anon/anonFunction.cpl | ./cimple -l
-
 .PHONY: anonbuild
 
 anonbuild:
@@ -45,8 +40,8 @@ anonbuild:
 .PHONY: anonclass
 
 anonclass:
-	#@(cat tests/anon/anonClass.cpl | ./cimple -c > anonclass.c && gcc -o anonclass anonclass.c)||:
-	(cat tests/anon/anonClass.cpl | ./cimple -c > anonclass.c && gcc -o anonclass anonclass.c)
+	@(cat tests/anon/anonClass.cpl | ./cimple -c > anonclass.c && gcc -o anonclass anonclass.c)||:
+	#(cat tests/anon/anonClass.cpl | ./cimple -c > anonclass.c && gcc -o anonclass anonclass.c)
 
 .PHONY: anonparse
 
