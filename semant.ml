@@ -1027,6 +1027,19 @@ and get_ancestors_constructor symbols struct_ =
                         else 
                                 parent_struct.constructor
 
+and get_ancestors_destructor symbols struct_ =
+        if (struct_.extends = "")
+        
+        then struct_.destructor
+
+        else
+                let StructSymbol(_, parent_struct) = StringMap.find struct_.extends symbols in
+                        if (parent_struct.destructor.destructor_name = "")
+                                then get_ancestors_destructor symbols parent_struct
+                        else 
+                                parent_struct.destructor
+
+                        
 and check_void_decl decl = match decl with 
         | Declaration(decl_spec, _) -> 
                         if (type_from_declaration_specifiers decl_spec =

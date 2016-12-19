@@ -92,6 +92,7 @@ let rec gen_cexpr  expr = match expr with
      CBinop(e1, op, e2) -> (gen_cexpr  e1) ^ (gen_op op) ^ (gen_cexpr  e2)
    | CAsnExpr(e1, aop, e2) ->  (gen_cexpr  e1) ^ (gen_assn_op aop) ^ (gen_cexpr  e2)
    | CLiteral(x) -> string_of_int x
+   | CFree(e) -> "free(" ^ (gen_cexpr e) ^ ")"
    | CFloatLiteral(x) -> string_of_float x
    | CArrayAccess(e1, e2) -> (gen_cexpr e1) ^ "[" ^ (gen_cexpr e2) ^ "]"
    | CStringLiteral(s) -> s

@@ -10,7 +10,13 @@ struct BinaryTree {
 	}
 
 	~BinaryTree() {
-
+		printf("Cleaning binary tree\n");
+		if (left != NIL) {
+			clean left;
+		}
+		if (right != NIL) {
+			clean right;
+		}
 	}
 };
 
@@ -46,7 +52,7 @@ int (BinaryTree *b) find_min() {
 	if (b.left == NIL) {
 		return b.val;
 	} else {
-		return find_min(b.left);
+		return b.left.find_min();
 	}
 }
 
@@ -58,5 +64,7 @@ int main() {
 	for (i = 0; i < 200; i++) {
 		b.addNode(i);
 	}
-	return b.find_max();
+	b.find_max();
+	clean b;
+	return 0;
 }
