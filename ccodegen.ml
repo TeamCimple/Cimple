@@ -95,6 +95,7 @@ let rec gen_cexpr  expr = match expr with
    | CFloatLiteral(x) -> string_of_float x
    | CArrayAccess(e1, e2) -> (gen_cexpr e1) ^ "[" ^ (gen_cexpr e2) ^ "]"
    | CStringLiteral(s) -> s
+   | CNull -> "NULL"
    | CCastExpr(ct, e) -> "(" ^ (gen_ctype  ct) ^ ")" ^ "(" ^ (gen_cexpr  e) ^ ")"
    | CPostfix(e, pfop) -> (gen_cexpr  e) ^ (gen_postfix_op pfop)
    | CAlloc(ct, s) -> (match s with 
@@ -183,8 +184,16 @@ and gen_cstatement  stmt = match stmt with
    | CReturn(e) -> "return " ^ (gen_cexpr  e) ^ "; "
    | CCompoundStatement(declList, stmtList) -> "{\n" ^ (gen_cdeclaration_list
    declList) ^ "\n" ^ (gen_cstatement_list  stmtList) ^ "\n}\n"
-   | CIf(e, s1, s2) -> "if(" ^ (gen_cexpr  e) ^ "){\n" ^ (gen_cstatement  s1) ^
-   (gen_cstatement  s2) ^ "\n}\n"
+   | CIf(e, s1, s2) -> (match (s1, s2) with 
+                        | (CCompoundStatement(_, _), CEmptyElse) -> "if(" ^ (gen_cexpr e) ^ ")" ^
+                        (gen_cstatement s1)
+                        | (CCompoundStatement(_, _), CCompoundStatement(_, _)) ->
+                                        "if(" ^ (gen_cexpr e) ^ ")\n" ^
+                                        (gen_cstatement s1) ^ "else" ^
+                                        (gen_cstatement s2)
+                        | _ -> "if(" ^ (gen_cexpr  e) ^ ")" ^ (gen_cstatement
+                        s1) ^ "\n" ^ "else " ^ 
+   (gen_cstatement  s2) ^ "\n")
    | CFor(e1, e2, e3, s) -> let se1 = (gen_cexpr  e1) in 
                             let se2 = (gen_cexpr  e2) in
                             let se3 = (gen_cexpr  e3) in

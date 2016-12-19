@@ -8,6 +8,7 @@
 %token <string> STRUCT_IDENTIFIER
 %token ASSIGN
 %token RETURN
+%token NIL
 %token PLUS MINUS TIMES DIVIDE MOD PLUSPLUS MINUSMINUS
 %token AND OR BITWISE_AND BITWISE_OR XOR NOT LSHIFT RSHIFT
 %token EQUALS NOT_EQUALS LESS_THAN LESS_THAN_EQUALS GREATER_THAN GREATER_THAN_EQUALS
@@ -47,7 +48,7 @@ statement:
   | RETURN expr_opt SEMICOLON { Return $2 }
 
 selection_statement:
-    IF LPAREN expr RPAREN statement %prec NOELSE { If($3, $5, EmptyElse) }
+    IF LPAREN expr RPAREN statement %prec NOELSE{ If($3, $5, EmptyElse)}
   | IF LPAREN expr RPAREN statement ELSE statement  {If($3, $5, $7)}
 
 iteration_statement:
@@ -167,6 +168,7 @@ primary_expr:
  | INT_LITERAL              { Literal($1) }
  | STRING_LITERAL           { StringLiteral($1) }
  | IDENTIFIER               { Id(Identifier($1))}
+ | NIL                      { Nil } 
  | BITWISE_AND primary_expr { Pointify($2) }
  | TIMES primary_expr       { Deref($2) }
 

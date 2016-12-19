@@ -28,6 +28,7 @@ and tType =
  | AnonFuncType of tType * tType list
  | PointerType of tType * int (* Type + number of pointers *)
  | ArrayType of tType * tPointer * tExpr  (* Type + number of elements *)
+ | NilType
 
 and tIdentifier =
    Identifier of string
@@ -67,6 +68,7 @@ and tExpr =
   | Super of tExpr list
   | Clean of tExpr
   | Noexpr
+  | Nil
 
  and tDirectDeclarator = 
   Var of tIdentifier

@@ -206,14 +206,9 @@ let get_type_from_struct_member cust_type symbols t =
               let list_decl = List.map var_name_from_declaration struct_decl.members in 
               if (List.mem t list_decl) then 
                   let dec = List.find (fun decl ->
-                                       (var_name_from_declaration decl) = t) struct_decl.members in  (
-                                                        match (dec) with
-                                                                | Declaration(decl_spec, _) ->
-                                                                        type_from_declaration_specifiers
-                                                                        decl_spec
-                                                                | _ -> raise(Failure("Unhandled
-                                                                        declaration")))
-            else
+                                       (var_name_from_declaration decl) = t)
+                  struct_decl.members in  (type_from_declaration dec)
+             else
                  raise(Failure("Invalid member of  struct"))
                        
 
@@ -262,7 +257,7 @@ let rec get_interface_for_struct t1 symbols =
 
 
 
-let rec t1_implements_t2 t1 t2 symbols = 
+let rec t1_implements_t2 t1 t2 symbols =
         let sym1 = (lookup_symbol_by_id symbols (Identifier(t1))) in 
                 match sym1 with 
                 | StructSymbol(typ_, struct_) -> (let sym2 =
@@ -291,12 +286,13 @@ let check_compatible_custom_types symbols t1 t2 =
         let t2_sym  = lookup_symbol_by_id symbols t2 in
         match (t1_sym, t2_sym) with 
         | (StructSymbol(t1_name, t1_struct), StructSymbol(t2_name, t2_struct))
-        -> if (t1_name = t2_name || (t1_inherits_t2 t2_name t1_name symbols)) then () else
-                raise(Failure("Incompatible types:" ^ t1_name ^ "," ^ t2_name))
+        -> if (t1_name = t2_name) then () else (
+                if (t1_inherits_t2 t2_name t1_name symbols) then () else
+                raise(Failure("Incompatible types:" ^ t1_name ^ "," ^ t2_name)))
         | (StructSymbol(t1_name, t1_struct), InterfaceSymbol(name, _)) ->
                         raise(Failure("Incompatible types:" ^ t1_name ^ "," ^
                         name))
-        | (InterfaceSymbol(name, _), StructSymbol(t2_name, t2_struct)) -> if
+        | (InterfaceSymbol(name, _), StructSymbol(t2_name, t2_struct)) ->  if
                 (t1_implements_t2 t2_name name symbols) then () else
                         raise(Failure("Incompatible types:" ^ t2_name ^ "," ^
                         name)) 
@@ -368,6 +364,11 @@ and check_compatible_types symbols t1 t2 = match (t1, t2) with
   pointer and primitive"))
   | (PrimitiveType(_), PointerType(_, _)) -> raise(Failure("Cannot compare
   pointer and primitive"))
+  | (PointerType(_, _), NilType) -> ()
+  | (PrimitiveType(_), NilType) -> raise(Failure("Incompatible types: primitive
+  and nil. "))
+  | (CustomType(s), NilType) -> raise(Failure("Incompatible types: " ^ s ^ "
+  and " ^ "nil")) 
   | AnonFuncType(_, _), AnonFuncType(_, _) -> check_compatible_anon_types
   symbols t1 t2
   | (PrimitiveType(_), AnonFuncType(rtype, _)) -> check_compatible_types symbols t1 rtype
@@ -425,6 +426,7 @@ and type_from_expr symbols expr = match expr with
    Literal(_) -> PrimitiveType(Int)
   | FloatLiteral(_) -> PrimitiveType(Float)
   | StringLiteral(_) -> PrimitiveType(String)
+  | Nil -> NilType
   | Unop(e, _) -> type_from_expr symbols e
   | ArrayAccess(e1, e2) -> (ignore(let t2 = type_from_expr symbols e2 in match t2 with
                                   | PrimitiveType(Int) -> ()
@@ -581,6 +583,12 @@ let validate_call_expr expr_list symbols params =
 let validate_anon_call_expr expr expr_list symbols anonSym = match anonSym with
     _ -> ()
 
+let is_literal expr = match expr with 
+| Literal(_) -> true
+| StringLiteral(_) -> true
+| FloatLiteral(_) -> true
+| _ -> false
+
 let rec check_expr symbols e = match e with
      Id(Identifier(name)) -> if (StringMap.mem name symbols) == false then
                                 raise(Failure("Undeclared identifier"))
@@ -594,7 +602,8 @@ let rec check_expr symbols e = match e with
    | Literal(_) -> ()
    | StringLiteral(_) -> ()
    | FloatLiteral(_) -> ()
-   | ArrayAccess(e1, e2) -> ignore(type_from_expr symbols e1);
+   | ArrayAccess(e1, e2) -> ignore(type_from_expr symbols e1); if (is_literal
+   e1) then raise(Failure("Literal expression is not an array")) else ()
    | Deref(expr) -> (let t1 = type_from_expr symbols expr in
                         match t1 with
                         | PointerType(base_type, _) -> ()
@@ -667,7 +676,12 @@ let rec check_expr symbols e = match e with
                                          (Make(typ_, expr_list))); 
                          | (CustomType(s), e) -> (check_constructor symbols s e)
                          | _ -> raise(Failure("Invalid make")))
-   | AsnExpr(expr, asnOp, e) -> 
+   | AsnExpr(expr, asnOp, e) -> ignore(
+                                   if (is_literal expr) then
+                                           raise(Failure("Cannot assign to
+                                           literal"))
+                                   else () 
+                                );
                               let t1 = type_from_expr symbols e in
                               let t2 = type_from_expr symbols expr in
                               (match (t1, t2) with
@@ -800,7 +814,7 @@ let rec check_statement func symbol_table stmt = match stmt with
   | If(e, s1, s2) -> check_bool_expr symbol_table e; check_statement
   func symbol_table s1;  check_statement func symbol_table s2
   | EmptyElse -> ()
-  | For(e1, e2, e3, st) -> ( (match (e1, e3) with 
+  | For(e1, e2, e3, st) -> ((match (e1, e3) with 
                                 | (Make(_, _), _) -> raise(Failure("Cannot have
                                 stand alone make"))
                                 | (_, Make(_, _)) -> raise(Failure("Cannot have
@@ -1350,6 +1364,7 @@ and anon_defs_from_init_declarator_list (prefix, count) ideclList = match ideclL
 let rec anon_defs_from_statement (prefix, count) stmt = match stmt with
      Expr(e) -> anon_defs_from_expr (prefix, count) e
    | Return(e) -> anon_defs_from_expr (prefix, count) e
+   | EmptyElse -> ([], 0)
    | If(e, s1, s2) -> 
            let (defs1, count1) = (anon_defs_from_expr (prefix, count) e) in
            let (defs2, count2) = (anon_defs_from_statement (prefix, count1) s1) in

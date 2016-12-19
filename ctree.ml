@@ -76,6 +76,7 @@ and cExpr =
    | CId of cIdentifier
    | CDeclExpr of cDeclaration
    | CNoexpr
+   | CNull
 
 and cStatement = 
     CExpr of cExpr
@@ -751,6 +752,7 @@ let rec update_expr texpr tSymbol_table tprogram  = match texpr with
      tSymbol_table tprogram in ((CPointify(updated_e), stmts), decls)
      | Deref(e) -> let ((updated_e, stmts), decls) = update_expr e tSymbol_table
      tprogram in ((CDeref(updated_e), stmts), decls)
+     | Nil -> ((CNull, []), [])
      | _ ->
              let expr_type = Astutil.string_of_expr texpr in 
              raise(Failure("not finished for type " ^ expr_type))
