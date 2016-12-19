@@ -947,7 +947,6 @@ and generate_extra_capture_func_params_from_expr_list tSym tprogram expr_list =
         more_params_filtered
 
 and cCallExpr_from_tCallExpr expr tSym  tprogram func_name expr_list =
-    let expr_list = (List.rev expr_list) in
     match expr with
         | Noexpr -> let sym = StringMap.find func_name tSym in 
                     (match sym with
@@ -971,6 +970,7 @@ and cCallExpr_from_tCallExpr expr tSym  tprogram func_name expr_list =
                                 ret;
                             else
                                 if (func_name = "printf") then
+                                    let expr_list = (List.rev expr_list) in
                                     let replacementParamList = Semant.func_param_list_from_expr_list tSym expr_list in
                                     ((CCall(0, CNoexpr, CId(CIdentifier(func_name)), (List.map2
                                         (cExpr_from_tExpr_in_tCall tSym  tprogram ) expr_list replacementParamList)), []), [])

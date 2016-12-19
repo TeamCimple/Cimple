@@ -8,14 +8,39 @@ let add_symbol_list_to_symtable symlist symtable =
                             (StringMap.mem (Astutil.string_of_symbol_simple x) tbl) then raise(Failure("Error, redefining symbol"))
                         else
                             (StringMap.add (Astutil.string_of_symbol_simple x) x tbl)) symtable symlist
-(*let merge_symtables s1 s2 = *)
-    (*StringMap.Misc.union (fun key v1 v2 ->*)
-        (*(match v2, v2 with*)
-           (*x, y -> if x != y then *)
-                    (*raise(Failure("concat_symtables: Error - duplicate symbol"))*)
-                   (*else x*)
-        (*| None, y -> y*)
-        (*| x, None -> x)) s1 s2*)
+
+let stdlib_funcs = 
+        [{
+               return_type = DeclSpecTypeSpec(Int); 
+               func_name = DirectDeclarator(Var(Identifier("printf")));
+               params = [FuncParamsDeclared(DeclSpecTypeSpec(String),
+               DirectDeclarator(Var(Identifier("x"))))];
+               receiver = ("", "");
+               body = CompoundStatement([], []);                                          
+       };
+       {
+              return_type = DeclSpecTypeSpec(Float);
+              func_name = DirectDeclarator(Var(Identifier("cos")));
+              params = [ParamDeclWithType(DeclSpecTypeSpec(Float))];
+              receiver = ("", "");
+              body = CompoundStatement([], []);
+       }; 
+       {
+              return_type = DeclSpecTypeSpec(Float);
+              func_name = DirectDeclarator(Var(Identifier("sin")));
+              params = [ParamDeclWithType(DeclSpecTypeSpec(Float))];
+              receiver = ("", "");
+              body = CompoundStatement([], []);
+       }; 
+       {
+              return_type = DeclSpecTypeSpec(Float);
+              func_name = DirectDeclarator(Var(Identifier("exp")));
+              params = [ParamDeclWithType(DeclSpecTypeSpec(Float))];
+              receiver = ("", "");
+              body = CompoundStatement([], []);
+       } 
+       ]
+
 let rec string_of_type tp =
     let string_of_primitive_type = function
        | Void -> "Void"
@@ -625,7 +650,7 @@ and check_format_string_with_expr_list symbols fmtStr elist =
         List.iter2 (fun t1 t2 -> (check_compatible_types symbols t1 t2)) argTypeList fmtTypeList
     with
         Invalid_argument(_) -> raise(Failure("check_format_string_with_expr_list: Error - Number of format specifiers in format string does not match number of arguments"))
-      | _ -> raise(Failure("check_format_string_with_expr_list: Unspecified error"))
+      | _ -> raise(Failure("check_format_string_with_expr_list: expression types do not match format specifier list"))
 
 and check_call_to_printf symbols exprList = 
     match (List.rev exprList) with
@@ -680,8 +705,8 @@ and check_expr symbols program e = match e with
                             let s =  StringMap.find id symbols in
                             match s with 
                                  FuncSymbol(_, fdecl) ->
-                                     if (id = "printf") then ()
-                                         (*check_call_to_printf symbols expr_list*)
+                                     if (id = "printf") then
+                                         check_call_to_printf symbols expr_list
                                      else
                                        validate_call_expr
                                        expr_list symbols
@@ -1187,14 +1212,8 @@ and update_fields functions symbols structs  =
 
 (* Updates structs in the program object with the ones populated in symbol table *)
 and update_structs_in_program program  =
-        let fdecls = program.functions @ [{
-               return_type = DeclSpecTypeSpec(Int); 
-               func_name = DirectDeclarator(Var(Identifier("printf")));
-               params = [FuncParamsDeclared(DeclSpecTypeSpec(String),
-               DirectDeclarator(Var(Identifier("x"))))];
-               receiver = ("", "");
-               body = CompoundStatement([], []);                                          
-       }] in
+        let fdecls = program.functions@stdlib_funcs                                
+        in
 
        let symbol_table = update_fields program.functions (List.fold_left (fun m symbol -> if StringMap.mem
                 (get_id_from_symbol symbol) m then
@@ -1340,15 +1359,7 @@ struct_.constructor.constructor_body with
         )
 
 and build_symbol_table program =
-       let fdecls = program.functions @ [{
-                       return_type = DeclSpecTypeSpec(Int);
-                       func_name = DirectDeclarator(Var(Identifier("printf")));
-                       params = [FuncParamsDeclared(DeclSpecTypeSpec(String),
-                       DirectDeclarator(Var(Identifier("x"))))];
-                       receiver = ("", "");
-                       body = CompoundStatement([], []);
-               }] in
-        
+        let fdecls = program.functions @ stdlib_funcs in
         List.fold_left (fun m symbol -> if StringMap.mem
                 (get_id_from_symbol symbol) m then
                                 raise(Failure("redefining variable: " ^
@@ -1876,15 +1887,7 @@ let check_program program =
      
        check_structs_satisfy_interfaces program;
        
-       let fdecls = program.functions @ [{
-               return_type = DeclSpecTypeSpec(Int); 
-               func_name = DirectDeclarator(Var(Identifier("printf")));
-               params = [FuncParamsDeclared(DeclSpecTypeSpec(String),
-               DirectDeclarator(Var(Identifier("x"))))];
-               receiver = ("", "");
-               body = CompoundStatement([], []);                                          
-       }] in
-
+       let fdecls = program.functions @ stdlib_funcs in 
        (* Build map of function declarations *)
        let functions_map = List.fold_left (fun m func -> StringMap.add
        (var_name_from_direct_declarator func.func_name) func m) StringMap.empty
