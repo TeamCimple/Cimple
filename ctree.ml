@@ -68,6 +68,7 @@ and cExpr =
    indiciate it is a pointer dereference *)
    | CAlloc of cType * cExpr
    | CNeg of cExpr
+   | CFree of cExpr
    | CDeref of cExpr
    | CArrayAccess of cExpr * cExpr
    | CCompareExpr of cExpr * tLogicalOperator * cExpr
@@ -126,6 +127,9 @@ let virtual_table_name_from_tStruct name =
 
 let constructor_name_from_tStruct name = 
         String.concat "_" ["_constructor";name]
+
+let destructor_name_from_tStruct name = 
+        String.concat "_" ["_destructor";name]
 
 let cType_from_tTypeSpec = function
     Void -> CType(CPrimitiveType(Cvoid))  
@@ -621,8 +625,15 @@ let first_param_for_constructor struct_name =
         (CPointerType(CType(CStruct(cStructName_from_tStruct struct_name)), 2),
         CIdentifier("_this"))
 
+let first_param_for_destructor struct_name =
+        (CPointerType(CType(CStruct(cStructName_from_tStruct struct_name)), 2),
+        CIdentifier("_this"))
+
 let last_param_for_constructor = 
         (CType(CPrimitiveType(Cint)), CIdentifier("_needs_malloc"))
+
+let last_param_for_destructor = 
+        (CType(CPrimitiveType(Cint)), CIdentifier("_needs_free"))
 
 
 and cFunction_from_tMethod object_type method_ tSymbol_table = 
@@ -662,6 +673,18 @@ let rec update_expr texpr tSymbol_table tprogram  = match texpr with
                 let ((updated_e2, e2_stmts), _) = update_expr e2 tSymbol_table tprogram in 
                 ((CCompareExpr(updated_e1, op, updated_e2), (e1_stmts @ e2_stmts)), [])
                 )
+        | Clean(e) -> (let t1 = Semant.type_from_expr tSymbol_table e in 
+                      let ((updated_e, e_stmts), decls) = update_expr e tSymbol_table tprogram in 
+                      match t1 with 
+                      | PointerType(CustomType(s), _) -> ((CCall(0, CNoexpr,
+                                CId(CIdentifier(destructor_name_from_tStruct s)),
+                                        [CCastExpr(CPointerType(CType(CStruct(cStructName_from_tStruct
+                                        s)), 2), CPointify(updated_e))] @
+                        [CLiteral(1)]), []), [])
+
+                      | PointerType(_, _) -> ((CFree(updated_e), e_stmts),
+                      decls))
+
 
         | AsnExpr(e1, op, e2)  ->
                 (match e2 with 
@@ -728,7 +751,17 @@ let rec update_expr texpr tSymbol_table tprogram  = match texpr with
                   in match typ_ with 
                  | PrimitiveType(s) -> ((CAlloc(ctype,
                  CId(CIdentifier((sizeof_string tSymbol_table ctype)))), []), [])
-                | CustomType(s) -> ((CAlloc(ctype, CId(CIdentifier(sizeof_string tSymbol_table
+                 | ArrayType(array_type, ptr, e) ->(let updated_e = fst(fst(update_expr
+                        e tSymbol_table tprogram)) in let pointer_type = Semant.type_of_array_type
+       tSymbol_table typ_ in let cpointer_type = cType_from_tType tSymbol_table
+       pointer_type in (match cpointer_type with 
+       | CPointerType(base, num) ->let ctype_to_malloc = if (num = 1) then base
+       else CPointerType(base, num-1) in (
+       CAlloc(base, CBinop(updated_e, Mul,
+       (CId(CIdentifier(sizeof_string tSymbol_table ctype_to_malloc))))), []),
+       []))
+                 
+                 | CustomType(s) -> ((CAlloc(ctype, CId(CIdentifier(sizeof_string tSymbol_table
                 ctype))), []), []))
      | FloatLiteral(d) -> ((CFloatLiteral(d), []), [])
      | StringLiteral(s) -> ((CStringLiteral(s), []), [])
@@ -765,6 +798,24 @@ and update_expr_list texpr_list tSymbol_table tprogram = match texpr_list with
     [] -> []
   | [e] -> [update_expr e tSymbol_table tprogram]
   | h::t -> [update_expr h tSymbol_table tprogram]@update_expr_list t tSymbol_table tprogram
+
+and generate_stmts_for_parent_destructor symbol_table tprogram destructor
+tStruct = 
+
+        let ancestor_destructor = Semant.get_ancestors_destructor symbol_table
+        tStruct in 
+
+        let c_ancestor_destructor_name = destructor_name_from_tStruct
+        ancestor_destructor.destructor_name in 
+
+        let first_arg = CCastExpr(CPointerType(cType_from_tType symbol_table
+        (CustomType(ancestor_destructor.destructor_name)), 2),
+        CId(CIdentifier("_this"))) in 
+
+        let last_arg = CLiteral(0) in 
+
+        [(CExpr(CCall(0, CNoexpr,
+        CId(CIdentifier(c_ancestor_destructor_name)), [first_arg]@[last_arg])))]
 
 and generate_stmts_for_super expr_list symbol_table tprogram constructor tStruct =
         let ancestor_constructor = Semant.get_ancestors_constructor
@@ -823,7 +874,7 @@ and cAllocExpr_from_tMakeExpr tSymbol_table tprogram asn_expr tMakeExpr =
                         in 
                         let ((updated_expr, updated_slist), updated_dlist) = update_anon_def_expr_list anonParams in
                         
-                        ((CCall(0, CNoexpr,
+                       ((CCall(0, CNoexpr,
                         CId(CIdentifier(constructor_name_from_tStruct
                         tStruct.struct_name)),
                         [CCastExpr(CPointerType(CType(CStruct(cStructName_from_tStruct
@@ -1281,6 +1332,33 @@ let rec update_statement tstmt tSymbol_table  tprogram  =  match tstmt with
         | Expr(e) -> let ((updated_e, stmts), decls) = update_expr e tSymbol_table  tprogram in
                      ((CExpr(updated_e), stmts), decls)
 
+let cFunc_from_tDestructor symbol_table tprogram destructor tStruct = 
+        let cdestructor_name = destructor_name_from_tStruct
+        tStruct.struct_name in 
+
+        let first_param = first_param_for_destructor tStruct.struct_name in 
+
+        let last_param = last_param_for_destructor in 
+
+        let augmented_decls = List.fold_left (fun cdecls tdecl ->
+                   let tdecl_id = (Semant.var_name_from_declaration tdecl) in
+                   let tdecl_type = (Semant.type_from_declaration tdecl) in 
+
+                   let (cdecl, _)  = generate_decls_and_stmts_from_id symbol_table tprogram 
+                   tdecl_id tdecl tdecl_type in cdecls @ cdecl
+        ) [] tStruct.members in 
+
+        {
+                creturn_type = CType(CPrimitiveType(Cvoid));
+                                                
+                cfunc_params = [first_param] @ [last_param];
+
+                cfunc_body = CCompoundStatement(augmented_decls,
+                []);
+        
+                cfunc_name = cdestructor_name;
+        }
+
 let cFunc_from_tConstructor symbol_table  tprogram constructor tStruct = 
         let cconstructor_name = constructor_name_from_tStruct
         tStruct.struct_name
@@ -1416,12 +1494,16 @@ let cStruct_from_tStruct symbol_table tprogram tStruct =
                                             (StringMap.empty, []) tStruct.methods) in
         
         let cFunc_for_constructor = 
-                cFunc_from_tConstructor symbol_table tprogram tStruct.constructor tStruct in 
+                cFunc_from_tConstructor symbol_table tprogram tStruct.constructor tStruct in
+
+        let cFunc_for_destructor = cFunc_from_tDestructor symbol_table tprogram
+        tStruct.destructor tStruct in 
+
          ({
                 cstruct_name = cStructName_from_tStruct tStruct.struct_name;
                 cstruct_members = cStructMemberSymbols;
                 cmethod_to_functions = methods_to_cfunctions;
-        }, cfuncs, (tStruct, cFunc_for_constructor))
+        }, cfuncs, (tStruct, cFunc_for_constructor, cFunc_for_destructor))
 
       
 let update_cFunc tSymbol_table tprogram cFunc tFunc  =
@@ -1590,6 +1672,62 @@ let update_cFunc_from_anonDef tSymbol_table tprogram cFunc anonDef =
                 cfunc_params = cFunc.cfunc_params; 
         }
 
+let update_cDestructor tSymbol_table tprogram cFunc tStruct = 
+        let updated_symbol_table = List.fold_left (fun m symbol -> StringMap.add
+        (Semant.get_id_from_symbol symbol) symbol m) tSymbol_table ((Semant.symbols_from_decls
+        (Semant.get_decls_from_compound_stmt
+        tStruct.constructor.constructor_body)) @ (Semant.symbols_from_decls
+        tStruct.members) @ (Semant.symbols_from_func_params
+        tStruct.constructor.constructor_params))  in 
+
+        let ctype = cType_from_tType tSymbol_table
+        (CustomType(tStruct.struct_name)) in
+
+        let virtual_table_name = virtual_table_name_from_tStruct
+        tStruct.struct_name in
+
+        let ancestor_destructor = Semant.get_ancestors_destructor tSymbol_table
+        tStruct in 
+
+        let c_ancestor_destructor_name = destructor_name_from_tStruct
+        ancestor_destructor.destructor_name in         
+        
+        let virtual_table_type =
+                CType(CStruct(virtual_table_name)) in
+
+        let parent_destructor_call = 
+        if (ancestor_destructor.destructor_name <> tStruct.struct_name &&
+        ancestor_destructor.destructor_name <> "") then 
+              generate_stmts_for_parent_destructor tSymbol_table tprogram 
+              tStruct.destructor tStruct else [] in  
+
+        let head_assignments = List.fold_left (fun assignments tdecl ->
+                   let tdecl_id = (Semant.var_name_from_declaration tdecl) in
+                   
+                   let asn_expr = CExpr(CAsnExpr(CId(CIdentifier(tdecl_id)),
+                   Asn, CMemAccess(1,
+                   CDeref(CId(CIdentifier("_this"))), CIdentifier(tdecl_id)))) in assignments @ [asn_expr] ) [] tStruct.members in
+
+        let CCompoundStatement(original_decls, stmts) = cFunc.cfunc_body in 
+        
+        let CCompoundStatement(updated_decls, updated_stmts) = fst (
+                        fst (update_statement tStruct.destructor.destructor_body
+                        updated_symbol_table tprogram)) in
+
+        let free_this = CIf(CId(CIdentifier("_needs_free")),
+        CCompoundStatement([], [CExpr(CFree(CMemAccess(1,
+        CDeref(CId(CIdentifier("_this"))),
+        CIdentifier("_virtual"))))]@[CExpr(CFree(CDeref(CId(CIdentifier("_this")))))]), CEmptyElse) in
+
+        {
+                cfunc_name = cFunc.cfunc_name;
+                creturn_type = cFunc.creturn_type;
+                cfunc_body = CCompoundStatement(original_decls @ updated_decls,
+                head_assignments @ parent_destructor_call @ updated_stmts @ [free_this]);
+                cfunc_params = cFunc.cfunc_params;
+        }
+
+        
 let update_cConstructor tSymbol_table tprogram cFunc tStruct = 
         let updated_symbol_table = List.fold_left (fun m symbol -> StringMap.add
         (Semant.get_id_from_symbol symbol) symbol m) tSymbol_table ((Semant.symbols_from_decls
@@ -1694,8 +1832,13 @@ let cProgram_from_tProgram program =
                 methods) cstructs_and_functions) in 
 
         let cconstructors = List.map (fun(_, _, constructor) -> constructor)
-        (List.filter (fun(_, _, (_, const)) -> if (const.cfunc_name = "") then false
+        (List.filter (fun(_, _, (_, const, _)) -> if (const.cfunc_name = "") then false
         else true) cstructs_and_functions) in
+
+        let cdestructors = List.map (fun(_, _, constructor) -> constructor)
+        (List.filter (fun(_, _, (_, _, destr)) -> if (destr.cfunc_name = "") then false
+        else true) cstructs_and_functions) in
+
 
         let cStructs = virt_table_structs @ (List.map (cStruct_from_tInterface
         tSymbol_table) program.interfaces) @ cstructs in
@@ -1719,9 +1862,14 @@ let cProgram_from_tProgram program =
                                 | _ -> raise(Failure("error")))
                        ) [] cDeclaredMethodsAndFuncs in
 
-        let cConstructors = List.fold_left (fun acc (tStruct, cConst) ->
+        let cConstructors = List.fold_left (fun acc (tStruct, cConst, _) ->
                 acc @ [update_cConstructor tSymbol_table program cConst tStruct]) []
                 cconstructors in
+
+        let cDestructors = List.fold_left (fun acc (tStruct, _, cDestr) ->
+                acc @ [update_cDestructor tSymbol_table program cDestr tStruct]) []
+                cconstructors in
+
 
         let anon_def_for_function fn = 
             List.find (fun af ->
@@ -1736,7 +1884,7 @@ let cProgram_from_tProgram program =
                 let anonDef = anon_def_for_function f in
                 update_cFunc_from_anonDef tSymbol_table program f anonDef) cFuncsTranslatedFromAnonDefs
         in
-        let cFuncs = cConstructors @ cUpdatedDeclaredMethodsAndFuncs @ cUpdatedFuncsTranslatedFromAnonDefs
+        let cFuncs = cConstructors @ cDestructors @ cUpdatedDeclaredMethodsAndFuncs @ cUpdatedFuncsTranslatedFromAnonDefs
         in
         {
                 cstructs = cStructs@capture_structs;
