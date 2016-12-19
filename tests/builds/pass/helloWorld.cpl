@@ -7,7 +7,7 @@ void hello()
 
 int main(int argc)
 {
-    hello();
-	return 0;
+    
+    return 0
 } 
 

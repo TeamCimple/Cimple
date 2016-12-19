@@ -10,13 +10,13 @@ struct BinaryTree {
 	}
 
 	~BinaryTree() {
-		printf("Cleaning binary tree\n");
 		if (left != NIL) {
 			clean left;
 		}
 		if (right != NIL) {
 			clean right;
 		}
+		printf("cleaning node %d\n", val);
 	}
 };
 
@@ -48,6 +48,21 @@ int (BinaryTree *b) find_max() {
 	}
 }
 
+int (BinaryTree *b) hasValue(int toFind) {
+	if (b.val == toFind) {
+		return 1;
+	} else {
+		if (b.left != NIL) {
+			if (b.left.hasValue(toFind) > 0) {
+				return 1;
+			}
+		} else if (b.right != NIL) {
+			return b.right.hasValue(toFind);
+		}
+	}
+	return 0;
+}
+
 int (BinaryTree *b) find_min() {
 	if (b.left == NIL) {
 		return b.val;
@@ -65,6 +80,8 @@ int main() {
 		b.addNode(i);
 	}
 	b.find_max();
+	printf("has 200 %d\n", b.hasValue(200));
+	printf("hass 100 %d\n", b.hasValue(100));
 	clean b;
 	return 0;
 }

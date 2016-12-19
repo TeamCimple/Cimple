@@ -422,6 +422,9 @@ let rec get_fdecl_for_receiver typ_ tSymbol_table func_name =
                                                  struct_.extends
                                                  tSymbol_table func_name
                                          else
+                                               let a = raise(Failure("doesn't
+                                               have function" ^
+                                               func_name)) in 
                                                 raise(Failure("Receiver doesn't
                                                 have function"))))
                 | InterfaceSymbol(type_, interface) -> (if (List.exists (fun
@@ -527,7 +530,8 @@ and type_from_expr symbols expr = match expr with
                 | _ ->  (
                            let typ_ = type_from_expr symbols e in
                            (match(typ_) with 
-                           | CustomType(name) -> (let fdecl =
+                           | CustomType(name) -> (
+                           let fdecl =
                                    get_fdecl_for_receiver name symbols id in
                            type_from_declaration_specifiers fdecl.return_type)
                            | PointerType(CustomType(name), 1) -> (let fdecl =

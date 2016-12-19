@@ -6,6 +6,10 @@ struct MyStruct {
 		a = e;
 		b = f;
 	}
+
+	~MyStruct() {
+
+	}
 };
 
 struct YourStruct extends MyStruct {
@@ -13,6 +17,10 @@ struct YourStruct extends MyStruct {
 	YourStruct(int e1, int f1, float c) {
 		t = c;
 		super(e1, f1);
+	}
+
+	~YourStruct() {
+
 	}
 };
 

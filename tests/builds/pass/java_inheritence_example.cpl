@@ -84,8 +84,6 @@ void (MountainBike *mb) setGear(int newValue) {
 	for(k = 0; k < 10; k++) {
 		printf("%d\n", b[k].getGear());
 	}
-	for (k = 0; k < 10; k++) {
-		clean (b[k]);
-	}
+
  	return 0;
  }

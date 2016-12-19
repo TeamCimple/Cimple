@@ -1,5 +1,5 @@
 
-int main(int argc)
+int main(int argc, char**argv)
 {
 	float pi = 3.14;
 	float a = pi + 2.0;

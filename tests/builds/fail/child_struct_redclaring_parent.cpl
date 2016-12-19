@@ -5,7 +5,7 @@ struct MyStruct {
 };
 
 struct YourStruct extends MyStruct{
-	int c;
+	int t;
 };
 
 int main(int argc, char** argv) {
