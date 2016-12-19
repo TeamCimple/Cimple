@@ -11,7 +11,7 @@ let add_symbol_list_to_symtable symlist symtable =
 
 let stdlib_funcs = 
         [{
-               return_type = DeclSpecTypeSpec(Int); 
+               return_type = (DeclSpecTypeSpec(Int)); 
                func_name = DirectDeclarator(Var(Identifier("printf")));
                params = [FuncParamsDeclared(DeclSpecTypeSpec(String),
                DirectDeclarator(Var(Identifier("x"))))];
@@ -19,21 +19,21 @@ let stdlib_funcs =
                body = CompoundStatement([], []);                                          
        };
        {
-              return_type = DeclSpecTypeSpec(Float);
+              return_type = (DeclSpecTypeSpec(Float));
               func_name = DirectDeclarator(Var(Identifier("cos")));
               params = [ParamDeclWithType(DeclSpecTypeSpec(Float))];
               receiver = ("", "");
               body = CompoundStatement([], []);
        }; 
        {
-              return_type = DeclSpecTypeSpec(Float);
+              return_type = (DeclSpecTypeSpec(Float));
               func_name = DirectDeclarator(Var(Identifier("sin")));
               params = [ParamDeclWithType(DeclSpecTypeSpec(Float))];
               receiver = ("", "");
               body = CompoundStatement([], []);
        }; 
        {
-              return_type = DeclSpecTypeSpec(Float);
+              return_type = (DeclSpecTypeSpec(Float));
               func_name = DirectDeclarator(Var(Identifier("exp")));
               params = [ParamDeclWithType(DeclSpecTypeSpec(Float))];
               receiver = ("", "");
@@ -51,11 +51,16 @@ let rec string_of_type tp =
        | Float -> "Float"
        | Double -> "Double"
        | Unsigned -> "Unsigned"
+       | Signed -> "Signed"
        | String -> "String"
     in match tp with
      PrimitiveType(t) -> string_of_primitive_type t
    | CustomType(s) -> "CustomType(" ^ s ^ ")"
    | AnonFuncType(t, tlist) -> "AnonFuncType(ReturnType: " ^ string_of_type t ^ ", ParamTypes: " ^ string_of_type_list tlist ^ ")"
+   | PointerType(base, num) -> "PointerType(" ^ string_of_type base ^ "," ^
+   string_of_int num ^ ")"
+   | ArrayType(_, _, _) -> ""
+   | NilType -> ""
 
 and string_of_type_list = function
     [] -> ""
@@ -98,20 +103,6 @@ let rec get_num_pointers ptrs = match ptrs with
 let get_func_name fdecl = var_name_from_direct_declarator fdecl.func_name
 
 let type_from_declaration = function
-        Declaration(decl_spec, InitDeclarator(PointerDirDecl(ptr, _))) ->
-                PointerType(type_from_declaration_specifiers decl_spec,
-                get_num_pointers ptr)
-      | Declaration(decl_spec, InitDeclaratorAsn(PointerDirDecl(ptr, _), 
-      _, _)) -> PointerType(type_from_declaration_specifiers decl_spec,
-      get_num_pointers ptr)
-      | Declaration(decl_spec,
-      InitDeclList([InitDeclarator(PointerDirDecl(ptr, _))])) ->
-              PointerType(type_from_declaration_specifiers decl_spec,
-              get_num_pointers ptr)
-      | Declaration(decl_spec,
-      InitDeclList([InitDeclaratorAsn(PointerDirDecl(ptr, _), _, _)])) -> 
-              PointerType(type_from_declaration_specifiers decl_spec,
-              get_num_pointers ptr)
       | Declaration(decl_spec, _) -> type_from_declaration_specifiers decl_spec
 
 
@@ -200,6 +191,7 @@ let func_decl_from_anon_def anonDef = {
     params = anonDef.anon_params;
     body = anonDef.anon_body
 }
+
 let type_from_identifier symbols id = 
         let x = lookup_symbol_by_id symbols id in match x with 
         | VarSymbol(_, t) -> t
@@ -218,9 +210,11 @@ let get_parameter_list symbol = match symbol with
 
 let get_struct symbol = match symbol with 
         StructSymbol(_, struct_) -> struct_
+      | _ -> raise(Failure("Attempting to get non struct symbol"))
 
 let get_func symbol = match symbol with 
         FuncSymbol(_, func) -> func
+      | _ -> raise(Failure("Attempting to get non func symbol"))
 
 let get_type_from_struct_member cust_type symbols t = 
         let cust_symb = lookup_symbol_by_id symbols
@@ -235,6 +229,8 @@ let get_type_from_struct_member cust_type symbols t =
                   struct_decl.members in  (type_from_declaration dec)
              else
                  raise(Failure("Invalid member of  struct"))
+       | _ -> raise(Failure("Attemtping to get type for struct member for non struct
+               member"))
                        
 
 let type_from_mem_access type_ t symbols  = 
@@ -304,7 +300,12 @@ let rec t1_inherits_t2 t1 t2 symbols =
                         | StructSymbol(typ2_, struct2_) -> if (struct_.extends
                         <> "") then (if (struct_.extends = struct2_.struct_name)
                         then true else t1_inherits_t2 struct_.extends t2 symbols) else
-                                false)
+                                false
+                        | _ -> raise(Failure("cannot inherit from non struct
+                                type"))
+                        
+                        )
+               | _ -> raise(Failure("Only struct types can inherit"))
 
 let check_compatible_custom_types symbols t1 t2 =
         let t1_sym = lookup_symbol_by_id symbols t1 in 
@@ -320,7 +321,9 @@ let check_compatible_custom_types symbols t1 t2 =
         | (InterfaceSymbol(name, _), StructSymbol(t2_name, t2_struct)) ->  if
                 (t1_implements_t2 t2_name name symbols) then () else
                         raise(Failure("Incompatible types:" ^ t2_name ^ "," ^
-                        name)) 
+                        name))
+        | (_, _) -> raise(Failure("attempting to check compatible types for non
+        custom types")) 
 
 (* This is meant to check assignments of custom type to pointer type
  * The only case this is valid is if a is pointer and b is interface
@@ -369,7 +372,7 @@ and check_compatible_types symbols t1 t2 = match (t1, t2) with
        | Float, Float -> ()
        | String, String -> ()
        | _ -> raise(Failure("Incompatible types")))
-  | (PointerType(typ1_, c1), PointerType(typ2_, c2)) ->
+  | (PointerType(typ1_, c1), PointerType(typ2_, c2)) ->  
                        ignore(check_compatible_types symbols typ1_ typ2_);
                        if (c1 = c2) then () else raise(Failure("Incompatible
                        pointer depths " ^ (string_of_int c1) ^ " " ^
@@ -410,8 +413,11 @@ let rec get_fdecl_for_receiver typ_ tSymbol_table func_name =
         let rec find_func symbol func_name = match symbol with 
                 | StructSymbol(type_, struct_) -> (let key = symbol_table_key_for_method struct_.struct_name func_name in 
                                  if (StringMap.mem key tSymbol_table) then
-                                        (let FuncSymbol(_, fdecl) = StringMap.find key
-                                        tSymbol_table in fdecl)
+                                        (let sym = StringMap.find key
+                                        tSymbol_table in (match sym with 
+                                        |FuncSymbol(_, fdecl) -> fdecl
+                                        | _ -> raise(Failure("found a non func
+                                        symbol matching call"))))
                                  else (
                                          if (struct_.extends <> "") then
                                                  get_fdecl_for_receiver
@@ -428,14 +434,20 @@ let rec get_fdecl_for_receiver typ_ tSymbol_table func_name =
                                 interface.funcs)
                                  else
                                         raise(Failure("Interface doesn't have
-                                        function"))) in 
+                                        function")))
+                | _ -> raise(Failure("Cannot get method for non struct or
+                interface")) in  
         find_func object_symbol func_name
+               
 
 let type_of_array_type symbols = function
-        | ArrayType(type_of_array, pointer, expr) ->
+        | ArrayType(type_of_array, pointer, expr) -> (match type_of_array with 
+                                                        | PointerType(base, num)
+                                                        -> PointerType(base,
+                                                        num+1)
+                                                        | _ -> PointerType(type_of_array,
+                                                                        1))
                                                  
-                        let num_pointers = get_num_pointers pointer in 
-                        PointerType(type_of_array, num_pointers + 1) 
         | _ -> raise(Failure("type_of_array_type should not be called on non
         array_type"))
 
@@ -452,6 +464,7 @@ and type_from_expr symbols expr = match expr with
   | FloatLiteral(_) -> PrimitiveType(Float)
   | StringLiteral(_) -> PrimitiveType(String)
   | Nil -> NilType
+  | DeclExpr(e) -> type_from_declaration e 
   | Neg(e) -> (let t = type_from_expr symbols e in match t with 
                         | PrimitiveType(Int) -> PrimitiveType(Int)
                         | PrimitiveType(Float) -> PrimitiveType(Float)
@@ -491,7 +504,8 @@ and type_from_expr symbols expr = match expr with
                                
                                 type_of_array_type symbols typ_
                          )
-                        | PointerType(base_type, count) ->
+                        | PointerType(base_type, count) -> ignore(Printf.printf
+                        "%s" (string_of_int count));
                                         PointerType(base_type, count + 1)
                         | _ -> PointerType(typ_, 1))
   | Clean(e) -> ignore(let t1 = type_from_expr symbols e in match t1 with 
@@ -506,6 +520,8 @@ and type_from_expr symbols expr = match expr with
                                             FuncSymbol(_, fdecl) ->
                                                 type_from_declaration_specifiers fdecl.return_type 
                                           | AnonFuncSymbol(_, t) -> t
+                                          | _ -> raise(Failure("Non function
+                                                  symbol associated with call"))
                                  else
                                         raise(Failure("Calling function: " ^ id
                                         ^ "which is undefined"))
@@ -574,6 +590,8 @@ let receiver_has_func typ_ symbols func =
                 | InterfaceSymbol(type_, interface) -> (if (List.mem func
                 interface.funcs) then () else raise(Failure("method isn't part
                 of interface")))
+                | _ -> raise(Failure("Receiver must be either struct or
+                interface"))
         in 
 
         has_func object_symbol func
@@ -654,7 +672,8 @@ and check_format_string_with_expr_list symbols fmtStr elist =
 
 and check_call_to_printf symbols exprList = 
     match (List.rev exprList) with
-      [e] -> if ((type_from_expr symbols e) <> PrimitiveType(String)) then 
+    |  [] -> raise(Failure("Printf needs at least one argument"))
+    |  [e] -> if ((type_from_expr symbols e) <> PrimitiveType(String)) then 
                  raise(Failure("check_call_to_printf: Error - If only 1 argument, must be string!"))
              else
                  ()
@@ -714,6 +733,8 @@ and check_expr symbols program e = match e with
                                | AnonFuncSymbol(name, t) ->
                                         ()
                                        (*validate_anon_call_expr expr expr_list symbols program s*)
+                               | _ -> raise(Failure("Non function symbol cannot
+                               make call"))
                          else
                             raise(Failure("Calling function: " ^ id
                             ^ "which is undefined"))

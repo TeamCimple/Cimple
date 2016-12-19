@@ -1,1 +1,0 @@
-FuncDecl(Name: Var(main) ReturnType: int Parameters: PARAM(int Var(argc))  Body: CompoundStatement(Declarations: (float EQUALS(Var(pi) Float(3.14),), (float EQUALS(Var(a) PLUS(Identifier(pi), Float(2.)),),  StatementList: RETURN(Int(0)))) 

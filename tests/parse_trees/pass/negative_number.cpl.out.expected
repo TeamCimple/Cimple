@@ -1,1 +1,0 @@
-FuncDecl(Name: Var(main) ReturnType: int Parameters:  Body: CompoundStatement(Declarations: (int Var(a),),  StatementList: Statement(EQUALS(Identifier(a), -Int(1))), RETURN(Identifier(a)))) 

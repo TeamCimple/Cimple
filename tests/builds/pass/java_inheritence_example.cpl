@@ -9,7 +9,7 @@ struct Bicycle {
  	}
  
  	~Bicycle() {
- 		/* Empty Destructor */
+ 		printf("Bicycle destructor");
  	}
  };
  
@@ -25,7 +25,7 @@ struct Bicycle {
  	}
  
  	~MountainBike() {
- 		/* Empty Destructor */
+ 		printf("MountainBike destructor");
  	}
  };
  
@@ -71,6 +71,7 @@ void (MountainBike *mb) setGear(int newValue) {
 	int k;
 
 	b = make struct Bicycle*[10];
+	
 	for(j = 0; j < 5; j++) {
 		b[j] = make Bicycle(10, 10, 10);
 	}
@@ -78,7 +79,13 @@ void (MountainBike *mb) setGear(int newValue) {
 		b[j] = make MountainBike(10, 10, 10, 20);
 	}
 	for(k = 0; k < 10; k++) {
-		b[k].getGear(); 
+		b[k].setGear(40); 
+	}
+	for(k = 0; k < 10; k++) {
+		printf("%d\n", b[k].getGear());
+	}
+	for (k = 0; k < 10; k++) {
+		clean (b[k]);
 	}
  	return 0;
  }

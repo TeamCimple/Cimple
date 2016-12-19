@@ -1,1 +1,0 @@
-FuncDecl(Name: Var(main) ReturnType: int Parameters:  Body: CompoundStatement(Declarations:  StatementList: Statement(PLUS(Int(1), Int(2))), Statement(MINUS(Int(1), Int(2))), Statement(TIMES(Int(2), Int(3))), Statement(DIVIDE(Int(4), Int(3))), RETURN(MINUS(Int(1), Int(1))))) 
