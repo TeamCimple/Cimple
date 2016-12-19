@@ -11,6 +11,7 @@ let _ =
        else Compile in
 
        let lexbuf = Lexing.from_channel stdin in
+       (*Printf.printf "Made it past lexbuf\n";*)
        let program = Parser.program Scanner.token lexbuf in
        match action with
                 Ast -> Printf.printf "%s\n" (Astutil.string_of_program program)

@@ -27,7 +27,6 @@ int main() {
 	});
 
     personsName = graham.getName();
-    printf(personsName);
-    
+    printf("Person's name is %s", personsName);
     return 0;
 }

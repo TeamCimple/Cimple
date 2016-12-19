@@ -630,8 +630,12 @@ and check_call_to_printf symbols exprList = match exprList with
             if ((type_from_expr symbols h) <> PrimitiveType(String)) then 
                  raise(Failure("check_call_to_printf: Error - If only 1 argument, must be string!"))
              else (match h with 
-                 StringLiteral(s) ->
-                     check_format_string_with_expr_list symbols s t)
+                     StringLiteral(s) ->
+                         check_format_string_with_expr_list symbols s t
+                   | _ -> 
+                        let errorStr = "check_call_to_printf: Error - h is " ^ (Astutil.string_of_expr h) in
+                        (*let errorStr = "check_call_to_printf: Error - h is " ^ (Astutil.string_of_type (type_from_expr symbols h)) in*)
+                       raise(Failure(errorStr)))
 
 and check_expr symbols program e = match e with
      Id(Identifier(name)) -> if (StringMap.mem name symbols) == false then
