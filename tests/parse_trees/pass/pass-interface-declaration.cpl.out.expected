@@ -1,0 +1,1 @@
+INTERFACE(MyInterfaceFuncDecl(Name: Var(getB) ReturnType: int Parameters:  Body: CompoundStatement(Declarations:  StatementList: )) , FuncDecl(Name: Var(getA) ReturnType: int Parameters:  Body: CompoundStatement(Declarations:  StatementList: )) )FuncDecl(Name: Var(main) ReturnType: int Parameters:  Body: CompoundStatement(Declarations:  StatementList: RETURN(Int(0)))) 

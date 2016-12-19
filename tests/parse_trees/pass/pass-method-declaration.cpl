@@ -1,0 +1,8 @@
+struct MyStruct {
+	int a;
+	int b;
+};
+
+int (MyStruct *m) getA() {
+	return m.getA();
+}

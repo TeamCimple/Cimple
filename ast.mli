@@ -73,7 +73,6 @@ and tExpr =
 
  and tDirectDeclarator = 
   Var of tIdentifier
-  | ArrDirDecl of tDirectDeclarator * int
 
  and tDeclarator = 
   PointerDirDecl of tPointer * tDirectDeclarator
@@ -174,3 +173,5 @@ type sSymbol =
   | StructSymbol of string * tStruct
   | InterfaceSymbol of string * tInterface
   | AnonFuncSymbol of string * tType
+
+

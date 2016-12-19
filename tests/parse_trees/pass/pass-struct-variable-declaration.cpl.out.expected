@@ -1,0 +1,2 @@
+Struct((int Var(a),), , MyStruct, Constructor(Body:
+        CompoundStatement(Declarations:  StatementList: )),, )FuncDecl(Name: Var(main) ReturnType: int Parameters:  Body: CompoundStatement(Declarations: (MyStruct Var(m),),  StatementList: RETURN(Int(0)))) 

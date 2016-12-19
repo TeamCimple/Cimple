@@ -1,0 +1,15 @@
+int main() {
+	int i;
+	
+	i = 1;
+	if (i = 1) {
+		printf("Hello");
+	} else if (i = 2) {
+		printf("Hello Again");
+	} else if (i = 3) {
+		printf("Hello Hello Again");
+	} else {
+		printf("Bye");
+	}
+	return i;
+}

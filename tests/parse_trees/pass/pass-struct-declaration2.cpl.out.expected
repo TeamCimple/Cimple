@@ -1,0 +1,2 @@
+Struct((int Var(age),), (int Var(salary),), , Employee, Constructor(Body:
+        CompoundStatement(Declarations:  StatementList: )),, )FuncDecl(Name: Var(main) ReturnType: int Parameters: PARAM(int Var(argc))  Body: CompoundStatement(Declarations: (Employee depth: 1 Var(prof),),  StatementList: Statement(EQUALS(Access(Var(Identifier(prof)),age), Int(1))), Statement(EQUALS(Access(Var(Identifier(prof)),salary), Int(1000))), RETURN(Int(0)))) 

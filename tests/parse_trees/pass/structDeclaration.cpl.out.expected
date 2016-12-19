@@ -1,2 +1,0 @@
-Struct((int Var(age),), (int Var(salary),), , Employee, Constructor(Body:
-        CompoundStatement(Declarations:  StatementList: )),, )FuncDecl(Name: Var(main) ReturnType: int Parameters:  Body: CompoundStatement(Declarations:  StatementList: RETURN(Int(0))))

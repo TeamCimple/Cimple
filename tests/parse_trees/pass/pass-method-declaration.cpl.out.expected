@@ -1,0 +1,2 @@
+Struct((int Var(a),), (int Var(b),), , MyStruct, Constructor(Body:
+        CompoundStatement(Declarations:  StatementList: )),, )FuncDecl(Name: Var(getA) ReturnType: RECEIVER(MyStruct,m) int Parameters:  Body: CompoundStatement(Declarations:  StatementList: RETURN(Call(Receiver(Identifier(m))FunctionName: Identifier(getA) Params: )))) 

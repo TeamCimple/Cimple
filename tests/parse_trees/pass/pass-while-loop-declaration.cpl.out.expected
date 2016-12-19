@@ -1,0 +1,1 @@
+FuncDecl(Name: Var(main) ReturnType: int Parameters:  Body: CompoundStatement(Declarations: (int EQUALS(Var(i) Int(1),),  StatementList: WHILE Int(1) CompoundStatement(Declarations:  StatementList: Statement(Call(Receiver()FunctionName: Identifier(printf) Params: String("OH BOY\n")))), RETURN(Int(0)))) 

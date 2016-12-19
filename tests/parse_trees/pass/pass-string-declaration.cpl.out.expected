@@ -1,0 +1,1 @@
+FuncDecl(Name: Var(main) ReturnType: int Parameters:  Body: CompoundStatement(Declarations: (string EQUALS(Var(a) String("Hello World"),),  StatementList: Statement(Call(Receiver()FunctionName: Identifier(printf) Params: Identifier(a)String("%s\n"))), RETURN(Int(0)))) 

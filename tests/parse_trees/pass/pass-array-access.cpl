@@ -1,0 +1,7 @@
+int main() {
+	int *a;
+	
+	a = make int[100];
+	a[0] = 1;
+	return a[0];
+}

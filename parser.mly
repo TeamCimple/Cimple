@@ -26,6 +26,7 @@ COLON ELLIPSIS ASTERISK PERIOD
 %token EOF
 
 %nonassoc NOELSE
+%nonassoc NOPOINTER
 %nonassoc NOCALL
 %nonassoc ELSE
 %nonassoc DELENIATOR
@@ -116,8 +117,8 @@ make_expr:
         $4)}
    | MAKE type_ LBRACKET_SQUARE primary_expr RBRACKET_SQUARE  {
            Make(ArrayType($2, NoPointer, $4), []) }
-   | MAKE type_ pointer LBRACKET_SQUARE primary_expr RBRACKET_SQUARE {
-           Make(ArrayType($2, $3, $5), [])}
+   /*| MAKE type_ pointer LBRACKET_SQUARE primary_expr RBRACKET_SQUARE {
+           Make(ArrayType($2, $3, $5), [])}*/
 
 expr_list:
   /* Nothing */ { [] }
@@ -200,8 +201,20 @@ declaration_specifiers:
  | declaration_specifiers type_ { DeclSpecTypeSpecInitList($2, $1) }
  
 type_:
-   type_specifier { PrimitiveType($1) }
- | STRUCT STRUCT_IDENTIFIER { CustomType($2) }
+  type_specifier pointer { let rec num_ptrs ptr = match ptr with 
+                                | PtrType(_, next_ptr) -> 1 + num_ptrs
+                                next_ptr 
+                                | Pointer -> 1
+                                | NoPointer -> 0 in PointerType(PrimitiveType($1),
+ num_ptrs $2) }
+ | type_specifier %prec NOPOINTER { PrimitiveType($1) }
+ | STRUCT STRUCT_IDENTIFIER pointer { let rec num_ptrs ptr = match ptr with 
+                                | PtrType(_, next_ptr) -> 1 + num_ptrs
+                                next_ptr 
+                                | Pointer -> 1
+                                | NoPointer -> 0 in PointerType(CustomType($2),
+ num_ptrs $3) }
+ | STRUCT STRUCT_IDENTIFIER %prec NOPOINTER{ CustomType($2) }
  | INTERFACE STRUCT_IDENTIFIER { CustomType($2) }
 
 init_declarator_list:
@@ -218,7 +231,6 @@ pointer:
 
 declarator:
    direct_declarator { DirectDeclarator($1) }
- | pointer direct_declarator { PointerDirDecl($1, $2) }
 
 record_initializer_list:
    | record_initializer { Initializer($1) } 
@@ -232,9 +244,6 @@ record_initializer:
 
 direct_declarator:
     IDENTIFIER { Var(Identifier($1)) }
-    | direct_declarator LBRACKET_SQUARE INT_LITERAL RBRACKET_SQUARE
-    { ArrDirDecl($1, $3) }
-    | direct_declarator LBRACKET_SQUARE RBRACKET { ArrDirDecl($1, -1) }
 
 declaration:
    declaration_specifiers init_declarator_list SEMICOLON { Declaration($1, $2)}

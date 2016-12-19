@@ -42,6 +42,8 @@ let string_of_logical_op = function
       | LessEql -> "LESS_THAN_EQUALS"
       | Greater -> "GREATER_THAN"
       | GreaterEql -> "GREATER_THAN_EQUALS"
+      | LogicalAnd -> "LOGICAL AND"
+      | LogicalOr -> "LOGICAL OR"
  
 let string_of_type_qualifier = function
         Const -> "const"
@@ -70,6 +72,9 @@ let rec string_of_type = function
     | PointerType(t, d) -> string_of_type t ^ " depth: " ^ string_of_int d
     | ArrayType(t, ptr, expr) -> "[" ^ string_of_type t ^ string_of_ptr ptr ^"]" 
     | CustomType(t) -> t
+    | NilType -> "NilType"
+    | AnonFuncType(t, types) -> "AnonFuncType(" ^ string_of_type t ^ "," ^
+    (String.concat "," (List.map string_of_type types))
 
 let string_of_storage_class_spec = function
         Auto -> "auto"
@@ -129,14 +134,14 @@ let rec string_of_expr = function
   | Super(expr_list) -> "Super(" ^ string_of_expr_list expr_list ^ ")"
   | Binop(e1, op, e2) -> string_of_op op ^ "(" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ ")"
   | Unop(e, unOp) -> string_of_unary_op unOp ^ "(" ^ string_of_expr e ^ ")"
-  | Call(e, Id(id), exprList) -> "Call(" ^ "Receiver(" ^ string_of_expr e ^")"  ^
-  "FunctionName: " ^ (string_of_identifier id) ^ " Params: " ^ (string_of_expr_list  exprList) ^ ")"
+  | Call(e, e2, exprList) -> "Call(" ^ "Receiver(" ^ string_of_expr e ^")"  ^
+  "FunctionName: " ^ (string_of_expr e2) ^ " Params: " ^ (string_of_expr_list  exprList) ^ ")"
   | Make(typ_, exprList) -> "Make(" ^ string_of_type typ_ ^ string_of_expr_list
   exprList ^ ")" 
   | MemAccess(e, Identifier(t)) -> "Access(" ^ "Var(" ^ string_of_expr e ^ ")" ^ ","
   ^ t ^")"
   | AnonFuncDef(anonDef) -> "AnonFuncDef(ReturnType: " ^ (string_of_type anonDef.anon_return_type) ^ ", Params: " ^ (string_of_func_param_list anonDef.anon_params) ^ ", Body: " ^ (string_of_statement anonDef.anon_body) ^ ")" 
-
+  | DeclExpr(d) -> "DeclExpr(" ^ string_of_declaration d ^ ")"
 and string_of_func_param_list = function
     [] -> ""
   | [x] -> string_of_func_param x
@@ -174,6 +179,7 @@ and string_of_statement = function
  | If(e, s1, s2) -> "IF " ^ (string_of_expr e) ^" " ^ (string_of_statement s1)^ "
  " ^ (string_of_statement s2)
  | EmptyElse -> ""
+ | Break -> "BREAK"
  | For(e1, e2, e3, s) -> "FOR " ^ (string_of_expr e1) ^ " " ^ (string_of_expr
  e2) ^ " " ^ (string_of_expr e3) ^ " " ^ (string_of_statement s)
  | While(e, s) -> "WHILE " ^ (string_of_expr e) ^ " " ^ (string_of_statement s)
@@ -199,7 +205,8 @@ let string_of_constructor constructor = "Constructor(" ^ constructor.constructor
 
 let string_of_func fdecl = "FuncDecl(Name: " ^ 
       string_of_declarator fdecl.func_name ^ " ReturnType: " ^
-      string_of_receiver fdecl.receiver ^ string_of_declaration_specifiers fdecl.return_type ^ " Parameters: " ^
+      string_of_receiver fdecl.receiver ^ string_of_declaration_specifiers
+      fdecl.return_type ^ " Parameters: " ^
       String.concat ", " (List.map
       string_of_func_param fdecl.params) ^ " Body: " ^ string_of_statement 
       fdecl.body ^ ") "
