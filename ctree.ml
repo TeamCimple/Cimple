@@ -709,7 +709,8 @@ let rec update_expr texpr tSymbol_table tprogram  = match texpr with
                    
      | Call(expr, Id(Identifier(s)), expr_list) -> 
                      let sym = Semant.type_from_expr tSymbol_table expr in 
-                     cCallExpr_from_tCallExpr expr tSymbol_table tprogram s expr_list
+                     let ret = cCallExpr_from_tCallExpr expr tSymbol_table tprogram s expr_list in
+                     ret
      | Super(_) -> ((CNoexpr, []), [])
      | ArrayAccess(e1, e2) -> ((CArrayAccess(fst(fst(update_expr e1 tSymbol_table
      tprogram)), fst(fst(update_expr e2 tSymbol_table tprogram))), []), []) 
@@ -848,9 +849,8 @@ and cAllocExpr_from_tMakeExpr tSymbol_table tprogram asn_expr tMakeExpr =
             
    
 and cExpr_from_tExpr_in_tCall tSymbol_table  tprogram  tExpr tFuncParam = 
-      let expr_type = Semant.type_from_expr
-        tSymbol_table tExpr in let param_type = Semant.type_from_func_param
-        tFuncParam in 
+      let expr_type = Semant.type_from_expr tSymbol_table tExpr in 
+      let param_type = Semant.type_from_func_param tFuncParam in 
         match (expr_type, param_type) with
             |  (CustomType(a), CustomType(b)) -> 
                     if (Semant.is_interface tSymbol_table (Identifier(b))) then
@@ -895,7 +895,9 @@ and generate_extra_capture_func_params_from_expr_list tSym tprogram expr_list =
         let more_params_filtered = remove_noexpr_from_list more_params in 
         more_params_filtered
 
-and cCallExpr_from_tCallExpr expr tSym  tprogram func_name expr_list = match expr with
+and cCallExpr_from_tCallExpr expr tSym  tprogram func_name expr_list =
+    let expr_list = (List.rev expr_list) in
+    match expr with
         | Noexpr -> let sym = StringMap.find func_name tSym in 
                     (match sym with
                         FuncSymbol(_, fdecl) -> 
@@ -917,8 +919,16 @@ and cCallExpr_from_tCallExpr expr tSym  tprogram func_name expr_list = match exp
                                 in
                                 ret;
                             else
-                                ((CCall(0, CNoexpr, CId(CIdentifier(func_name)), (List.map2
-                                    (cExpr_from_tExpr_in_tCall tSym  tprogram ) expr_list fdecl.params)), []), [])
+                                if (func_name = "printf") then
+                                    let replacementParamList = Semant.func_param_list_from_expr_list tSym expr_list in
+                                    ((CCall(0, CNoexpr, CId(CIdentifier(func_name)), (List.map2
+                                        (cExpr_from_tExpr_in_tCall tSym  tprogram ) expr_list replacementParamList)), []), [])
+                                else
+                                    let ret =
+                                    ((CCall(0, CNoexpr, CId(CIdentifier(func_name)), (List.map2
+                                        (cExpr_from_tExpr_in_tCall tSym  tprogram ) expr_list fdecl.params)), []), [])
+                                    in
+                                    ret
                       | AnonFuncSymbol(anonName, AnonFuncType(_, tlist)) ->
                               let rec funcParam_from_tType t = (match t with
                                     _ -> ParamDeclWithType(DeclSpecTypeSpecAny(t)))

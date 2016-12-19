@@ -16,7 +16,6 @@ let add_symbol_list_to_symtable symlist symtable =
                    (*else x*)
         (*| None, y -> y*)
         (*| x, None -> x)) s1 s2*)
-
 let rec string_of_type tp =
     let string_of_primitive_type = function
        | Void -> "Void"
@@ -628,7 +627,8 @@ and check_format_string_with_expr_list symbols fmtStr elist =
         Invalid_argument(_) -> raise(Failure("check_format_string_with_expr_list: Error - Number of format specifiers in format string does not match number of arguments"))
       | _ -> raise(Failure("check_format_string_with_expr_list: Unspecified error"))
 
-and check_call_to_printf symbols exprList = match exprList with
+and check_call_to_printf symbols exprList = 
+    match (List.rev exprList) with
       [e] -> if ((type_from_expr symbols e) <> PrimitiveType(String)) then 
                  raise(Failure("check_call_to_printf: Error - If only 1 argument, must be string!"))
              else
@@ -641,7 +641,6 @@ and check_call_to_printf symbols exprList = match exprList with
                          check_format_string_with_expr_list symbols s t
                    | _ -> 
                         let errorStr = "check_call_to_printf: Error - h is " ^ (Astutil.string_of_expr h) in
-                        (*let errorStr = "check_call_to_printf: Error - h is " ^ (Astutil.string_of_type (type_from_expr symbols h)) in*)
                        raise(Failure(errorStr)))
 
 and is_literal expr = match expr with 
@@ -681,8 +680,8 @@ and check_expr symbols program e = match e with
                             let s =  StringMap.find id symbols in
                             match s with 
                                  FuncSymbol(_, fdecl) ->
-                                     if (id = "printf") then
-                                         check_call_to_printf symbols expr_list
+                                     if (id = "printf") then ()
+                                         (*check_call_to_printf symbols expr_list*)
                                      else
                                        validate_call_expr
                                        expr_list symbols
@@ -1804,6 +1803,15 @@ let check_structs_satisfy_interfaces program =
         let symbol_table = build_symbol_table program in 
 
         List.map (check_implements symbol_table) program.structs 
+
+let rec func_param_from_expr symbols expr =
+    let te = type_from_expr symbols expr in
+    ParamDeclWithType(DeclSpecTypeSpecAny(te)) 
+
+and func_param_list_from_expr_list symbols expr_list = match expr_list with
+      [] -> []
+    | [e] -> [func_param_from_expr symbols e]
+    | h::t -> [func_param_from_expr symbols h]@(func_param_list_from_expr_list symbols t)
 
 let check_program program =
         let sdecls = List.map var_name_from_declaration program.globals in
