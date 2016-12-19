@@ -20,14 +20,13 @@ void (Person *p) changeName(func(string)() nameChanger) {
     p.name = nameChanger();
 }
 
-int main() {
+int main(int argc, string *argv) {
 	struct Person *graham;
 	string grahamsName = "Graham Barab\n";
     string differentName = "Superman\n";
     string personsName;
-    /*float pi = 3.14;*/
-    /*float someMath = cos((1.0 / 4.0) * pi);*/
-    /*int i;*/
+    float pi = 3.14;
+    float someMath = cos((1.0 / 4.0) * pi);
 
 	graham = make Person(func(string)() {
 		return grahamsName;
@@ -42,6 +41,6 @@ int main() {
    
     personsName = graham.getName();
     printf("After changing his name, person's name is %s", personsName); 
-    /*printf("cos(pi/4) = %f\n", someMath);  */
+    printf("cos(pi/4) = %f\n", someMath);  
     return 0;
 }

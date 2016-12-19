@@ -638,8 +638,8 @@ let cFunc_from_tFunc symbol_table tFunc =
                 creturn_type = cType_from_tType symbol_table
                 (Semant.type_from_declaration_specifiers tFunc.return_type);
 
-                cfunc_params = (List.map (cFuncParam_from_tFuncParam
-                symbol_table) tFunc.params)@(extraParams);
+                cfunc_params =List.rev (((extraParams)@List.map (cFuncParam_from_tFuncParam
+                symbol_table) tFunc.params));
 
                 cfunc_body = CCompoundStatement([], []);
 
@@ -989,7 +989,7 @@ and cCallExpr_from_tCallExpr expr tSym  tprogram func_name expr_list =
                                 let more_params_filtered = generate_extra_capture_func_params_from_expr_list tSym tprogram expr_list in 
                                 let anonParams = Semant.anon_defs_from_expr_list_no_recursion tprogram expr_list in
                                 let ((updated_expr, updated_slist), updated_dlist) = update_anon_def_expr_list anonParams in
-                                let paramExpressions = (List.map2
+                                let paramExpressions = List.rev (List.map2
                                     (cExpr_from_tExpr_in_tCall tSym  tprogram ) expr_list fdecl.params) in
                                
                                 let ret =   
