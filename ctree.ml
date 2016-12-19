@@ -610,8 +610,8 @@ let cFunc_from_tFunc symbol_table tFunc =
                 creturn_type = cType_from_tType symbol_table
                 (Semant.type_from_declaration_specifiers tFunc.return_type);
 
-                cfunc_params = (List.rev (List.map (cFuncParam_from_tFuncParam
-                symbol_table) tFunc.params))@(extraParams);
+                cfunc_params = (List.map (cFuncParam_from_tFuncParam
+                symbol_table) tFunc.params)@(extraParams);
 
                 cfunc_body = CCompoundStatement([], []);
 
