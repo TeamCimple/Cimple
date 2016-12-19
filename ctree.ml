@@ -858,23 +858,74 @@ and generate_stmts_for_super expr_list symbol_table tprogram constructor tStruct
 
         let last_arg = CLiteral(0) in 
         
+        (*type_list_from_func_param_list *)
+
+        (* 1. Get a list of identifiers that are anons.
+         * 2. Make a list of extra param expression that simply append cap_ to the identifiers *)
+
+        let cstParams = constructor.constructor_params in
+        let funcParamSymbols = Semant.symbols_from_func_params cstParams in
+        let anonParamSymbols = List.filter (fun sym -> 
+            (match sym with
+                AnonFuncSymbol(_, _) -> true
+              | _ -> false)) funcParamSymbols
+        in
+        let anonParamSymbolTable = Semant.symtable_from_symlist anonParamSymbols in
+        let is_in_symtable id = 
+            try
+                StringMap.mem id anonParamSymbolTable
+            with
+                _ -> false
+        in
+        let fixedExprList = 
+            List.map (fun e ->
+                (match e with
+                    Id(Identifier(id)) -> 
+                        if ((is_in_symtable id) = true) then
+                            Id(Identifier("anon_" ^ id))
+                        else
+                            e)) expr_list
+        in
+        let capIds = 
+            List.fold_left (fun accList expr ->
+                (match expr with
+                    Id(Identifier(id)) ->
+                        if ((is_in_symtable id) = true) then
+                            accList@[CId(CIdentifier("cap_anon_" ^ id))]
+                        else
+                            accList 
+                   | _ -> raise(Failure("Invalid expr")))) []  expr_list
+        in
+        let fixedAnonParamSymbols = 
+            let fix_anon_name str = 
+                    try
+                        let sub = String.sub str 0 5 in
+                        if (sub <> "anon_") then
+                            "anon_" ^ str
+                        else
+                            str
+                    with
+                        _ -> "anon_" ^ str
+            in
+            List.map (fun sym ->
+                (match sym with
+                    AnonFuncSymbol(anonName, t) -> AnonFuncSymbol((fix_anon_name anonName), t)
+                  | _ -> sym)) anonParamSymbols
+        in
+        let symbol_table = Semant.add_symbol_list_to_symbol_table symbol_table fixedAnonParamSymbols in
         let call_to_super_constructor_stmt = [(CExpr(CCall(0, CNoexpr, CId(CIdentifier(
                 c_ancestor_constructor_name)), [first_arg]@(List.map2
-                                (cExpr_from_tExpr_in_tCall symbol_table tprogram) expr_list
-                                ancestor_constructor.constructor_params)@[last_arg])))] in 
+                                (cExpr_from_tExpr_in_tCall symbol_table tprogram) fixedExprList
+                                ancestor_constructor.constructor_params)@[last_arg]@capIds)))] in 
+        let StructSymbol(_, ancestor_struct) = Semant.lookup_symbol_by_id symbol_table (Identifier(ancestor_constructor.constructor_name)) in
 
-        let StructSymbol(_, ancestor_struct) = Semant.lookup_symbol_by_id
-        symbol_table
-        (Identifier(ancestor_constructor.constructor_name)) in
+            let local_reassignment_of_members = List.fold_left (fun assignments
+            member -> let member_id = Semant.var_name_from_declaration member
+            in assignments @ [CExpr(CAsnExpr(CId(CIdentifier(member_id)), Asn, CMemAccess(1,
+            CDeref(CId(CIdentifier("_this"))),
+            (CIdentifier(member_id)))))]) [] ancestor_struct.members in 
 
-
-        let local_reassignment_of_members = List.fold_left (fun assignments
-        member -> let member_id = Semant.var_name_from_declaration member
-        in assignments @ [CExpr(CAsnExpr(CId(CIdentifier(member_id)), Asn, CMemAccess(1,
-        CDeref(CId(CIdentifier("_this"))),
-        (CIdentifier(member_id)))))]) [] ancestor_struct.members in 
-
-        call_to_super_constructor_stmt @ local_reassignment_of_members
+            call_to_super_constructor_stmt @ local_reassignment_of_members
 
 
 and cAllocExpr_from_tMakeExpr tSymbol_table tprogram asn_expr tMakeExpr = 
@@ -1102,7 +1153,6 @@ and cCallExpr_from_tCallExpr expr tSym  tprogram func_name expr_list =
                        else 
                            let fdecl =
                            Semant.get_fdecl_for_receiver a tSym func_name in
-                                (*Printf.printf "We have interface!\n";*)
                                     let first_arg =
                                             CCastExpr(CPointerType(CType(CPrimitiveType(Cvoid)),
                                             1), fst (fst (update_expr expr tSym
@@ -1816,6 +1866,24 @@ let update_cConstructor tSymbol_table tprogram cFunc tStruct =
         tStruct.members) @ (Semant.symbols_from_func_params
         tStruct.constructor.constructor_params))  in 
 
+        let fix_anon_names_in_symtable tbl =
+            let fix_anon_name str = 
+                    try
+                        let sub = String.sub str 0 5 in
+                        if (sub <> "anon_") then
+                            "anon_" ^ str
+                        else
+                            str
+                    with
+                        _ -> "anon_" ^ str
+            in
+
+            List.map (fun sym ->
+                (match sym with 
+                    AnonFuncSymbol(anonName, t) -> AnonFuncSymbol((fix_anon_name anonName), t)
+                  | _ -> sym)) tbl
+        in
+        (*let updated_symbol_table = fix_anon_names_in_symtable updated_symbol_table in*)
         let ctype = cType_from_tType tSymbol_table
         (CustomType(tStruct.struct_name)) in
 
@@ -1850,13 +1918,13 @@ let update_cConstructor tSymbol_table tprogram cFunc tStruct =
                    CDeref(CId(CIdentifier("_this"))), CIdentifier(tdecl_id)),
                    Asn, CId(CIdentifier(tdecl_id)))) in assignments @ [asn_expr] ) [] tStruct.members in
 
-        let stmts_for_super = if (Semant.constructor_has_super
-        tStruct.constructor) then (let
-        Expr(Super(expr_list)) = Semant.get_super_expr tStruct.constructor.constructor_body
+        let stmts_for_super =
+            if (Semant.constructor_has_super tStruct.constructor) then
+                (let Expr(Super(expr_list)) = Semant.get_super_expr tStruct.constructor.constructor_body in
+                generate_stmts_for_super expr_list updated_symbol_table tprogram tStruct.constructor tStruct)
+        else
+            []
         in
-
-        generate_stmts_for_super expr_list updated_symbol_table tprogram tStruct.constructor
-        tStruct) else [] in
 
         let CCompoundStatement(original_decls, stmts) = cFunc.cfunc_body in 
         

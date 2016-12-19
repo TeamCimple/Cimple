@@ -139,7 +139,8 @@ let symbol_from_func_param p = match p with
    | FuncParamsDeclared(decl_specs, decl) ->
                    VarSymbol(var_name_from_direct_declarator decl,
                    type_from_func_param p)
-   | AnonFuncDecl(d) -> AnonFuncSymbol(Astutil.string_of_identifier d.anon_decl_name, type_from_anon_decl d) 
+   | AnonFuncDecl(d) ->  
+            AnonFuncSymbol(Astutil.string_of_identifier d.anon_decl_name, type_from_anon_decl d) 
    | _ -> raise(Failure("symbol_from_func_param not fully implemented. Cannot handle declarations with parameters as types alone"))
 
 let symbol_from_declaration decl = match decl with  
@@ -1572,7 +1573,8 @@ and anon_def_from_tsymbol tprogram tsym =
             else
                 let errorStr = "anon_def_from_tsymbol: Error - no anonDef with name " ^ s in
                 raise(Failure(errorStr))
-                            
+
+(*and anon_defs_from_func_param_list tprogram *)
 and compare_anon_defs_ignore_name a1 a2 =
    let b1 = {
        anon_name = "";
