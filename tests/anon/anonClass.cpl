@@ -1,9 +1,11 @@
 
 struct Person {
 	string name;
+    int id;
         
-	Person(func(string)()nameSetter) {
+	Person(func(string)()nameSetter, int id_) {
 		name = nameSetter();
+        id = id_;
 	}
 
 	~Person() { 
@@ -20,6 +22,11 @@ void (Person *p) changeName(func(string)() nameChanger) {
     p.name = nameChanger();
 }
 
+void (Person *p) changeNameAndPrintSecondArg(func(string)() nameChanger, int secondArg) {
+    p.name = nameChanger();
+    printf("%d\n", secondArg);
+}
+
 int main(int argc, string *argv) {
 	struct Person *graham;
 	string grahamsName = "Graham Barab\n";
@@ -30,7 +37,7 @@ int main(int argc, string *argv) {
 
 	graham = make Person(func(string)() {
 		return grahamsName;
-	});
+	}, 2154);
 
     personsName = graham.getName();
     printf("Person's name is %s", personsName);
@@ -40,7 +47,9 @@ int main(int argc, string *argv) {
     });
    
     personsName = graham.getName();
-    printf("After changing his name, person's name is %s", personsName); 
+    printf("After changing his name, person's name is %s", personsName);
+
+    graham.changeNameAndPrintSecondArg(func(string)() { return "The man without a name";}, 7);
     printf("cos(pi/4) = %f\n", someMath);  
     return 0;
 }

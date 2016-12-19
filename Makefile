@@ -42,6 +42,12 @@ anonbuild:
 anonclass:
 	@(cat tests/anon/anonClass.cpl | ./cimple -c > anonclass.c && gcc -o anonclass anonclass.c)||:
 
+.PHONY: anonint
+
+anonint:
+	@(cat tests/anon/anonInterface.cpl | ./cimple -c > anonint.c && gcc -o anonint anonint.c)||:
+
+
 .PHONY: anonparse
 
 anonparse:
