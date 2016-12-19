@@ -28,6 +28,7 @@ and tType =
  | AnonFuncType of tType * tType list
  | PointerType of tType * int (* Type + number of pointers *)
  | ArrayType of tType * tPointer * tExpr  (* Type + number of elements *)
+ | NilType
 
 and tIdentifier =
    Identifier of string
@@ -57,6 +58,7 @@ and tExpr =
   | Postfix of tExpr * tPostfixOperator
   | Call of tExpr * tExpr * tExpr list
   | Make of tType * tExpr list
+  | Neg of tExpr
   | Pointify of tExpr
   | Deref of tExpr
   | MemAccess of tExpr * tIdentifier
@@ -67,6 +69,7 @@ and tExpr =
   | Super of tExpr list
   | Clean of tExpr
   | Noexpr
+  | Nil
 
  and tDirectDeclarator = 
   Var of tIdentifier

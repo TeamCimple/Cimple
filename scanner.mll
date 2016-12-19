@@ -36,6 +36,7 @@ rule token = parse
 | "<=" { LESS_THAN_EQUALS }
 | ">" { GREATER_THAN }
 | ">=" { GREATER_THAN_EQUALS }
+| "NIL" { NIL }
 | "super" { SUPER }
 | "clean" { CLEAN }
 | ['0'-'9']+ as lit { INT_LITERAL(int_of_string lit) }

@@ -8,6 +8,7 @@
 %token <string> STRUCT_IDENTIFIER
 %token ASSIGN
 %token RETURN
+%token NIL
 %token PLUS MINUS TIMES DIVIDE MOD PLUSPLUS MINUSMINUS
 %token AND OR BITWISE_AND BITWISE_OR XOR NOT LSHIFT RSHIFT
 %token EQUALS NOT_EQUALS LESS_THAN LESS_THAN_EQUALS GREATER_THAN GREATER_THAN_EQUALS
@@ -47,7 +48,7 @@ statement:
   | RETURN expr_opt SEMICOLON { Return $2 }
 
 selection_statement:
-    IF LPAREN expr RPAREN statement %prec NOELSE { If($3, $5, EmptyElse) }
+    IF LPAREN expr RPAREN statement %prec NOELSE{ If($3, $5, EmptyElse)}
   | IF LPAREN expr RPAREN statement ELSE statement  {If($3, $5, $7)}
 
 iteration_statement:
@@ -93,6 +94,10 @@ relational_expression:
   $3) }
   | relational_expression GREATER_THAN_EQUALS add_expr { CompareExpr($1,
   GreaterEql, $3) } 
+
+unary_expr:
+  | postfix_expr { $1 }
+  | MINUS postfix_expr { Neg($2) }
 
 postfix_expr:
     primary_expr { $1 }
@@ -156,10 +161,10 @@ add_expr:
  | mult_expr  { $1 }
 
 mult_expr:
-   mult_expr TIMES postfix_expr { Binop($1, Mul, $3) }
- | mult_expr DIVIDE postfix_expr { Binop($1, Div, $3) }
- | mult_expr MOD postfix_expr { Binop($1, Mod, $3) }
- | postfix_expr             { $1 }
+   mult_expr TIMES unary_expr { Binop($1, Mul, $3) }
+ | mult_expr DIVIDE unary_expr { Binop($1, Div, $3) }
+ | mult_expr MOD unary_expr { Binop($1, Mod, $3) }
+ | unary_expr             { $1 }
 
 primary_expr:
  LPAREN expr RPAREN         { $2 }
@@ -167,6 +172,7 @@ primary_expr:
  | INT_LITERAL              { Literal($1) }
  | STRING_LITERAL           { StringLiteral($1) }
  | IDENTIFIER               { Id(Identifier($1))}
+ | NIL                      { Nil } 
  | BITWISE_AND primary_expr { Pointify($2) }
  | TIMES primary_expr       { Deref($2) }
 

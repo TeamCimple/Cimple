@@ -1,0 +1,62 @@
+struct BinaryTree {
+	struct BinaryTree *left;
+	struct BinaryTree *right;
+	int val;
+
+	BinaryTree(int val_to_set) {
+		val = val_to_set;
+		left = NIL;
+		right = NIL;
+	}
+
+	~BinaryTree() {
+
+	}
+};
+
+
+int (BinaryTree *b) addNode(int val) {
+	if (val < b.val) {
+		if (b.left == NIL) {
+			b.left = make BinaryTree(val);
+		} else {
+			b.left.addNode(val);
+		}
+	} else if (val > b.val) {
+		if (b.right == NIL) {
+			b.right = make BinaryTree(val);
+		} else {
+			b.right.addNode(val);
+		}
+	} else {
+		b.addNode(val+1);
+	}
+	return 0;
+}
+
+int (BinaryTree *b) find_max() {
+	if (b.right == NIL) {
+		return b.val;
+	} else {
+		return b.right.find_max();
+	}
+}
+
+int (BinaryTree *b) find_min() {
+	if (b.left == NIL) {
+		return b.val;
+	} else {
+		return find_min(b.left);
+	}
+}
+
+int main() {
+	struct BinaryTree *b;
+	int i;
+
+	b = make BinaryTree(100);
+	for (i = 0; i < 200; i++) {
+		b.addNode(i);
+	}
+	return b.find_max();
+}
