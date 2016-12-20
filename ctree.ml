@@ -458,7 +458,9 @@ and struct_members_from_anon_body symbols psymbols members body =
  * ------------------------------------------------------------------------*)
 
 and capture_struct_from_anon_def program def =
-  let symlist = (Semant.symbols_from_outside_scope_for_anon_def program def) in
+  let func = Semant.find_func_containing_anon_def program def in
+  let extraSymbols = [Semant.symbol_from_receiver func.receiver] in
+  let symlist = (Semant.symbols_from_outside_scope_for_anon_def program def)@extraSymbols in
   let symbols = Semant.symtable_from_symlist symlist in
   let builtinDecls = [{
                        return_type = DeclSpecTypeSpec(Int);

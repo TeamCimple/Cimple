@@ -1613,6 +1613,16 @@ and find_name_for_anon_def tprogram anonDef =
     else
         raise(Failure("find_name_for_anon_def: Error - could not find a matching anonymous function definition"))
 
+and find_func_containing_anon_def tprogram anonDef = 
+    let name = find_name_for_anon_def tprogram anonDef in
+    let index_of_final_underscore = String.rindex name '_' in 
+    let fname = String.sub name 2 (index_of_final_underscore - 2) in
+    let symtable = build_symbol_table tprogram in
+    let fsym = lookup_symbol_by_id symtable (Identifier(fname)) in
+    match fsym with
+        FuncSymbol(_, fdecl) -> fdecl
+      | _ -> raise(Failure("find_func_containing_anon_def: Error, incorrect symbol type found"))
+
 and find_struct_name_for_anon_def tprogram anonDef = 
     let name = find_name_for_anon_def tprogram anonDef in
     "S" ^ name
@@ -1861,6 +1871,7 @@ and func_param_list_from_expr_list symbols expr_list = match expr_list with
       [] -> []
     | [e] -> [func_param_from_expr symbols e]
     | h::t -> [func_param_from_expr symbols h]@(func_param_list_from_expr_list symbols t)
+
 
 let check_program program =
         let sdecls = List.map var_name_from_declaration program.globals in

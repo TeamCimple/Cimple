@@ -47,6 +47,10 @@ anonclass:
 anonint:
 	@(cat tests/anon/anonInterface.cpl | ./cimple -c > anonint.c && gcc -o anonint anonint.c)||:
 
+.PHONY: dsp
+
+dsp:
+	@(cat demo/dsp.cpl | ./cimple -c > dsp.c && gcc -o dsp dsp.c)||:
 
 .PHONY: anonparse
 
