@@ -267,9 +267,14 @@ let test_anon_defs program  =
         print_anon_capture_struct_list cCaptures
 
 let gen_cprogram cprogram =
-    add_header "stdio" ^ "\n" ^ add_header "stdlib" ^ "\n" ^ add_header "math" ^ "\n" ^ (String.concat ";\n" (List.map gen_cdeclaration
-    cprogram.cglobals)) ^ (String.concat ";\n" (List.map gen_cstruct
+    let generated_globals = gen_cdeclaration_list cprogram.cglobals in
+    add_header "stdio" ^ "\n" ^ add_header "stdlib" ^ "\n" ^ add_header "math" ^ "\n" ^ generated_globals ^ (String.concat ";\n" (List.map gen_cstruct
     cprogram.cstructs)) ^ ";\n\n" ^ (String.concat ";\n" (List.map gen_cfunc_header
     cprogram.cfunctions))  ^ ";\n\n" ^ (String.concat "\n" (List.map gen_cfunc
     (cprogram.cfunctions)));
+    (*add_header "stdio" ^ "\n" ^ add_header "stdlib" ^ "\n" ^ add_header "math" ^ "\n" ^ (String.concat ";\n" (List.map gen_cdeclaration*)
+    (*cprogram.cglobals)) ^ (String.concat ";\n" (List.map gen_cstruct*)
+    (*cprogram.cstructs)) ^ ";\n\n" ^ (String.concat ";\n" (List.map gen_cfunc_header*)
+    (*cprogram.cfunctions))  ^ ";\n\n" ^ (String.concat "\n" (List.map gen_cfunc*)
+    (*(cprogram.cfunctions)));*)
 

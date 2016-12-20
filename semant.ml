@@ -154,9 +154,12 @@ let symbol_table_key_for_method struct_name func_name = let cstruct_name =
 
 let symbol_from_fdecl fdecl = 
         let func_name = var_name_from_direct_declarator fdecl.func_name
-        in if (fdecl.receiver = ("", "")) then FuncSymbol(func_name, fdecl) else
-                FuncSymbol((symbol_table_key_for_method (fst fdecl.receiver)
-                func_name), fdecl)
+        in 
+        if (fdecl.receiver = ("", "")) then 
+            FuncSymbol(func_name, fdecl) 
+        else
+            FuncSymbol((symbol_table_key_for_method (fst fdecl.receiver)
+            func_name), fdecl)
 
 let symbol_from_struct struct_decl = StructSymbol(struct_decl.struct_name,
 struct_decl)
@@ -1613,15 +1616,42 @@ and find_name_for_anon_def tprogram anonDef =
     else
         raise(Failure("find_name_for_anon_def: Error - could not find a matching anonymous function definition"))
 
+
 and find_func_containing_anon_def tprogram anonDef = 
     let name = find_name_for_anon_def tprogram anonDef in
     let index_of_final_underscore = String.rindex name '_' in 
     let fname = String.sub name 2 (index_of_final_underscore - 2) in
     let symtable = build_symbol_table tprogram in
-    let fsym = lookup_symbol_by_id symtable (Identifier(fname)) in
+    let interfaceSymbols = symbols_from_interfaces tprogram.interfaces in
+    let interfaceMethodSymbols =
+        let interfaces = 
+            List.map (fun (InterfaceSymbol(_, iface)) -> iface) interfaceSymbols
+        in
+        List.fold_left (fun accList iface ->
+            accList@(symbols_from_fdecls iface.funcs)) [] interfaces
+    in
+    let updated_symbol_table = add_symbol_list_to_symtable interfaceMethodSymbols symtable in
+    let fsym = lookup_symbol_by_id updated_symbol_table (Identifier(fname)) in
     match fsym with
         FuncSymbol(_, fdecl) -> fdecl
       | _ -> raise(Failure("find_func_containing_anon_def: Error, incorrect symbol type found"))
+
+and find_symbol_containing_anon_def tprogram anonDef = 
+    let name = find_name_for_anon_def tprogram anonDef in
+    let index_of_final_underscore = String.rindex name '_' in 
+    let fname = String.sub name 2 (index_of_final_underscore - 2) in
+    let symtable = build_symbol_table tprogram in
+    let interfaceSymbols = symbols_from_interfaces tprogram.interfaces in
+    let interfaceMethodSymbols =
+        let interfaces = 
+            List.map (fun (InterfaceSymbol(_, iface)) -> iface) interfaceSymbols
+        in
+        List.fold_left (fun accList iface ->
+            accList@(symbols_from_fdecls iface.funcs)) [] interfaces
+    in
+    let updated_symbol_table = add_symbol_list_to_symtable interfaceMethodSymbols symtable in
+    lookup_symbol_by_id updated_symbol_table (Identifier(fname))
+
 
 and find_struct_name_for_anon_def tprogram anonDef = 
     let name = find_name_for_anon_def tprogram anonDef in
@@ -1667,7 +1697,6 @@ and call_contains_anon_def call =
             List.fold_left expr_contains_anon_def_at_this_level false elist
       | _ -> raise(Failure("call_contains_anon_def: Error - do not pass anything other than a call expression to this function"))
 
-and symbols_from_outside_scope_for_anon_def tprogram anonDef = 
    let rec expr_contains_anon_def symbols anonDef expr = match expr with 
       |  AnonFuncDef(a) ->
             if (compare_anon_defs_ignore_name a anonDef) then 
@@ -1837,18 +1866,45 @@ and symbols_from_outside_scope_for_anon_def tprogram anonDef =
                       (true, newSyms)
                   else (false, symbols)
    
-   in
-   let program_contains_anon_def anonDef program =
+    and program_contains_anon_def anonDef program =
         let globals = symbols_from_decls program.globals in 
         fdecl_list_contains_anon_def globals anonDef program.functions
 
-   in
+and symbols_from_outside_scope_for_anon_def tprogram anonDef = 
 
    let (found, symlist) = program_contains_anon_def anonDef tprogram in
    if (found = false) then 
        raise(Failure("Error: program does not contain anonDef"))
    else
        symlist
+
+and find_func_owning_anon_def tprogram anonDef =
+    let dummyFuncDecl = {
+        return_type = DeclSpecTypeSpecAny(PrimitiveType(Void));
+        func_name = DirectDeclarator(Var(Identifier("")));
+        receiver = ("", "");
+        params = [];
+        body = CompoundStatement([], [])
+    }
+    in
+    (*let symbols = (build_symbol_table tprogram) in*)
+    let (isFound, foundDecl) = 
+        List.fold_left (fun (isFound, foundDecl) fdecl ->
+            match isFound with
+                true ->
+                    (*skip *)
+                    (isFound, foundDecl)
+              | false -> 
+                      let (isFound, _) = fdecl_contains_anon_def [] anonDef fdecl in
+                      if (isFound = true) then
+                          (true, fdecl)
+                      else
+                          (false, foundDecl)) (false, dummyFuncDecl) tprogram.functions
+    in
+    match isFound with
+          true -> foundDecl
+        | false -> raise(Failure("find_func_owning_anon_def: Error - could not find function owning anonDef"))
+
 
 and print_anon_def anonDef = 
     Printf.printf "\n%s\n" (Astutil.string_of_anon_def anonDef)
@@ -1872,6 +1928,18 @@ and func_param_list_from_expr_list symbols expr_list = match expr_list with
     | [e] -> [func_param_from_expr symbols e]
     | h::t -> [func_param_from_expr symbols h]@(func_param_list_from_expr_list symbols t)
 
+and funcs_with_receivers program =
+    List.fold_left (fun accList fdecl ->
+        let (rcv1, rcv2) = fdecl.receiver in
+        if ((rcv1 <> "") ||  (rcv2 <> "")) then
+            accList@[fdecl]
+        else
+            accList)[] program
+
+and print_funcs_with_receivers program = 
+    let funcs_that_have_recvrs = funcs_with_receivers program in
+    List.iter (fun f -> 
+        Printf.printf "%s\n\n" (Astutil.string_of_func f)) funcs_that_have_recvrs
 
 let check_program program =
         let sdecls = List.map var_name_from_declaration program.globals in
@@ -1929,6 +1997,11 @@ let check_program program =
        (var_name_from_direct_declarator func.func_name) func m) StringMap.empty
        fdecls in
 
+       (* ****DEBUG ***** *)
+
+        (*print_funcs_with_receivers program.functions;*)
+
+       (* **** END DEBUG ****)
        let check_function func =
                 
                

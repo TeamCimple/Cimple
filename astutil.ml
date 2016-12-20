@@ -230,7 +230,9 @@ let string_of_program program =
 
 let string_of_symbol = function 
    VarSymbol(s, t) -> "Variable_Symbol(Name: " ^ s ^ ", Type: " ^ string_of_type t ^ ")"
- | FuncSymbol(s, fdecl) -> "Function_Symbol(Name: " ^ s ^ ")" (* Finish me! *)
+ | FuncSymbol(s, fdecl) ->
+             "Function_Symbol(Name: " ^ s ^ ")"
+         
  | StructSymbol(s, strct) -> "Struct_Symbol" (* Finish me! *)
  | InterfaceSymbol(s, ti) -> "Interface_Symbol" (* Finish me! *)
  | AnonFuncSymbol(s, t) -> "AnonymousFunction_Symbol(Name: " ^ s ^ ", Type: " ^ string_of_type t ^ ")"

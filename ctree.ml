@@ -400,6 +400,7 @@ and struct_members_from_anon_body symbols psymbols members body =
     match initDecl with 
        InitDeclaratorAsn(_, _, e) -> members_from_expr symbols psymbols members e
      | InitDeclList(l) -> members_from_init_declarator_list symbols psymbols members l
+     | _ -> members
       
    and members_from_init_declarator_list symbols psymbols members declList =
     match declList with 
@@ -459,7 +460,17 @@ and struct_members_from_anon_body symbols psymbols members body =
 
 and capture_struct_from_anon_def program def =
   let func = Semant.find_func_containing_anon_def program def in
-  let extraSymbols = [Semant.symbol_from_receiver func.receiver] in
+  let receiverSymbols = [Semant.symbol_from_receiver func.receiver] in
+  let interfaceSymbols = Semant.symbols_from_interfaces program.interfaces in
+  let interfaceMethodSymbols =
+      let interfaces = 
+          List.map (fun (InterfaceSymbol(_, iface)) -> iface) interfaceSymbols
+      in
+      List.fold_left (fun accList iface ->
+          accList@(Semant.symbols_from_fdecls iface.funcs)) [] interfaces
+  in
+  (*(Astutil.print_symbol_table (Semant.symtable_from_symlist interfaceMethodSymbols));*)
+  let extraSymbols = receiverSymbols@interfaceSymbols@interfaceMethodSymbols in
   let symlist = (Semant.symbols_from_outside_scope_for_anon_def program def)@extraSymbols in
   let symbols = Semant.symtable_from_symlist symlist in
   let builtinDecls = [{
@@ -1127,7 +1138,6 @@ and cCallExpr_from_tCallExpr expr tSym  tprogram func_name expr_list =
                                 (cExpr_from_tExpr_in_tCall tSym  tprogram ) expr_list
                                 fdecl.params)),[]), [])
                | PointerType(CustomType(a), 1) ->
-                       (*Printf.printf "Pointer Type expr list is %s\n" (Astutil.string_of_expr_list expr_list);*)
                        let hasAnonParams = Semant.expr_list_contains_anon_defs_no_recursion expr_list in 
                        if (hasAnonParams = true) then 
                            let fdecl =
@@ -1524,11 +1534,11 @@ let virtual_table_struct_for_tStruct symbol_table tStruct =
         tStruct.struct_name symbol_table)
         (Semant.get_unique_method_names_for_struct symbol_table tStruct)) in 
 
-        let print_all_methods_for_struct mthdlist= 
-            List.iter (fun fdecl -> 
-                Printf.printf "Method name is %s\n" (Astutil.string_of_func fdecl);
-            ) mthdlist
-        in
+        (*let print_all_methods_for_struct mthdlist= *)
+            (*List.iter (fun fdecl -> *)
+                (*Printf.printf "Method name is %s\n" (Astutil.string_of_func fdecl);*)
+            (*) mthdlist*)
+        (*in*)
         (*(print_all_methods_for_struct all_methods_for_struct);*)
         let methodMemberSymbols = List.map (cDeclaration_from_tFdecl
         symbol_table) all_methods_for_struct in 
@@ -1654,6 +1664,10 @@ let update_cFunc tSymbol_table tprogram cFunc tFunc  =
         }
 
 let update_cFunc_from_anonDef tSymbol_table tprogram cFunc anonDef =
+        let caller = Semant.find_symbol_containing_anon_def tprogram anonDef in
+        let funcCaller = Semant.find_func_owning_anon_def tprogram anonDef in
+        let rcvr = funcCaller.receiver in
+        let rcvrSymbol = Semant.symbol_from_receiver rcvr in 
         let globals = Semant.symbols_from_decls tprogram.globals in
         let builtinDecls = [{
                               return_type = DeclSpecTypeSpec(Int);
@@ -1664,9 +1678,19 @@ let update_cFunc_from_anonDef tSymbol_table tprogram cFunc anonDef =
                               body = CompoundStatement([], [])}] in
         let builtinSyms = Semant.symbols_from_fdecls builtinDecls in
         let localDecls = Semant.get_decls_from_compound_stmt anonDef.anon_body in
+        let interfaceSymbols = Semant.symbols_from_interfaces tprogram.interfaces in
+        let interfaceMethodSymbols =
+            let interfaces = 
+                List.map (fun (InterfaceSymbol(_, iface)) -> iface) interfaceSymbols
+            in
+            List.fold_left (fun accList iface ->
+                accList@(Semant.symbols_from_fdecls iface.funcs)) [] interfaces
+        in
+        
+        (*(Astutil.print_symbol_table (Semant.symtable_from_symlist interfaceMethodSymbols));*)
         let localSyms = Semant.symbols_from_decls localDecls in 
         let paramSyms = Semant.symbols_from_func_params anonDef.anon_params in
-        let exceptSyms = Semant.symtable_from_symlist (globals@builtinSyms@paramSyms@localSyms) in 
+        let exceptSyms = Semant.symtable_from_symlist (globals@builtinSyms@[rcvrSymbol]@interfaceMethodSymbols@paramSyms@localSyms) in 
         let id_exists_in_symtable table id =
             try
                 (fun x -> true)(StringMap.find id table)
@@ -1706,8 +1730,11 @@ let update_cFunc_from_anonDef tSymbol_table tprogram cFunc anonDef =
                    CPointify(fe)
            | CMemAccess(i, e, id) ->
                    let fe = fix_expr locals instance_name e in
-                   let CId(fid) = fix_expr locals instance_name (CId(id)) in
-                   CMemAccess(i, fe, fid)
+                   let fixedExpr = fix_expr locals instance_name (CId(id)) in
+                   (match fixedExpr with 
+                        CId(fid) -> 
+                           CMemAccess(i, fe, fid)
+                      | CMemAccess(_, _, _) -> fixedExpr) 
            | CId(CIdentifier(s)) ->
                    if (id_exists_in_symtable tSymbol_table s) then
                         expr
@@ -1777,12 +1804,12 @@ let update_cFunc_from_anonDef tSymbol_table tprogram cFunc anonDef =
                   
         in
         let updated_symbol_list = 
-            ((Semant.symbols_from_func_params anonDef.anon_params) @ (Semant.symbols_from_outside_scope_for_anon_def tprogram anonDef) )
+            ((Semant.symbols_from_func_params anonDef.anon_params) @ (Semant.symbols_from_outside_scope_for_anon_def tprogram anonDef)@[rcvrSymbol] )
         in
         let updated_symbol_table = 
-            List.fold_left (fun m symbol -> 
+            (List.fold_left (fun m symbol -> 
                 StringMap.add (Semant.get_id_from_symbol symbol) symbol m)
-                    tSymbol_table updated_symbol_list in 
+            tSymbol_table (updated_symbol_list)) in 
         let anon_name = Semant.find_name_for_anon_def tprogram anonDef in
         let instanceName = "s" ^ anon_name in 
         let structName = "S" ^ anon_name in
@@ -1795,7 +1822,7 @@ let update_cFunc_from_anonDef tSymbol_table tprogram cFunc anonDef =
         let locals = Semant.symbols_from_decls decls in
         let CCompoundStatement(decls, stmts) = cFunc.cfunc_body in 
         let cmpstmt = fst (fst (update_statement anonDef.anon_body updated_symbol_table tprogram )) in
-        let CCompoundStatement(updated_decls, updated_stmts) = fix_statement locals instanceName cmpstmt in 
+        let CCompoundStatement(updated_decls, updated_stmts) = fix_statement (locals@[rcvrSymbol]) instanceName cmpstmt in 
         {
                 cfunc_name = cFunc.cfunc_name;
                 creturn_type = cFunc.creturn_type;
@@ -1958,7 +1985,18 @@ let rec cFunc_from_anonDef symbol_table tprogram anonDef =
     cfunc_params = (convert_anon_params symbol_table anonDef.anon_params);
     creturn_type = cType_from_tType symbol_table anonDef.anon_return_type }
 
-and cFunc_list_from_anonDef_list symbol_table tprogram adlist = match adlist with
+and cFunc_list_from_anonDef_list symbol_table tprogram adlist = 
+    let interfaceSymbols = Semant.symbols_from_interfaces tprogram.interfaces in
+    let interfaceMethodSymbols =
+        let interfaces = 
+            List.map (fun (InterfaceSymbol(_, iface)) -> iface) interfaceSymbols
+        in
+        List.fold_left (fun accList iface ->
+            accList@(Semant.symbols_from_fdecls iface.funcs)) [] interfaces
+    in
+    (*(Astutil.print_symbol_table (Semant.symtable_from_symlist interfaceMethodSymbols));*)
+    let symbol_table = (Semant.add_symbol_list_to_symtable interfaceMethodSymbols symbol_table) in
+    match adlist with
     [] -> []
   | [x] -> [cFunc_from_anonDef symbol_table tprogram x]
   | h::t -> let hfuncs = [(cFunc_from_anonDef symbol_table tprogram h)] in
