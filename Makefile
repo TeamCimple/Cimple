@@ -52,6 +52,11 @@ anonint:
 dsp:
 	@(cat demo/dsp.cpl | ./cimple -c > dsp.c && gcc -o dsp dsp.c)||:
 
+.PHONY: demotest
+
+demotest:
+	@(cat demo/test.cpl | ./cimple -c > demotest.c && gcc -o demotest demotest.c)||:
+
 .PHONY: anonparse
 
 anonparse:

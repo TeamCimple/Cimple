@@ -2,6 +2,7 @@ open Ast
 
 module StringMap = Map.Make(String)
 
+
 let add_symbol_list_to_symtable symlist symtable = 
     List.fold_left (fun tbl x ->                     
         let symbolStr = (Astutil.string_of_symbol_simple x) in

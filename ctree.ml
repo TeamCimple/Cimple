@@ -359,12 +359,17 @@ and struct_members_from_anon_body symbols psymbols members body =
   in
 
   let rec members_from_expr symbols psymbols members e = match e with 
-      Id(id) -> if (id_exists_in_symtable symbols id) = true then
+      Id(id) ->
+          if (id_exists_in_symtable psymbols id) then []
+          else if (id_exists_in_symlist members id) = true then
+             []
+          else if (id_exists_in_symtable symbols id) = true then
                   let sym = Semant.lookup_symbol_by_id symbols id in
-                  if (symbol_is_capturable sym) then [sym] else []
-                else if (id_exists_in_symtable psymbols id) then []
-                else if (id_exists_in_symlist members id) = true then
-                  []
+                     if (symbol_is_capturable sym) then 
+                         [sym] 
+                     else
+                         []
+                (*else if (id_exists_in_symtable psymbols id) then []*)
                 else (match id with 
                   Identifier(s) -> 
                       print_member_list members; 
@@ -383,19 +388,21 @@ and struct_members_from_anon_body symbols psymbols members body =
    | Make(_, elist) -> members_from_expr_list symbols psymbols members elist
    | Pointify(e) -> members_from_expr symbols psymbols members e
    | MemAccess(e, id2) -> let id1Members = members_from_expr symbols psymbols members e in 
-                            let id2Members = members_from_expr symbols psymbols 
-                            (members@id1Members) e in
+                            let id2Members = members_from_expr symbols psymbols (members@id1Members) e in
                             id1Members@id2Members
-   | AnonFuncDef(def) -> raise(Failure("members_from_expr: Error - nested anonymous functions not supported yet"))
+   | AnonFuncDef(def) -> raise(Failure("members_from_expr: Error - nested anonymous functions not supported"))
    | DeclExpr(decl) -> members_from_declaration symbols psymbols members decl
-   | _  -> []
+   | StringLiteral(_) -> []
+   | _  -> [] 
+   (*| _  -> raise(Failure("members_from_expr: Error - unexpected expr type: " ^ (Astutil.string_of_expr e)))*)
 
    and members_from_expr_list symbols psymbols members elist = match elist with
      [] -> []
    | [x] -> members_from_expr symbols psymbols members x
    | h::t -> let hMembers = members_from_expr symbols psymbols members h in
-             let tMembers = members_from_expr_list symbols psymbols members t in
+             let tMembers = members_from_expr_list symbols psymbols (members@hMembers) t in
              hMembers@tMembers
+
    and members_from_init_declarator symbols psymbols members initDecl =
     match initDecl with 
        InitDeclaratorAsn(_, _, e) -> members_from_expr symbols psymbols members e
@@ -404,7 +411,8 @@ and struct_members_from_anon_body symbols psymbols members body =
       
    and members_from_init_declarator_list symbols psymbols members declList =
     match declList with 
-      [] -> members_from_expr symbols psymbols members Noexpr
+      (*[] -> members_from_expr symbols psymbols members Noexpr*)
+      [] -> []
     | [x] -> members_from_init_declarator symbols psymbols members x
     | h::t -> let hmembers = members_from_init_declarator symbols psymbols members h in
               hmembers@(members_from_init_declarator_list symbols psymbols (members@hmembers) t)
@@ -416,20 +424,20 @@ and struct_members_from_anon_body symbols psymbols members body =
 
    and members_from_declaration_list symbols psymbols members declList = match declList with
       [] -> []
-   | [x] -> members@(members_from_declaration symbols psymbols members x)
+   | [x] -> (members_from_declaration symbols psymbols members x)
    | h::t -> let hmembers = members_from_declaration symbols psymbols members h in
              hmembers@(members_from_declaration_list symbols psymbols (members@hmembers) t)
     
    and members_from_statement_list symbols psymbols members stmtList = match stmtList with
-     [] -> members
+   [] -> []
    | [x] -> (members_from_statement symbols psymbols members x)
    | h::t -> let hmembers = members_from_statement symbols psymbols members h in
              (hmembers)@(members_from_statement_list symbols psymbols (members@hmembers) t)
 
    and members_from_statement symbols psymbols members stmt = match stmt with 
      CompoundStatement(decls, stmtList) -> 
-       let dmembers = members@(members_from_declaration_list symbols psymbols members decls) in
-       members_from_statement_list symbols psymbols dmembers stmtList
+       let dmembers = (members_from_declaration_list symbols psymbols members decls) in
+       dmembers@members_from_statement_list symbols psymbols (members@dmembers) stmtList
    | Expr(e) -> members_from_expr symbols psymbols members e
    | Return(e) -> members_from_expr symbols psymbols members e
    | If(e, s1, s2) -> let eMembers = members_from_expr symbols psymbols members e in 
@@ -446,8 +454,13 @@ and struct_members_from_anon_body symbols psymbols members body =
                     eMembers@sMembers 
    | _ -> []
   in
-
   let mems = members_from_statement symbols psymbols members body in
+  (*let print_members = *)
+      (*List.iter (fun sym -> *)
+          (*Printf.printf "%s\n" (Astutil.string_of_symbol sym)) mems *)
+  (*in*)
+  (*print_members;*)
+  (*Printf.printf "-----------------------\n";*)
   (*Printf.printf "members_from* are\n";*)
   (*Astutil.print_symbol_table (Semant.symtable_from_symlist mems);*)
   mems
