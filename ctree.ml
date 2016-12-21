@@ -455,14 +455,6 @@ and struct_members_from_anon_body symbols psymbols members body =
    | _ -> []
   in
   let mems = members_from_statement symbols psymbols members body in
-  (*let print_members = *)
-      (*List.iter (fun sym -> *)
-          (*Printf.printf "%s\n" (Astutil.string_of_symbol sym)) mems *)
-  (*in*)
-  (*print_members;*)
-  (*Printf.printf "-----------------------\n";*)
-  (*Printf.printf "members_from* are\n";*)
-  (*Astutil.print_symbol_table (Semant.symtable_from_symlist mems);*)
   mems
 
 (* --------------------------Function capture_struct_from_anon_def ------------------------

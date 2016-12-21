@@ -403,6 +403,8 @@ and check_compatible_types symbols t1 t2 = match (t1, t2) with
   | (CustomType(a), PointerType(CustomType(b), 1)) -> if (t1_implements_t2 b a
   symbols) then () else raise(Failure("Incompatible types, pointer and custom type: "
   ^ b ^ " " ^ a))
+  (*| (PointerType(_, _), PrimitiveType(_)) -> ()*)
+  (*| (PrimitiveType(_), PointerType(_, _)) -> () *)
   | (PointerType(_, _), PrimitiveType(_)) -> raise(Failure("Cannot compare
   pointer and primitive"))
   | (PrimitiveType(_), PointerType(_, _)) -> raise(Failure("Cannot compare

@@ -1,0 +1,110 @@
+
+float pi = 3.14159265359;
+
+interface PrintableSignal {
+    void print();
+};
+
+struct Signal implements PrintableSignal{
+       float* samples;
+       int size;
+
+        Signal(int signalLength, func()(float*, int) defineSignal) {
+                   size = signalLength;
+                   samples = make float[size];
+                   defineSignal(samples, size);
+        }
+
+        ~Signal() {
+               clean samples;
+        } 
+};
+
+void (Signal *s) print () {
+    int i;
+    float *x = s.samples;
+
+    for (i = 0; i < s.size; i++) {
+        printf("x[%d] = %f\n", i, x[i]);
+    }
+}
+
+
+
+struct FilterKernel extends Signal {
+    FilterKernel(int signalLength, func()(float *, int) defineSignal) {
+        super(signalLength, defineSignal);
+    }
+
+    ~FilterKernel(){}
+
+};
+
+void (Signal* k) processSignal (float *output, int outputSize, struct Signal* sig) {
+    
+    printf("Output length is %d\n", outputSize);
+}
+
+int main(int argc, string *argv) {
+    int duration = 1;
+    int sampleRate = 44100;
+    int signalSize = sampleRate * duration;
+    float startFreq = 20.0;     /* 20 Hz */
+    float endFreq = 20000.0;    /* 20 kHz */
+    
+    int kernelSize = 1024; 
+    int convolutionLength = kernelSize + signalSize;
+    struct Signal *sineSweep;
+    struct Signal* lowPassFilter;
+    float *filteredSweep;
+    
+    sineSweep = make Signal(signalSize, func()(float *x, int size) {
+        int i = 0;
+        float freqModulator = exp((i / size)) * (log((endFreq / startFreq)))- 1;
+        
+        while (i < size) {
+
+            x[i] = sin(((duration 
+                        * 2.0 * pi * startFreq)
+                        / (log((endFreq / startFreq))))
+                   * freqModulator);
+            i++;
+        }
+    });
+
+    lowPassFilter =
+        make Signal(kernelSize, func()(float *x, int size) {
+            int i = 0;
+            float cornerFreq = 0.25;
+            while (i < size) {
+                /*printf("i is %d\n", i);*/
+                if (i == (size / 2)) {
+                    x[i] = sin(2 * pi * cornerFreq)
+                        * (0.42 - (0.5 * cos((2 * pi * i) / size)
+                                + (0.08 * cos(4 * pi * i) / size)));
+                } else {
+
+                    x[i] = (sin(2 * pi * cornerFreq * (i / 2.0))
+                            / (i  / 2.0))
+                            * (0.42 - (0.5 * cos((2 * pi * i) / size)))
+                            + (0.08 * cos((4 * pi * i) / size));
+                }
+                i++;
+            }
+        });
+
+    printf("Made it out alive\n");
+    filteredSweep = make float[convolutionLength];
+
+    lowPassFilter.print();
+    lowPassFilter.processSignal(filteredSweep, convolutionLength, sineSweep);
+        
+    /* Do something with the lowpass filter, then delete it */
+    
+
+    clean filteredSweep;
+    clean sineSweep;
+    clean lowPassFilter; 
+    return 0;
+}
+
