@@ -1,8 +1,0 @@
-int somefunc(int *a) {
-	return *a;
-}
-
-int main(int argc, char**argv) {
-	int t = 1;
-	return somefunc(&t);
-}
