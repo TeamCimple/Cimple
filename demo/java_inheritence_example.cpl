@@ -1,0 +1,89 @@
+struct Bicycle {
+ 	int cadence;
+ 	int gear;
+ 	int speed;
+ 	Bicycle(int start_cadence, int start_speed, int start_gear) {
+ 		gear = start_gear;
+ 		cadence = start_cadence;
+ 		speed = start_speed;
+ 	}
+ 
+ 	~Bicycle() {
+ 		printf("Bicycle destructor");
+ 	}
+ };
+ 
+ struct MountainBike extends Bicycle {
+ 	int seatHeight;
+ 
+ 	 MountainBike(int start_height, 
+ 			int start_cadence, 
+ 			int start_speed, 
+ 			int start_gear) {
+ 		super(start_cadence, start_speed, start_gear);
+ 		seatHeight = start_height;
+ 	}
+ 
+ 	~MountainBike() {
+ 		printf("MountainBike destructor");
+ 	}
+ };
+ 
+ void (Bicycle *b) setCadence(int newValue) {
+ 	b.cadence = newValue;
+ 	return;
+ }
+ 
+ void (Bicycle *b) setGear(int newValue) {
+ 	b.gear = newValue;
+ 	return;
+ }
+
+void (MountainBike *mb) setGear(int newValue) {
+	mb.gear = 2*newValue;
+	return;
+}
+ 
+ void (Bicycle *b) applyBreak(int decrement) {
+ 	b.speed = b.speed - decrement;
+ 	return;
+ }
+ 
+ void (Bicycle *b) speedUp(int increment) {
+ 	b.speed = b.speed + increment;
+ 	return;
+ }
+ 
+ int (Bicycle *b) getGear() {
+ 	return b.gear;
+ }
+ 
+ void (MountainBike *mb) setHeight (int newValue) {
+ 	mb.seatHeight = newValue;
+ 	return;
+ }
+ 
+ int main(int argc, char** argv) {
+ 	
+ 	struct MountainBike *mb;
+ 	struct Bicycle **b;
+	int j;
+	int k;
+
+	b = make struct Bicycle*[10];
+	
+	for(j = 0; j < 5; j++) {
+		b[j] = make Bicycle(10, 10, 10);
+	}
+	for(j = 5; j < 10; j++) {
+		b[j] = make MountainBike(10, 10, 10, 20);
+	}
+	for(k = 0; k < 10; k++) {
+		b[k].setGear(40); 
+	}
+	for(k = 0; k < 10; k++) {
+		printf("%d\n", b[k].getGear());
+	}
+
+ 	return 0;
+ }

@@ -1,0 +1,73 @@
+interface Shape {
+	int getArea();
+	int getPerimeter();
+};
+
+struct Rectangle implements Shape{
+	int length;
+	int width;
+
+	Rectangle(int new_length, int new_width) {
+		length = new_length;
+		width = new_width;
+	}
+
+	~Rectangle() {
+		/* Empty destructor */
+	}
+};
+
+struct Square implements Shape{
+	int x;
+	
+	Square(int side) {
+		if (side < 0) {
+			x = 1;
+		} else {
+			x = side;
+		}
+	}
+
+	~Square() {
+		/* Empty destructor */
+	}
+};
+
+int (Square *s) getArea() {
+	return s.x * s.x;
+}
+
+int (Square *s) getPerimeter() {
+	return 4*s.x;
+}
+
+int (Rectangle *r) getArea() {
+	return r.length * r.width;
+}
+
+int (Rectangle *r) getPerimeter() {
+	return 2*r.length + 2*r.width;
+}
+
+int getArea(interface Shape s) {
+	return s.getArea();
+}
+
+int getPerimeter(interface Shape s) {
+	return s.getPerimeter();
+}
+
+int main(int argc, char** argv) {
+	struct Square *s;
+	struct Rectangle *r;
+
+	s = make Square(5);
+	r = make Rectangle(6, 7);
+	
+	printf("square area %d\n", getArea(s));
+	printf("rectangle area %d\n", getArea(r));
+	printf("square perimeter %d\n", getPerimeter(s));
+	printf("rectangle perimeter %d\n", getPerimeter(r));
+
+	return 0;
+}
