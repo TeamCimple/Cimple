@@ -1,0 +1,15 @@
+
+void capture(func()() op)
+{
+    op();
+}
+
+int main(int argc, string *argv )
+{
+    string strFromOutsideScope = "This string was captured from the enclosing scope";
+
+    capture(func()() {
+        printf(strFromOutsideScope);
+    });
+	return 0;
+}

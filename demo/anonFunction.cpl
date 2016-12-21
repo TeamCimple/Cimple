@@ -1,0 +1,43 @@
+void apply_op(string s, func()(string) op)
+{
+	op(s);
+}
+
+int plus(int x, func(int)(int) myFunc)
+{
+    string str = "hello_from_plus_function\n"; 
+    
+    apply_op(str, func()(string s){
+                printf("%s", s);
+            });
+
+    return 0;
+}
+
+void capture(func()(string) op)
+{
+    string strFromOutsideScope = "This string was captured from the enclosing scope\n";
+    string argS = "";
+
+    apply_op(argS, func()(string s) {
+        printf("%s", strFromOutsideScope);
+    });
+}
+
+int main(int argc, string* argv)
+{
+	string hello = "Hello World\n";
+	
+	apply_op(hello, func( )(string s) { printf("%s",s); });
+
+    	apply_op("A string literal", func()(string s) { 
+                string newS = "Ignoring argument from anonFunc2\n";
+                printf("%s", newS);
+            });
+
+    	plus(1, func(int)(int x) {
+                return 1 + x;
+            });
+
+	return 0;
+}
