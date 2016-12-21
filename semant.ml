@@ -4,10 +4,11 @@ module StringMap = Map.Make(String)
 
 let add_symbol_list_to_symtable symlist symtable = 
     List.fold_left (fun tbl x ->                     
-                        if 
-                            (StringMap.mem (Astutil.string_of_symbol_simple x) tbl) then raise(Failure("Error, redefining symbol"))
-                        else
-                            (StringMap.add (Astutil.string_of_symbol_simple x) x tbl)) symtable symlist
+        let symbolStr = (Astutil.string_of_symbol_simple x) in
+        if 
+            (StringMap.mem symbolStr tbl) then raise(Failure("Error, redefining symbol " ^ symbolStr))
+        else
+            (StringMap.add (Astutil.string_of_symbol_simple x) x tbl)) symtable symlist
 
 let stdlib_funcs = 
         [{

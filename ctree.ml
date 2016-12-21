@@ -1995,7 +1995,7 @@ and cFunc_list_from_anonDef_list symbol_table tprogram adlist =
             accList@(Semant.symbols_from_fdecls iface.funcs)) [] interfaces
     in
     (*(Astutil.print_symbol_table (Semant.symtable_from_symlist interfaceMethodSymbols));*)
-    let symbol_table = (Semant.add_symbol_list_to_symtable interfaceMethodSymbols symbol_table) in
+    (*let symbol_table = (Semant.add_symbol_list_to_symtable interfaceMethodSymbols symbol_table) in*)
     match adlist with
     [] -> []
   | [x] -> [cFunc_from_anonDef symbol_table tprogram x]
