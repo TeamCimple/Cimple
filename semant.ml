@@ -374,8 +374,10 @@ let rec check_compatible_anon_types symbols t1 t2 =
 and check_compatible_types symbols t1 t2 = match (t1, t2) with
        (PrimitiveType(pt1), PrimitiveType(pt2)) -> (match pt1, pt2 with 
        | Void, Void -> ()
-       | Int, Float -> raise(Failure("assigning float to int"))
-       | Float, Int -> raise(Failure("assigning int to float"))
+       | Int, Float -> () 
+       (*| Int, Float -> raise(Failure("assigning float to int"))*)
+       | Float, Int -> () 
+       (*| Float, Int -> raise(Failure("assigning int to float"))*)
        | String, Float -> raise(Failure("assigning float to string"))
        | String, Int -> raise(Failure("assigning int to string"))
        | Int, String -> raise(Failure("assigning string to int"))
@@ -1758,6 +1760,7 @@ and call_contains_anon_def call =
                       else 
                           (false, symbols)
       | Make(_, elist) -> expr_list_contains_anon_def symbols anonDef elist
+      | Clean(e) -> expr_contains_anon_def symbols anonDef e
       | Pointify(e) -> expr_contains_anon_def symbols anonDef e
       | Deref(e) -> expr_contains_anon_def symbols anonDef e
       | MemAccess(e, _) -> expr_contains_anon_def symbols anonDef e
