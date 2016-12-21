@@ -79,7 +79,6 @@ and string_of_type_list = function
 let var_name_from_direct_declarator = function
      DirectDeclarator(Var(Identifier(s))) -> s
    | PointerDirDecl(_, Var(Identifier(s))) -> s
-   | _ -> raise(Failure("Pointers not yet supported"))
 
      
 let var_name_from_declaration = function 
@@ -129,7 +128,6 @@ let rec type_from_func_param = function
    | FuncParamsDeclared(t, _) -> type_from_declaration_specifiers t
    | ParamDeclWithType(declspecs) -> type_from_declaration_specifiers declspecs
    | AnonFuncDecl(adecl) -> type_from_anon_decl adecl 
-   | _ -> raise(Failure("Only supports declared parameters"))
 
 and type_list_from_func_param_list l = List.map type_from_func_param l
 
@@ -155,7 +153,6 @@ let symbol_from_func_param p = match p with
 let symbol_from_declaration decl = match decl with  
     Declaration(declspec, _) -> VarSymbol(var_name_from_declaration decl,
     type_from_declaration decl)
-   | _ -> raise(Failure("symbol_from_declaration: Unrecognized declaration"))    
 
 let symbol_table_key_for_method struct_name func_name = let cstruct_name =
         String.concat "" ["_struct";struct_name] in String.concat "_"
@@ -256,7 +253,6 @@ let type_from_mem_access type_ t symbols  =
                 | _ -> raise(Failure("Non Custom type trying to access
                  member"))
 
-       | _ -> raise(Failure("Member Access of non Struct"))
 
 let is_interface symbols id = 
         let sym = lookup_symbol_by_id symbols id in match sym with 
@@ -382,7 +378,6 @@ and check_compatible_types symbols t1 t2 = match (t1, t2) with
        | String, Int -> raise(Failure("assigning int to string"))
        | Int, String -> raise(Failure("assigning string to int"))
        | Float, String -> raise(Failure("assigning string to float"))
-       | Void, Void -> ()
        | Int, Int -> ()
        | Float, Float -> ()
        | String, String -> ()
@@ -439,9 +434,6 @@ let rec get_fdecl_for_receiver typ_ tSymbol_table func_name =
                                                  struct_.extends
                                                  tSymbol_table func_name
                                          else
-                                               let a = raise(Failure("doesn't
-                                               have function" ^
-                                               func_name)) in 
                                                 raise(Failure("Receiver doesn't
                                                 have function"))))
                 | InterfaceSymbol(type_, interface) -> (if (List.exists (fun
@@ -1397,6 +1389,7 @@ struct_.constructor.constructor_body with
                 | h::t -> if (isSuper h) then validate_super h symbols
                 struct_ else () 
         )
+       | _ -> raise(Failure("Unexpected constructor body"))
 
 and build_symbol_table program =
         let fdecls = program.functions @ stdlib_funcs in
@@ -1593,6 +1586,7 @@ and anon_def_from_tsymbol tprogram tsym =
             else
                 let errorStr = "anon_def_from_tsymbol: Error - no anonDef with name " ^ s in
                 raise(Failure(errorStr))
+     | _ -> raise(Failure("Unexpected symbol type"))
 
 (*and anon_defs_from_func_param_list tprogram *)
 and compare_anon_defs_ignore_name a1 a2 =

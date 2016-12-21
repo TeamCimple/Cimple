@@ -142,7 +142,7 @@ let cType_from_tTypeSpec = function
   | Signed -> raise(Failure("cType_from_tTypeSpec: Error, Signed unsuported at the moment"))
   | Unsigned -> raise(Failure("cType_from_tTypeSpec: Error, Unsigned unsuported at the moment"))
   | String -> CPointerType(CType(CPrimitiveType(Cchar)), 1) 
-  | _ -> raise(Failure("cType_from_tTypeSpec: Error, unsupported tTypeSpec"))
+  (*| _ -> raise(Failure("cType_from_tTypeSpec: Error, unsupported tTypeSpec"))*)
 
 let rec print_pointers n =
         if (n = 1) then "*" else
@@ -185,15 +185,6 @@ let rec cType_from_tType symbol_table = function
   | _ -> raise(Failure("Haven't filled out yet"))
 
 
-let merge_symtables s1 s2 = 
-    StringMap.merge (fun key v1 v2 ->
-        (match v2, v2 with
-           x, y -> if x != y then 
-                    raise(Failure("concat_symtables: Error - duplicate symbol"))
-                   else x
-        | None, y -> y
-        | x, None -> x)) s1 s2
-            
 let id_exists_in_symtable symbols id = 
   try 
     StringMap.find (Astutil.string_of_identifier id) symbols;
@@ -394,7 +385,6 @@ and struct_members_from_anon_body symbols psymbols members body =
    | DeclExpr(decl) -> members_from_declaration symbols psymbols members decl
    | StringLiteral(_) -> []
    | _  -> [] 
-   (*| _  -> raise(Failure("members_from_expr: Error - unexpected expr type: " ^ (Astutil.string_of_expr e)))*)
 
    and members_from_expr_list symbols psymbols members elist = match elist with
      [] -> []
@@ -420,7 +410,7 @@ and struct_members_from_anon_body symbols psymbols members body =
    and members_from_declaration symbols psymbols members decl = match decl with
      Declaration(_, initDecl) -> 
          members_from_init_declarator symbols psymbols members initDecl 
-   | _ -> [] (* Other types of declarations wouldn't reference variables from outside scope *)
+   (*| _ -> [] [> Other types of declarations wouldn't reference variables from outside scope <]*)
 
    and members_from_declaration_list symbols psymbols members declList = match declList with
       [] -> []
@@ -448,7 +438,7 @@ and struct_members_from_anon_body symbols psymbols members body =
                            let e2Members = members_from_expr symbols psymbols (members@e1Members) e2 in
                            let e3Members = members_from_expr symbols psymbols (members@e1Members@e2Members) e3 in
                            let sMembers = members_from_statement symbols psymbols (members@e1Members@e2Members@e3Members) s in
-                           e1Members@e2Members@e3Members
+                           e1Members@e2Members@e3Members@sMembers
    | While(e, s) -> let eMembers = members_from_expr symbols psymbols members e in
                     let sMembers = members_from_statement symbols psymbols (members@eMembers) s in
                     eMembers@sMembers 
@@ -482,13 +472,6 @@ and capture_struct_from_anon_def program def =
   let symlist = (Semant.symbols_from_outside_scope_for_anon_def program def)@extraSymbols in
   let symbols = Semant.symtable_from_symlist symlist in
   let builtinDecls = Semant.stdlib_funcs in
-  (*let builtinDecls = [{*)
-                       (*return_type = DeclSpecTypeSpec(Int);*)
-                       (*func_name = DirectDeclarator(Var(Identifier("printf")));*)
-                       (*params = [FuncParamsDeclared(DeclSpecTypeSpec(String),*)
-                       (*DirectDeclarator(Var(Identifier("x"))))];*)
-                       (*receiver = ("", "");*)
-                       (*body = CompoundStatement([], [])}] in*)
   let builtinSyms = Semant.symbols_from_fdecls builtinDecls in
   let rec symconvert m = cSymbol_from_sSymbol symbols m in
   let internal_anon_symbols = (fun stmt -> match stmt with 
@@ -781,7 +764,6 @@ let rec update_expr texpr tSymbol_table tprogram  = match texpr with
                             @ e2_stmts), []))))
                    
      | Call(expr, Id(Identifier(s)), expr_list) -> 
-                     let sym = Semant.type_from_expr tSymbol_table expr in 
                      let ret = cCallExpr_from_tCallExpr expr tSymbol_table tprogram s expr_list in
                      ret
      | Super(_) -> ((CNoexpr, []), [])
@@ -880,11 +862,6 @@ and generate_stmts_for_super expr_list symbol_table tprogram constructor tStruct
 
         let last_arg = CLiteral(0) in 
         
-        (*type_list_from_func_param_list *)
-
-        (* 1. Get a list of identifiers that are anons.
-         * 2. Make a list of extra param expression that simply append cap_ to the identifiers *)
-
         let cstParams = constructor.constructor_params in
         let funcParamSymbols = Semant.symbols_from_func_params cstParams in
         let anonParamSymbols = List.filter (fun sym -> 
@@ -953,7 +930,6 @@ and generate_stmts_for_super expr_list symbol_table tprogram constructor tStruct
 and cAllocExpr_from_tMakeExpr tSymbol_table tprogram asn_expr tMakeExpr = 
         let ((updated_e1, updated_stmts), _) = (update_expr asn_expr tSymbol_table tprogram ) in
         let Make(typ_, expr_list) = tMakeExpr in
-        let ctype = cType_from_tType tSymbol_table typ_ in  
         match typ_ with 
         | CustomType(typ) -> (
                 let StructSymbol(name, tStruct) = Semant.lookup_symbol_by_id
@@ -1021,11 +997,6 @@ and cExpr_from_tExpr_in_tCall tSymbol_table  tprogram  tExpr tFuncParam =
 
 and generate_extra_capture_func_params_from_expr_list tSym tprogram expr_list = 
         let anonParams = Semant.anon_defs_from_expr_list_no_recursion tprogram expr_list in
-        let update_anon_def_expr_list anonList = 
-            List.fold_left (fun ((e, slist), dlist) def ->
-                let ((_, _slist), _dlist) = update_expr (AnonFuncDef(def)) tSym tprogram in
-                ((Noexpr, slist@_slist), dlist@_dlist)) ((Noexpr, []), []) anonList
-        in 
         let capture_struct_instance_name_from_anon_def def = 
             let capStruct = capture_struct_from_anon_def tprogram def in
             let subname = String.sub capStruct.cstruct_name 1 ((String.length capStruct.cstruct_name) - 1) in
@@ -1179,7 +1150,6 @@ and cCallExpr_from_tCallExpr expr tSym  tprogram func_name expr_list =
                                             1), fst (fst (update_expr expr tSym
                                             tprogram
                                             ))) in 
-                                    let extra_params = generate_extra_capture_func_params_from_expr_list tSym tprogram expr_list in 
 
                                     ((CCall(1, CMemAccess(1,
                                     fst (fst(update_expr expr tSym tprogram)),
@@ -1256,8 +1226,6 @@ let update_decl_for_non_custom_type id decl tSymbol_table  tprogram =
                         | _ -> 
                                 generate_decls_and_stmts_from_id tSymbol_table tprogram 
                                 id decl type_)
-                        (*| _ -> raise(Failure("cannot update decl for other symbol right now: " ^*)
-                        (*id)))*)
         | FuncSymbol(_, _) -> raise(Failure("update_decl: FuncSymbol not supported"))
         | AnonFuncSymbol(_, _) -> raise(Failure("update_decl: AnonFuncSymbol not supported"))
         ) 
@@ -1266,8 +1234,6 @@ let declare_virtual_table_stack tSymbol_table tStruct id =
         let virtual_table_name = virtual_table_name_from_tStruct
         tStruct.struct_name in
 
-        let virtual_table_type =
-                CType(CStruct(virtual_table_name)) in
         
         let virtual_table_id = String.concat "" ["_";id;virtual_table_name] in 
 
@@ -1379,8 +1345,6 @@ let update_decl_for_custom_type id decl custom_type tSymbol_table  tprogram =
 
         match sym with 
         | StructSymbol(s, struct_) -> 
-                        let cstruct_name = cStructName_from_tStruct custom_type
-                        in 
 
                         let cstruct_type = CustomType(custom_type) in 
 
@@ -1542,12 +1506,6 @@ let virtual_table_struct_for_tStruct symbol_table tStruct =
         tStruct.struct_name symbol_table)
         (Semant.get_unique_method_names_for_struct symbol_table tStruct)) in 
 
-        (*let print_all_methods_for_struct mthdlist= *)
-            (*List.iter (fun fdecl -> *)
-                (*Printf.printf "Method name is %s\n" (Astutil.string_of_func fdecl);*)
-            (*) mthdlist*)
-        (*in*)
-        (*(print_all_methods_for_struct all_methods_for_struct);*)
         let methodMemberSymbols = List.map (cDeclaration_from_tFdecl
         symbol_table) all_methods_for_struct in 
         
@@ -1566,11 +1524,6 @@ let cStruct_from_tStruct symbol_table tprogram tStruct =
         symbol_table) (List.map (Semant.symbol_from_declaration)
         tStruct.members) in
 
-        let all_methods_for_struct = (List.map (Semant.get_fdecl_for_receiver
-                tStruct.struct_name symbol_table)
-                (Semant.get_unique_method_names_for_struct symbol_table
-                tStruct))
-        in
 
         let virtual_table_name = virtual_table_name_from_tStruct
         tStruct.struct_name in 
@@ -1672,19 +1625,11 @@ let update_cFunc tSymbol_table tprogram cFunc tFunc  =
         }
 
 let update_cFunc_from_anonDef tSymbol_table tprogram cFunc anonDef =
-        let caller = Semant.find_symbol_containing_anon_def tprogram anonDef in
         let funcCaller = Semant.find_func_owning_anon_def tprogram anonDef in
         let rcvr = funcCaller.receiver in
         let rcvrSymbol = Semant.symbol_from_receiver rcvr in 
         let globals = Semant.symbols_from_decls tprogram.globals in
         let builtinDecls = Semant.stdlib_funcs in
-        (*let builtinDecls = [{*)
-                              (*return_type = DeclSpecTypeSpec(Int);*)
-                              (*func_name = DirectDeclarator(Var(Identifier("printf")));*)
-                              (*params = [FuncParamsDeclared(DeclSpecTypeSpec(String),*)
-                              (*DirectDeclarator(Var(Identifier("x"))))];*)
-                              (*receiver = ("", "");*)
-                              (*body = CompoundStatement([], [])}] in*)
         let builtinSyms = Semant.symbols_from_fdecls builtinDecls in
         let localDecls = Semant.get_decls_from_compound_stmt anonDef.anon_body in
         let interfaceSymbols = Semant.symbols_from_interfaces tprogram.interfaces in
@@ -1696,7 +1641,6 @@ let update_cFunc_from_anonDef tSymbol_table tprogram cFunc anonDef =
                 accList@(Semant.symbols_from_fdecls iface.funcs)) [] interfaces
         in
         
-        (*(Astutil.print_symbol_table (Semant.symtable_from_symlist interfaceMethodSymbols));*)
         let localSyms = Semant.symbols_from_decls localDecls in 
         let paramSyms = Semant.symbols_from_func_params anonDef.anon_params in
         let exceptSyms = Semant.symtable_from_symlist (globals@builtinSyms@[rcvrSymbol]@interfaceMethodSymbols@paramSyms@localSyms) in 
@@ -1848,20 +1792,10 @@ let update_cDestructor tSymbol_table tprogram cFunc tStruct =
         tStruct.members) @ (Semant.symbols_from_func_params
         tStruct.constructor.constructor_params))  in 
 
-        let ctype = cType_from_tType tSymbol_table
-        (CustomType(tStruct.struct_name)) in
 
-        let virtual_table_name = virtual_table_name_from_tStruct
-        tStruct.struct_name in
 
         let ancestor_destructor = Semant.get_ancestors_destructor tSymbol_table
         tStruct in 
-
-        let c_ancestor_destructor_name = destructor_name_from_tStruct
-        ancestor_destructor.destructor_name in         
-        
-        let virtual_table_type =
-                CType(CStruct(virtual_table_name)) in
 
         let parent_destructor_call = 
         if (ancestor_destructor.destructor_name <> tStruct.struct_name &&
@@ -1904,24 +1838,6 @@ let update_cConstructor tSymbol_table tprogram cFunc tStruct =
         tStruct.members) @ (Semant.symbols_from_func_params
         tStruct.constructor.constructor_params))  in 
 
-        let fix_anon_names_in_symtable tbl =
-            let fix_anon_name str = 
-                    try
-                        let sub = String.sub str 0 5 in
-                        if (sub <> "anon_") then
-                            "anon_" ^ str
-                        else
-                            str
-                    with
-                        _ -> "anon_" ^ str
-            in
-
-            List.map (fun sym ->
-                (match sym with 
-                    AnonFuncSymbol(anonName, t) -> AnonFuncSymbol((fix_anon_name anonName), t)
-                  | _ -> sym)) tbl
-        in
-        (*let updated_symbol_table = fix_anon_names_in_symtable updated_symbol_table in*)
         let ctype = cType_from_tType tSymbol_table
         (CustomType(tStruct.struct_name)) in
 
@@ -1995,16 +1911,6 @@ let rec cFunc_from_anonDef symbol_table tprogram anonDef =
     creturn_type = cType_from_tType symbol_table anonDef.anon_return_type }
 
 and cFunc_list_from_anonDef_list symbol_table tprogram adlist = 
-    let interfaceSymbols = Semant.symbols_from_interfaces tprogram.interfaces in
-    let interfaceMethodSymbols =
-        let interfaces = 
-            List.map (fun (InterfaceSymbol(_, iface)) -> iface) interfaceSymbols
-        in
-        List.fold_left (fun accList iface ->
-            accList@(Semant.symbols_from_fdecls iface.funcs)) [] interfaces
-    in
-    (*(Astutil.print_symbol_table (Semant.symtable_from_symlist interfaceMethodSymbols));*)
-    (*let symbol_table = (Semant.add_symbol_list_to_symtable interfaceMethodSymbols symbol_table) in*)
     match adlist with
     [] -> []
   | [x] -> [cFunc_from_anonDef symbol_table tprogram x]
@@ -2032,9 +1938,9 @@ let cProgram_from_tProgram program =
         (List.filter (fun(_, _, (_, const, _)) -> if (const.cfunc_name = "") then false
         else true) cstructs_and_functions) in
 
-        let cdestructors = List.map (fun(_, _, constructor) -> constructor)
-        (List.filter (fun(_, _, (_, _, destr)) -> if (destr.cfunc_name = "") then false
-        else true) cstructs_and_functions) in
+        (*let cdestructors = List.map (fun(_, _, constructor) -> constructor)*)
+        (*(List.filter (fun(_, _, (_, _, destr)) -> if (destr.cfunc_name = "") then false*)
+        (*else true) cstructs_and_functions) in*)
 
         let cglobals = List.fold_left (fun acc (decls, _) -> acc @
         decls) [] (List.map (update_decl tSymbol_table updated_program)
@@ -2047,7 +1953,6 @@ let cProgram_from_tProgram program =
         let tAnonDefs = Semant.anon_defs_from_tprogram program in 
         let cFuncsTranslatedFromAnonDefs = cFunc_list_from_anonDef_list tSymbol_table program tAnonDefs in
         let capture_structs = capture_struct_list_from_anon_def_list program tAnonDefs in 
-        let updated_cstructs = cstructs@capture_structs in 
         (* The function bodies have not been filled out yet. Just the parameters
          * and return types *)
         let cDeclaredMethodsAndFuncs = cfuncs_methods @ (List.rev (List.map (cFunc_from_tFunc tSymbol_table)
