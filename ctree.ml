@@ -1425,9 +1425,8 @@ let rec update_statement tstmt tSymbol_table  tprogram  =  match tstmt with
                 let more_new_decls = 
                     List.fold_left (fun decl_acc stmt -> 
                                            let ((updated_stmt, additional_stmts), additional_decls) =
-                                               update_statement stmt
-                                               updated_symbol_table  tprogram in
-                                           decl_acc @ additional_decls) [] stmts in 
+                                               update_statement stmt updated_symbol_table  tprogram in
+                                           additional_decls@decl_acc ) [] stmts in 
 
                 ((CCompoundStatement(new_decls@more_new_decls, new_stmts @ more_new_stmts), []), [])
 
@@ -1831,7 +1830,7 @@ let update_cFunc_from_anonDef tSymbol_table tprogram cFunc anonDef =
         {
                 cfunc_name = cFunc.cfunc_name;
                 creturn_type = cFunc.creturn_type;
-                cfunc_body = CCompoundStatement(decls @ updated_decls @ newDecls,
+                cfunc_body = CCompoundStatement(newDecls@updated_decls @decls, 
                 updated_stmts);
                 cfunc_params = cFunc.cfunc_params; 
         }
