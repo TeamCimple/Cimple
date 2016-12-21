@@ -39,6 +39,13 @@ let stdlib_funcs =
               params = [ParamDeclWithType(DeclSpecTypeSpec(Float))];
               receiver = ("", "");
               body = CompoundStatement([], []);
+       }; 
+       {
+              return_type = (DeclSpecTypeSpec(Float));
+              func_name = DirectDeclarator(Var(Identifier("log")));
+              params = [ParamDeclWithType(DeclSpecTypeSpec(Float))];
+              receiver = ("", "");
+              body = CompoundStatement([], []);
        } 
        ]
 

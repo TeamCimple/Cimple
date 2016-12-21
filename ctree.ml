@@ -400,7 +400,7 @@ and struct_members_from_anon_body symbols psymbols members body =
     match initDecl with 
        InitDeclaratorAsn(_, _, e) -> members_from_expr symbols psymbols members e
      | InitDeclList(l) -> members_from_init_declarator_list symbols psymbols members l
-     | _ -> members
+     | _ -> []
       
    and members_from_init_declarator_list symbols psymbols members declList =
     match declList with 
@@ -422,7 +422,7 @@ and struct_members_from_anon_body symbols psymbols members body =
     
    and members_from_statement_list symbols psymbols members stmtList = match stmtList with
      [] -> members
-   | [x] -> members@(members_from_statement symbols psymbols members x)
+   | [x] -> (members_from_statement symbols psymbols members x)
    | h::t -> let hmembers = members_from_statement symbols psymbols members h in
              (hmembers)@(members_from_statement_list symbols psymbols (members@hmembers) t)
 
@@ -447,7 +447,10 @@ and struct_members_from_anon_body symbols psymbols members body =
    | _ -> []
   in
 
-  members_from_statement symbols psymbols members body
+  let mems = members_from_statement symbols psymbols members body in
+  (*Printf.printf "members_from* are\n";*)
+  (*Astutil.print_symbol_table (Semant.symtable_from_symlist mems);*)
+  mems
 
 (* --------------------------Function capture_struct_from_anon_def ------------------------
  * Returns a C struct to be used as a copy of the variables used within the body of an 
@@ -473,13 +476,14 @@ and capture_struct_from_anon_def program def =
   let extraSymbols = receiverSymbols@interfaceSymbols@interfaceMethodSymbols in
   let symlist = (Semant.symbols_from_outside_scope_for_anon_def program def)@extraSymbols in
   let symbols = Semant.symtable_from_symlist symlist in
-  let builtinDecls = [{
-                       return_type = DeclSpecTypeSpec(Int);
-                       func_name = DirectDeclarator(Var(Identifier("printf")));
-                       params = [FuncParamsDeclared(DeclSpecTypeSpec(String),
-                       DirectDeclarator(Var(Identifier("x"))))];
-                       receiver = ("", "");
-                       body = CompoundStatement([], [])}] in
+  let builtinDecls = Semant.stdlib_funcs in
+  (*let builtinDecls = [{*)
+                       (*return_type = DeclSpecTypeSpec(Int);*)
+                       (*func_name = DirectDeclarator(Var(Identifier("printf")));*)
+                       (*params = [FuncParamsDeclared(DeclSpecTypeSpec(String),*)
+                       (*DirectDeclarator(Var(Identifier("x"))))];*)
+                       (*receiver = ("", "");*)
+                       (*body = CompoundStatement([], [])}] in*)
   let builtinSyms = Semant.symbols_from_fdecls builtinDecls in
   let rec symconvert m = cSymbol_from_sSymbol symbols m in
   let internal_anon_symbols = (fun stmt -> match stmt with 
@@ -1669,13 +1673,14 @@ let update_cFunc_from_anonDef tSymbol_table tprogram cFunc anonDef =
         let rcvr = funcCaller.receiver in
         let rcvrSymbol = Semant.symbol_from_receiver rcvr in 
         let globals = Semant.symbols_from_decls tprogram.globals in
-        let builtinDecls = [{
-                              return_type = DeclSpecTypeSpec(Int);
-                              func_name = DirectDeclarator(Var(Identifier("printf")));
-                              params = [FuncParamsDeclared(DeclSpecTypeSpec(String),
-                              DirectDeclarator(Var(Identifier("x"))))];
-                              receiver = ("", "");
-                              body = CompoundStatement([], [])}] in
+        let builtinDecls = Semant.stdlib_funcs in
+        (*let builtinDecls = [{*)
+                              (*return_type = DeclSpecTypeSpec(Int);*)
+                              (*func_name = DirectDeclarator(Var(Identifier("printf")));*)
+                              (*params = [FuncParamsDeclared(DeclSpecTypeSpec(String),*)
+                              (*DirectDeclarator(Var(Identifier("x"))))];*)
+                              (*receiver = ("", "");*)
+                              (*body = CompoundStatement([], [])}] in*)
         let builtinSyms = Semant.symbols_from_fdecls builtinDecls in
         let localDecls = Semant.get_decls_from_compound_stmt anonDef.anon_body in
         let interfaceSymbols = Semant.symbols_from_interfaces tprogram.interfaces in
